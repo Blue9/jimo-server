@@ -108,3 +108,23 @@ def get_posts(username: str, db: Session = Depends(get_db)):
     user = controller.get_user(db, username)
     validate_user(user)
     return user.posts
+
+
+@router.get("/{username}/feed", response_model=List[schemas.Post])
+def get_feed(username: str, page: int = 1, db: Session = Depends(get_db)):
+    """Get the feed for the given user.
+
+    Args:
+        username: The username string.
+        page: The page of the feed (default 1). Each page contains at most 50 posts. If the page does not exist an
+        empty list is returned.
+        db: The database session object. This object is automatically injected by FastAPI.
+
+    Returns:
+        The feed for the given user as a list of Post objects in reverse chronological order. This endpoint returns
+        at most 50 posts and can be paginated using the optional page param. TODO(gmekkat): add page param
+    """
+    # TODO(gmekkat): Authenticate user
+    user = controller.get_user(db, username)
+    validate_user(user)
+    return controller.get_feed(db, user, page)
