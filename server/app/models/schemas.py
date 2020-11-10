@@ -51,12 +51,26 @@ class Post(BaseModel):
     created_at: datetime
     tags: List[str]
     like_count: int
+    comment_count: int
 
     @validator("tags", pre=True)
     def get_tags(cls, tags):  # noqa
         # tags is a SQLAlchemy association list, and we need to convert
         # to a Python list so Pydantic can recognize it
         return list(tags)
+
+    class Config:
+        orm_mode = True
+        allow_population_by_field_name = True
+        alias_generator = to_camel_case
+
+
+class Comment(BaseModel):
+    urlsafe_id: str = Field(alias="commentId")
+    user: PublicUser
+    post_id: int
+    content: str
+    created_at: datetime
 
     class Config:
         orm_mode = True

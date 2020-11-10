@@ -1,3 +1,5 @@
+from typing import List
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -29,3 +31,26 @@ def get_post(post_id: str, db: Session = Depends(get_db)):
     if post is None:
         raise HTTPException(404, detail="Post not found")
     return post
+
+
+@router.get("/{post_id}/comments", response_model=List[schemas.Comment])
+def get_comments(post_id: str, db: Session = Depends(get_db)):
+    """Get the given post's comments.
+
+    Args:
+        post_id: The post id (maps to urlsafe_id in database).
+        db: The database session object. This object is automatically injected by FastAPI.
+
+    Returns:
+        A list of comments.
+
+    Raises:
+        HTTPException: If the post could not be found or the called isn't authorized (404) or the caller isn't
+        authenticated (401). A 404 is thrown for authorization errors because the caller should not know of
+        the existence of the post.
+    """
+    # TODO(gmekkat): Authenticate caller
+    comments = controller.get_comments(db, post_id)
+    if comments is None:
+        raise HTTPException(404, detail="Post not found")
+    return comments

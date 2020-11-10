@@ -1,4 +1,4 @@
-from typing import Union, List
+from typing import Union, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic.tools import parse_obj_as
@@ -111,20 +111,22 @@ def get_posts(username: str, db: Session = Depends(get_db)):
 
 
 @router.get("/{username}/feed", response_model=List[schemas.Post])
-def get_feed(username: str, page: int = 1, db: Session = Depends(get_db)):
+def get_feed(username: str, before: Optional[str] = None, db: Session = Depends(get_db)):
     """Get the feed for the given user.
 
     Args:
         username: The username string.
-        page: The page of the feed (default 1). Each page contains at most 50 posts. If the page does not exist an
-        empty list is returned.
+        before: Get all posts before this one. Returns a 404 if the post could not be found.
         db: The database session object. This object is automatically injected by FastAPI.
 
     Returns:
         The feed for the given user as a list of Post objects in reverse chronological order. This endpoint returns
-        at most 50 posts and can be paginated using the optional page param. TODO(gmekkat): add page param
+        at most 50 posts and can be paginated using the optional before param.
     """
     # TODO(gmekkat): Authenticate user
     user = controller.get_user(db, username)
     validate_user(user)
-    return controller.get_feed(db, user, page)
+    feed = controller.get_feed(db, user, before)
+    if feed is None:
+        raise HTTPException(404, "Failed to load more posts")
+    return feed
