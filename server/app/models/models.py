@@ -1,4 +1,5 @@
-from sqlalchemy import Column, BigInteger, String, DateTime, Boolean, ForeignKey, Table, select, func, and_
+from sqlalchemy import Column, BigInteger, String, DateTime, Boolean, ForeignKey, Table, select, func, and_, Float, \
+    event
 from geoalchemy2 import Geography
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.orm import relationship, column_property
@@ -74,6 +75,8 @@ class Place(Base):
     urlsafe_id = Column(String, unique=True, nullable=False)
     name = Column(String, nullable=False)
     category_id = Column(BigInteger, ForeignKey("category.id"), nullable=False)
+    latitude = Column(Float, nullable=False)
+    longitude = Column(Float, nullable=False)
     location = Column(Geography(geometry_type="POINT", srid=4326), nullable=False)
     apple_place_id = Column(String, unique=True, nullable=False)
     created_at = Column(DateTime(timezone=True), nullable=False)
@@ -82,6 +85,16 @@ class Place(Base):
     category = relationship("Category")
     posts = relationship("Post", back_populates="place")
 
+    def update_location(self):
+        self.location = f"POINT({self.longitude} {self.latitude})"
+
+
+def _place_location_handler(_mapper, _connection, target):
+    target.update_location()
+
+
+for event_name in 'before_insert', 'before_update':
+    event.listen(Place, event_name, _place_location_handler)
 
 post_tag = Table("post_tag", Base.metadata,
                  Column("post_id", BigInteger, ForeignKey("post.id", ondelete="CASCADE"), nullable=False),

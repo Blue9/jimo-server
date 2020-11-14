@@ -3,6 +3,8 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Field, validator
 
+from app.models.models import Category
+
 
 def to_camel_case(snake_case: str) -> str:
     if not snake_case:
@@ -42,10 +44,27 @@ class PrivateUser(UserBase):
         return list(login_methods)
 
 
+class Place(BaseModel):
+    urlsafe_id: str = Field(alias="placeId")
+    name: str
+    category: str
+    latitude: float
+    longitude: float
+
+    @validator("category", pre=True)
+    def get_category(cls, category: Category):  # noqa
+        return category.name
+
+    class Config:
+        orm_mode = True
+        allow_population_by_field_name = True
+        alias_generator = to_camel_case
+
+
 class Post(BaseModel):
     urlsafe_id: str = Field(alias="postId")
     user: PublicUser
-    place_id: int  # TODO(gmekkat): make place object
+    place: Place
     content: str
     image_url: str
     created_at: datetime
