@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, validator, root_validator
 
 from app.models.models import Category
 
@@ -11,6 +11,20 @@ def to_camel_case(snake_case: str) -> str:
         return snake_case
     parts = snake_case.split('_')
     return parts[0] + "".join(part.title() for part in parts[1:])
+
+
+class Location(BaseModel):
+    latitude: float
+    longitude: float
+
+    class Config:
+        orm_mode = True
+        allow_population_by_field_name = True
+        alias_generator = to_camel_case
+
+
+class Region(Location):
+    radius: float
 
 
 class UserBase(BaseModel):
@@ -43,17 +57,36 @@ class PrivateUser(UserBase):
         # to a Python list so Pydantic can recognize it
         return list(login_methods)
 
+    @validator("created_at", pre=True)
+    def get_created_at(cls, created_at: datetime):  # noqa
+        return created_at.replace(microsecond=0)
+
 
 class Place(BaseModel):
     urlsafe_id: str = Field(alias="placeId")
     name: str
     category: str
-    latitude: float
-    longitude: float
+    location: Location
+    region: Region
 
     @validator("category", pre=True)
-    def get_category(cls, category: Category):  # noqa
+    def get_category(cls, category: Category):
         return category.name
+
+    @root_validator(pre=True)
+    def get_location(cls, values):
+        assert "latitude" in values, "latitude should be in values"
+        assert "longitude" in values, "longitude should be in values"
+        return dict(values, location=Location(latitude=values["latitude"], longitude=values["longitude"]))
+
+    @root_validator(pre=True)
+    def get_region(cls, values):
+        assert "region_center_lat" in values, "region_center_lat should be in values"
+        assert "region_center_long" in values, "region_center_long should be in values"
+        assert "radius_meters" in values, "radius_meters should be in values"
+        return dict(values, region=Region(latitude=values["region_center_lat"],
+                                          longitude=values["region_center_long"],
+                                          radius=values["radius_meters"]))
 
     class Config:
         orm_mode = True
@@ -71,12 +104,26 @@ class Post(BaseModel):
     tags: List[str]
     like_count: int
     comment_count: int
+    custom_location: Optional[Location]
+
+    @validator("created_at", pre=True)
+    def get_created_at(cls, created_at: datetime):  # noqa
+        return created_at.replace(microsecond=0)
 
     @validator("tags", pre=True)
     def get_tags(cls, tags):  # noqa
         # tags is a SQLAlchemy association list, and we need to convert
         # to a Python list so Pydantic can recognize it
         return list(tags)
+
+    @root_validator(pre=True)
+    def get_location(cls, values):
+        if values.get("custom_location") is None:
+            return values
+        assert "custom_latitude" in values, "custom_latitude should be in values"
+        assert "custom_longitude" in values, "custom_longitude should be in values"
+        return dict(values,
+                    custom_location=Location(latitude=values["custom_latitude"], longitude=values["custom_longitude"]))
 
     class Config:
         orm_mode = True

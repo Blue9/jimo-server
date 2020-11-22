@@ -1,6 +1,7 @@
 from sqlalchemy import Column, BigInteger, String, DateTime, Boolean, ForeignKey, Table, select, func, and_, Float, \
-    event
+    event, Computed
 from geoalchemy2 import Geography
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.orm import relationship, column_property
 from sqlalchemy.sql import expression
@@ -75,26 +76,28 @@ class Place(Base):
     urlsafe_id = Column(String, unique=True, nullable=False)
     name = Column(String, nullable=False)
     category_id = Column(BigInteger, ForeignKey("category.id"), nullable=False)
+    # Latitude and longitude of the place
     latitude = Column(Float, nullable=False)
     longitude = Column(Float, nullable=False)
-    location = Column(Geography(geometry_type="POINT", srid=4326), nullable=False)
-    apple_place_id = Column(String, unique=True, nullable=False)
+    # Region that describes the boundary of the place
+    region_center_lat = Column(Float, nullable=False)
+    region_center_long = Column(Float, nullable=False)
+    radius_meters = Column(Float, nullable=False)
+    # Computed columns for postgis, don't manually modify; modify the above columns instead
+    location = Column(Geography(geometry_type="POINT", srid=4326),
+                      Computed("ST_MakePoint(longitude, latitude)::geography"), nullable=False)
+    region = Column(
+        Geography(geometry_type="POLYGON", srid=4326),
+        Computed("ST_Buffer(ST_MakePoint(region_center_long, region_center_lat)::geography, radius_meters, 100)"),
+        nullable=False)
+    # Additional data like business url, phone number, point of interest categories, etc.
+    additional_data = Column(JSONB, nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False)
     updated_at = Column(DateTime(timezone=True), nullable=False)
 
     category = relationship("Category")
     posts = relationship("Post", back_populates="place")
 
-    def update_location(self):
-        self.location = f"POINT({self.longitude} {self.latitude})"
-
-
-def _place_location_handler(_mapper, _connection, target):
-    target.update_location()
-
-
-for event_name in 'before_insert', 'before_update':
-    event.listen(Place, event_name, _place_location_handler)
 
 post_tag = Table("post_tag", Base.metadata,
                  Column("post_id", BigInteger, ForeignKey("post.id", ondelete="CASCADE"), nullable=False),
@@ -113,6 +116,12 @@ class Post(Base):
     urlsafe_id = Column(String, unique=True, nullable=False)
     user_id = Column(BigInteger, ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
     place_id = Column(BigInteger, ForeignKey("place.id"), nullable=False)
+    # If a custom location is selected for an existing place
+    custom_latitude = Column(Float, nullable=True)
+    custom_longitude = Column(Float, nullable=True)
+    custom_location = Column(Geography(geometry_type="POINT", srid=4326),
+                             Computed("ST_MakePoint(custom_longitude, custom_latitude)::geography"), nullable=True)
+
     content = Column(String, nullable=False)
     image_url = Column(String, nullable=False)
     deleted = Column(Boolean, nullable=False, server_default=expression.false())
