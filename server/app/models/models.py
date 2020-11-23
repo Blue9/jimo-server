@@ -23,10 +23,13 @@ class User(Base):
     first_name = Column(String(length=255), nullable=False)
     last_name = Column(String(length=255), nullable=False)
     profile_picture_url = Column(String, nullable=True)
-    created_at = Column(DateTime(timezone=True), nullable=False)
-    updated_at = Column(DateTime(timezone=True), nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     private_account = Column(Boolean, nullable=False, server_default=expression.false())
     deactivated = Column(Boolean, nullable=False, server_default=expression.false())
+
+    preferences = relationship("UserPrefs", uselist=False, back_populates="user", cascade="all, delete",
+                               passive_deletes=True)
 
     posts = relationship("Post", back_populates="user", cascade="all, delete", passive_deletes=True)
 
@@ -38,21 +41,23 @@ class User(Base):
                                            backref="followers")
     followers: list["User"] = None  # Computed with backref above
 
-    _login_methods = relationship("UserAuthType")
-    login_methods = association_proxy("_login_methods", "auth_type")
-
     # Computed column properties
     post_count = None
     follower_count = None
     following_count = None
 
 
-class UserAuthType(Base):
-    __tablename__ = "user_auth_type"
+class UserPrefs(Base):
+    __tablename__ = "preferences"
 
     id = Column(BigInteger, primary_key=True, nullable=False)
     user_id = Column(BigInteger, ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
-    auth_type = Column(String, nullable=False)
+    post_notifications = Column(Boolean, nullable=False)
+    follow_notifications = Column(Boolean, nullable=False)
+    post_liked_notifications = Column(Boolean, nullable=False)
+    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    user = relationship("User", back_populates="preferences")
 
 
 class Category(Base):

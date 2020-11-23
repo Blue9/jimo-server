@@ -144,5 +144,5 @@ cython_debug/
 .DS_Store
 
 # Private keys
-service-account-key.json
+service-account-file.json
 
