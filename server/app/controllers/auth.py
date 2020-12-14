@@ -3,7 +3,7 @@ from typing import Optional
 import firebase_admin
 from firebase_admin import auth
 from firebase_admin.auth import InvalidIdTokenError, ExpiredIdTokenError, RevokedIdTokenError, CertificateFetchError, \
-    UserRecord, UserNotFoundError
+    UserNotFoundError
 from firebase_admin.exceptions import FirebaseError
 
 from app.models.models import User, Post
@@ -21,6 +21,16 @@ def get_user_email(id_token: str) -> Optional[str]:
         return decoded_token.get("email")
     except (InvalidIdTokenError, ExpiredIdTokenError, RevokedIdTokenError, CertificateFetchError) as e:
         return None
+
+
+def get_email_from_token(authorization) -> Optional[str]:
+    if authorization is None or not authorization.startswith("Bearer "):
+        return None
+    id_token = authorization[7:]
+    user_email = get_user_email(id_token)
+    if user_email is None:
+        return None
+    return user_email
 
 
 def get_email_from_uid(uid: str) -> Optional[str]:

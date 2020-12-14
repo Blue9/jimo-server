@@ -28,22 +28,20 @@ def validate_private_account_access(user: models.User, caller_email=None):
 
 
 def get_email_or_401(authorization) -> str:
-    if authorization is None or not authorization.startswith("Bearer "):
-        raise HTTPException(401, detail="Not authenticated")
-    id_token = authorization[7:]
-    user_email = auth.get_user_email(id_token)
-    if user_email is None:
+    email = auth.get_email_from_token(authorization)
+    if email is None:
         raise HTTPException(401, "Not authenticated")
-    return user_email
+    return email
 
 
 @router.post("/", response_model=CreateUserResponse)
-def create_user(request: CreateUserRequest, db: Session = Depends(get_db)):
+def create_user(request: CreateUserRequest, authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
     """Create a new user.
 
     Args:
         request: The request to create the user. The uid should exist in Firebase and the email field should match the
         one in Firebase.
+        authorization: Authorization header. This string is automatically injected by FastAPI.
         db: The database session object. This object is automatically injected by FastAPI.
 
     Returns:
@@ -52,10 +50,10 @@ def create_user(request: CreateUserRequest, db: Session = Depends(get_db)):
     Raises:
         HTTPException: If the uid could not be found (404) or the emails did not match.
     """
-    email = auth.get_email_from_uid(request.uid)
-    if email is None or email != request.email:
-        raise HTTPException(404, detail="Cannot create user")
-    created = controller.create_user(db, email, request.username, request.first_name, request.last_name)
+    email_from_auth = get_email_or_401(authorization)
+    if email_from_auth != request.email:
+        raise HTTPException(403, detail="Cannot create user")
+    created = controller.create_user(db, email_from_auth, request.username, request.first_name, request.last_name)
     return CreateUserResponse(created=created)
 
 

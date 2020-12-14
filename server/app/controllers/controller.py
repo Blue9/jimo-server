@@ -14,6 +14,10 @@ def get_user(db: Session, username: str):
     return db.query(User).filter(User.username == username).first()
 
 
+def get_user_by_email(db: Session, email: str):
+    return db.query(User).filter(User.email == email).first()
+
+
 def create_user(db: Session, email: str, username: str, first_name: str, last_name: str) -> bool:
     """Try to create a user with the given information, returning whether the user could be created or not."""
     new_user = User(email=email, username=username, first_name=first_name, last_name=last_name)

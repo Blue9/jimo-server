@@ -6,7 +6,6 @@ from app.models.schemas import to_camel_case
 
 
 class CreateUserRequest(BaseModel):
-    uid: str
     email: str
     username: str
     first_name: str
