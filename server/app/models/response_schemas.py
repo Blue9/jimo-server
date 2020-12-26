@@ -5,14 +5,11 @@ from pydantic.main import BaseModel
 from app.models.schemas import PrivateUser, to_camel_case
 
 
-class CreateUserResponse(BaseModel):
-    created: bool
-
-
-class UpdateUserErrors(BaseModel):
+class UserFieldErrors(BaseModel):
     username: Optional[str]
     first_name: Optional[str]
     last_name: Optional[str]
+    email: Optional[str]
     private_account: Optional[str]
     post_notifications: Optional[str]
     follow_notifications: Optional[str]
@@ -23,6 +20,18 @@ class UpdateUserErrors(BaseModel):
         alias_generator = to_camel_case
 
 
+class CreateUserResponse(BaseModel):
+    created: bool
+    error: Optional[UserFieldErrors]
+
+    class Config:
+        alias_generator = to_camel_case
+
+
 class UpdateUserResponse(BaseModel):
     user: Optional[PrivateUser]
-    errors: Optional[UpdateUserErrors]
+    errors: Optional[UserFieldErrors]
+
+
+class LikePostResponse(BaseModel):
+    likes: int

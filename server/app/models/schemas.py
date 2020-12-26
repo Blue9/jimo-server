@@ -17,6 +17,18 @@ class Location(BaseModel):
     latitude: float
     longitude: float
 
+    @validator("latitude")
+    def validate_latitude(cls, latitude):
+        if latitude < -90 or latitude > 90:
+            raise ValueError("Invalid latitude")
+        return latitude
+
+    @validator("longitude")
+    def validate_longitude(cls, longitude):
+        if longitude < -180 or longitude > 180:
+            raise ValueError("Invalid longitude")
+        return longitude
+
     class Config:
         orm_mode = True
         allow_population_by_field_name = True
@@ -25,6 +37,13 @@ class Location(BaseModel):
 
 class Region(Location):
     radius: float
+
+    @validator("radius")
+    def validate_radius(cls, radius):
+        if radius < 0 or radius > 10e6:
+            # Russia is about 9,000 km wide, so 10,000 km is a fair upper bound
+            raise ValueError("Invalid radius")
+        return radius
 
 
 class UserBase(BaseModel):
@@ -71,28 +90,13 @@ class PrivateUser(UserBase):
 class Place(BaseModel):
     urlsafe_id: str = Field(alias="placeId")
     name: str
-    category: str
     location: Location
-    region: Region
-
-    @validator("category", pre=True)
-    def get_category(cls, category: Category):
-        return category.name
 
     @root_validator(pre=True)
     def get_location(cls, values):
         assert "latitude" in values, "latitude should be in values"
         assert "longitude" in values, "longitude should be in values"
         return dict(values, location=Location(latitude=values["latitude"], longitude=values["longitude"]))
-
-    @root_validator(pre=True)
-    def get_region(cls, values):
-        assert "region_center_lat" in values, "region_center_lat should be in values"
-        assert "region_center_long" in values, "region_center_long should be in values"
-        assert "radius_meters" in values, "radius_meters should be in values"
-        return dict(values, region=Region(latitude=values["region_center_lat"],
-                                          longitude=values["region_center_long"],
-                                          radius=values["radius_meters"]))
 
     class Config:
         orm_mode = True
@@ -104,8 +108,9 @@ class Post(BaseModel):
     urlsafe_id: str = Field(alias="postId")
     user: PublicUser
     place: Place
+    category: str
     content: str
-    image_url: str
+    image_url: Optional[str]
     created_at: datetime
     tags: List[str]
     like_count: int
@@ -140,9 +145,18 @@ class Post(BaseModel):
 class Comment(BaseModel):
     urlsafe_id: str = Field(alias="commentId")
     user: PublicUser
-    post_id: int
+    post: str
     content: str
     created_at: datetime
+
+    @validator("created_at", pre=True)
+    def get_created_at(cls, created_at: datetime):  # noqa
+        return created_at.replace(microsecond=0)
+
+    @root_validator(pre=True)
+    def get_post_id(cls, values):  # noqa
+        assert "post" in values, "post should be in values"
+        return dict(values, post=values["post"].urlsafe_id)
 
     class Config:
         orm_mode = True

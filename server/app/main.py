@@ -1,14 +1,29 @@
-from typing import Optional
+from typing import Optional, List
 
 from fastapi import FastAPI, HTTPException, Header, Depends
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 from sqlalchemy.orm import Session
+from starlette.requests import Request
+from starlette.responses import JSONResponse
 
-from app.controllers import auth, controller
+from app import routers
+from app.controllers import auth, users, places
 from app.database import get_db
-from app.models.schemas import PrivateUser
-from app.routers import users, posts
+from app.models import schemas
+from app.models.schemas import PrivateUser, Location
 
 app = FastAPI()
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(_request: Request, exc: RequestValidationError):
+    errors = dict()
+    for error in exc.errors():
+        if "loc" not in error or "msg" not in error:
+            continue
+        errors[error["loc"][-1]] = error["msg"]
+    return JSONResponse(status_code=400, content=jsonable_encoder({"errors": errors}))
 
 
 @app.get("/")
@@ -39,14 +54,22 @@ def get_me(authorization: Optional[str] = Header(None), db: Session = Depends(ge
     Raises:
         HTTPException: If the user could not be found (404) or the caller isn't authenticated (401).
     """
-    email = auth.get_email_from_token(authorization)
+    email = auth.get_email_from_auth_header(authorization)
     if email is None:
         raise HTTPException(401, "Not authenticated")
-    user = controller.get_user_by_email(db, email)
+    user = users.get_user_by_email(db, email)
     if user is None:
         raise HTTPException(404, "User not found")
     return user
 
 
-app.include_router(users.router, prefix="/users")
-app.include_router(posts.router, prefix="/posts")
+@app.get("/place", response_model=List[schemas.Place])
+def get_place(lat: float, long: float, db: Session = Depends(get_db)):
+    from app.models.request_schemas import MaybeCreatePlaceRequest
+    return places.get_place_or_create(db, MaybeCreatePlaceRequest(name="test",
+                                                                  location=Location(latitude=lat, longitude=long)))
+
+
+app.include_router(routers.users.router, prefix="/users")
+app.include_router(routers.posts.router, prefix="/posts")
+app.include_router(routers.search.router, prefix="/search")

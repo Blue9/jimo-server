@@ -11,29 +11,35 @@ from app.models.models import User, Post
 _app = firebase_admin.initialize_app()
 
 
-def get_user_email(id_token: str) -> Optional[str]:
+def get_email_from_token(id_token: str) -> Optional[str]:
+    """Get the user email from the given Firebase id token."""
+    # TODO(gmekkat): remove in production
     test_token = "test"
-    test_uid = "gautam@example.com"
+    test_email = "gautam@example.com"
     if id_token == test_token:
-        return test_uid
+        return test_email
     try:
         decoded_token = auth.verify_id_token(id_token, check_revoked=True)
+        print("decoded token", decoded_token)
         return decoded_token.get("email")
     except (InvalidIdTokenError, ExpiredIdTokenError, RevokedIdTokenError, CertificateFetchError) as e:
+        print("error with", e)
         return None
 
 
-def get_email_from_token(authorization) -> Optional[str]:
+def get_email_from_auth_header(authorization: str) -> Optional[str]:
+    """Get the user email from the given authorization header."""
     if authorization is None or not authorization.startswith("Bearer "):
         return None
     id_token = authorization[7:]
-    user_email = get_user_email(id_token)
+    user_email = get_email_from_token(id_token)
     if user_email is None:
         return None
     return user_email
 
 
 def get_email_from_uid(uid: str) -> Optional[str]:
+    """Get the user email from their Firebase uid."""
     try:
         return auth.get_user(uid).email
     except (ValueError, UserNotFoundError, FirebaseError) as e:
@@ -41,6 +47,7 @@ def get_email_from_uid(uid: str) -> Optional[str]:
 
 
 def get_test_token(email: str) -> Optional[str]:
+    """Generate and return a Firebase id token for the given email."""
     from urllib.parse import urlencode
     from urllib.request import Request, urlopen
     import json
