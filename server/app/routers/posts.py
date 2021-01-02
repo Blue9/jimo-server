@@ -44,6 +44,7 @@ def create_post(request: CreatePostRequest, authorization: Optional[str] = Heade
     try:
         return app.controllers.posts.create_post(db, user, request)
     except ValueError as e:
+        print(e)
         raise HTTPException(400, detail=str(e))
 
 

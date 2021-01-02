@@ -194,7 +194,7 @@ follow_alias = follow.alias()
 # The follow alias is necessary because the followers+following relationship will join on follow, so we need another
 # name to refer to follow in this subquery.
 
-User.post_count = column_property(select([func.count()]).where(Post.id == User.id), deferred=True)
+User.post_count = column_property(select([func.count()]).where(Post.user_id == User.id), deferred=True)
 User.follower_count = column_property(select([func.count()]).where(follow_alias.c.to_user_id == User.id), deferred=True)
 User.following_count = column_property(
     select([func.count()]).where(follow_alias.c.from_user_id == User.id), deferred=True)

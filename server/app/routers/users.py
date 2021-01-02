@@ -31,6 +31,7 @@ def create_user(request: CreateUserRequest, authorization: Optional[str] = Heade
     Raises:
         HTTPException: If the auth header is invalid (401).
     """
+    print("Create users")
     email_from_auth = get_email_or_raise(authorization)
     return users.create_user(db, email_from_auth, request.username, request.first_name, request.last_name)
 

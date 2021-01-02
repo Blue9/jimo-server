@@ -30,7 +30,7 @@ class CreateUserRequest(BaseModel):
     def validate_last_name(cls, last_name: str):
         last_name = last_name.strip()
         if not validators.is_valid_name(last_name):
-            raise ValueError("First name must be 1-100 characters")
+            raise ValueError("Last name must be 1-100 characters")
         return last_name
 
     class Config:

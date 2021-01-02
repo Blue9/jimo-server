@@ -20,7 +20,6 @@ def get_email_from_token(id_token: str) -> Optional[str]:
         return test_email
     try:
         decoded_token = auth.verify_id_token(id_token, check_revoked=True)
-        print("decoded token", decoded_token)
         return decoded_token.get("email")
     except (InvalidIdTokenError, ExpiredIdTokenError, RevokedIdTokenError, CertificateFetchError) as e:
         print("error with", e)

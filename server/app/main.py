@@ -23,6 +23,7 @@ async def validation_exception_handler(_request: Request, exc: RequestValidation
         if "loc" not in error or "msg" not in error:
             continue
         errors[error["loc"][-1]] = error["msg"]
+    print(errors)
     return JSONResponse(status_code=400, content=jsonable_encoder({"errors": errors}))
 
 

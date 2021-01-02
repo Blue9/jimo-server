@@ -43,12 +43,12 @@ def like_post(db: Session, user: User, post: Post):
 
 def create_post(db: Session, user: User, request: CreatePostRequest) -> Optional[Post]:
     """Try to create a post with the given details, raising a ValueError if the request is invalid."""
+    category = get_category_or_raise(db, request.category)
     place = places.get_place_or_create(db, request.place)
     if already_posted(db, user, place):
         raise ValueError("You already posted that place.")
     custom_latitude = request.custom_location.latitude if request.custom_location else None
     custom_longitude = request.custom_location.longitude if request.custom_location else None
-    category = get_category_or_raise(db, request.category)
     build_post = lambda url_id: Post(urlsafe_id=url_id, user_id=user.id, place_id=place.id, category_id=category.id,
                                      custom_latitude=custom_latitude, custom_longitude=custom_longitude,
                                      content=request.content, image_url=request.image_url)

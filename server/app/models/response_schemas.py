@@ -21,7 +21,7 @@ class UserFieldErrors(BaseModel):
 
 
 class CreateUserResponse(BaseModel):
-    created: bool
+    created: Optional[PrivateUser]
     error: Optional[UserFieldErrors]
 
     class Config:

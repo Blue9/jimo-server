@@ -14,7 +14,7 @@ from app.models.response_schemas import UpdateUserResponse, UserFieldErrors, Cre
 
 def username_taken(db: Session, username: str) -> bool:
     """Return whether or not a user with the given username exists."""
-    return db.query(User).filter(User.username == username).count() > 0
+    return db.query(User).filter(User.username_lower == username.lower()).count() > 0
 
 
 def email_taken(db: Session, email: str) -> bool:
@@ -43,20 +43,20 @@ def create_user(db: Session, email: str, username: str, first_name: str, last_na
         # A user with the same username or email exists
         if email_taken(db, email):
             error = UserFieldErrors(email="Profile already exists.")
-            return CreateUserResponse(created=False, error=error)
+            return CreateUserResponse(created=None, error=error)
         elif username_taken(db, username):
             error = UserFieldErrors(username="Username taken.")
-            return CreateUserResponse(created=False, error=error)
+            return CreateUserResponse(created=None, error=error)
         else:
             # Unknown error
             print(e)
-            return CreateUserResponse(created=False, error=None)
+            return CreateUserResponse(created=None, error=None)
     # Initialize user preferences
     prefs = UserPrefs(user_id=new_user.id, post_notifications=False, follow_notifications=True,
                       post_liked_notifications=True)
     db.add(prefs)
     db.commit()
-    return CreateUserResponse(created=True, error=None)
+    return CreateUserResponse(created=new_user, error=None)
 
 
 def update_user(db: Session, user: User, request: UpdateUserRequest) -> UpdateUserResponse:
