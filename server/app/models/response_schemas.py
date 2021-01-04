@@ -1,37 +1,27 @@
-from typing import Optional, Dict
+from typing import Optional
 
-from pydantic.main import BaseModel
-
-from app.models.schemas import PrivateUser, to_camel_case
+from app.models.schemas import Base, PrivateUser
 
 
-class UserFieldErrors(BaseModel):
+class UserFieldErrors(Base):
     username: Optional[str]
     first_name: Optional[str]
     last_name: Optional[str]
     email: Optional[str]
     private_account: Optional[str]
-    post_notifications: Optional[str]
     follow_notifications: Optional[str]
     post_liked_notifications: Optional[str]
 
-    class Config:
-        allow_population_by_field_name = True
-        alias_generator = to_camel_case
 
-
-class CreateUserResponse(BaseModel):
+class CreateUserResponse(Base):
     created: Optional[PrivateUser]
     error: Optional[UserFieldErrors]
 
-    class Config:
-        alias_generator = to_camel_case
 
-
-class UpdateUserResponse(BaseModel):
+class UpdateUserResponse(Base):
     user: Optional[PrivateUser]
     errors: Optional[UserFieldErrors]
 
 
-class LikePostResponse(BaseModel):
+class LikePostResponse(Base):
     likes: int

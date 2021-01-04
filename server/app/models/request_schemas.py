@@ -1,13 +1,12 @@
 from typing import Optional
 
 from pydantic import validator
-from pydantic.main import BaseModel
 
 from app.models import validators
-from app.models.schemas import to_camel_case, Location, Region
+from app.models.schemas import Base, Location, Region
 
 
-class CreateUserRequest(BaseModel):
+class CreateUserRequest(Base):
     username: str
     first_name: str
     last_name: str
@@ -33,17 +32,13 @@ class CreateUserRequest(BaseModel):
             raise ValueError("Last name must be 1-100 characters")
         return last_name
 
-    class Config:
-        alias_generator = to_camel_case
 
-
-class UpdateUserRequest(BaseModel):
+class UpdateUserRequest(Base):
     username: Optional[str]
     first_name: Optional[str]
     last_name: Optional[str]
     private_account: Optional[bool]
 
-    post_notifications: Optional[bool]
     follow_notifications: Optional[bool]
     post_liked_notifications: Optional[bool]
 
@@ -65,11 +60,8 @@ class UpdateUserRequest(BaseModel):
             return
         return CreateUserRequest.validate_last_name(last_name)
 
-    class Config:
-        alias_generator = to_camel_case
 
-
-class MaybeCreatePlaceRequest(BaseModel):
+class MaybeCreatePlaceRequest(Base):
     name: str
     location: Location
     region: Optional[Region]
@@ -81,17 +73,10 @@ class MaybeCreatePlaceRequest(BaseModel):
             raise ValueError("Invalid name")
         return name
 
-    class Config:
-        alias_generator = to_camel_case
 
-
-class CreatePostRequest(BaseModel):
+class CreatePostRequest(Base):
     place: MaybeCreatePlaceRequest
     category: str
     content: str
     image_url: Optional[str]
-    # tags: List[str]
     custom_location: Optional[Location]
-
-    class Config:
-        alias_generator = to_camel_case

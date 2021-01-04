@@ -109,8 +109,6 @@ def update_user_prefs(db: Session, user: User, request: UpdateUserRequest) -> Op
             db.rollback()
             setattr(errors, column_name, message_if_fail)
 
-    if request.post_notifications is not None:
-        attempt_update("post_notifications", "Failed to update notification settings")
     if request.follow_notifications is not None:
         attempt_update("follow_notifications", "Failed to update notification settings")
     if request.post_liked_notifications is not None:
