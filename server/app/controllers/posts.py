@@ -4,7 +4,7 @@ from sqlalchemy import and_
 from sqlalchemy.orm import Session
 
 from app.controllers import places, utils
-from app.models.models import Post, Comment, User, Place, Category
+from app.models.models import Post, Comment, User, Place, Category, post_like
 from app.models.request_schemas import CreatePostRequest
 
 
@@ -37,7 +37,15 @@ def get_comments(db: Session, post_id: str) -> Optional[list[Comment]]:
 
 def like_post(db: Session, user: User, post: Post):
     """Like the given post."""
+    # TODO(gmekkat) make sure this is fine
     post.likes.append(user)
+    db.commit()
+
+
+def unlike_post(db: Session, user: User, post: Post):
+    """Unlike the given post."""
+    unlike = post_like.delete().where(and_(post_like.c.user_id == user.id, post_like.c.post_id == post.id))
+    db.execute(unlike)
     db.commit()
 
 

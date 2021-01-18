@@ -11,6 +11,7 @@ from app.models.request_schemas import CreateUserRequest, UpdateUserRequest
 from app.models.models import User
 from app.models.schemas import PublicUser
 from app.models.response_schemas import CreateUserResponse, UpdateUserResponse
+from app.routers import utils
 from app.routers.utils import get_email_or_raise, validate_user, check_can_view_user_else_raise, get_user_or_raise
 
 router = APIRouter()
@@ -148,12 +149,16 @@ def get_posts(username: str, authorization: Optional[str] = Header(None), db: Se
         HTTPException: If the user could not be found (404), the caller isn't authenticated (401), or the user's
         privacy settings block the caller from viewing their posts (e.g. private account) (403).
     """
-    caller_email = get_email_or_raise(authorization)
+    caller_user = utils.get_user_from_auth_or_raise(db, authorization)
     # TODO(gmekkat): Paginate results
     user = users.get_user(db, username)
     validate_user(user)
-    check_can_view_user_else_raise(user=user, caller_email=caller_email)
-    return user.posts
+    check_can_view_user_else_raise(user=user, caller_email=caller_user.email)
+    posts = []
+    for post in user.posts:
+        fields = schemas.ORMPost.from_orm(post).dict()
+        posts.append(schemas.Post(**fields, liked=caller_user in post.likes))
+    return posts
 
 
 @router.get("/{username}/feed", response_model=List[schemas.Post])
@@ -179,4 +184,8 @@ def get_feed(username: str, before: Optional[str] = None, authorization: Optiona
     feed = users.get_feed(db, user, before)
     if feed is None:
         raise HTTPException(404, "Failed to load more posts")
-    return feed
+    posts = []
+    for post in feed:
+        fields = schemas.ORMPost.from_orm(post).dict()
+        posts.append(schemas.Post(**fields, liked=user in post.likes))
+    return posts

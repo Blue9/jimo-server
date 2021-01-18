@@ -42,7 +42,10 @@ def create_post(request: CreatePostRequest, authorization: Optional[str] = Heade
     """
     user: models.User = utils.get_user_from_auth_or_raise(db, authorization)
     try:
-        return app.controllers.posts.create_post(db, user, request)
+        post = app.controllers.posts.create_post(db, user, request)
+        fields = schemas.ORMPost.from_orm(post).dict()
+        liked = user in post.likes
+        return schemas.Post(**fields, liked=liked)
     except ValueError as e:
         print(e)
         raise HTTPException(400, detail=str(e))
@@ -65,7 +68,11 @@ def get_post(post_id: str, authorization: Optional[str] = Header(None), db: Sess
         authenticated (401). A 404 is thrown for authorization errors because the caller should not know of
         the existence of the post.
     """
-    return get_post_and_validate_or_raise(post_id, authorization, db)
+    user: models.User = utils.get_user_from_auth_or_raise(db, authorization)
+    post = get_post_and_validate_or_raise(post_id, authorization, db)
+    liked = user in post.likes
+    fields = schemas.ORMPost.from_orm(post).dict()
+    return schemas.Post(**fields, liked=liked)
 
 
 @router.get("/{post_id}/comments", response_model=List[schemas.Comment])
@@ -109,4 +116,27 @@ def like_post(post_id: str, authorization: Optional[str] = Header(None), db: Ses
     post = get_post_and_validate_or_raise(post_id, authorization, db)
     user = utils.get_user_from_auth_or_raise(db, authorization)
     posts.like_post(db, user, post)
+    return {"likes": post.like_count}
+
+
+@router.delete("/{post_id}/likes", response_model=LikePostResponse)
+def unlike_post(post_id: str, authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
+    """Unlike the given post if the user has already liked the post.
+
+    Args:
+        post_id: The post id (maps to urlsafe_id in database).
+        authorization: Authorization header. This string is automatically injected by FastAPI.
+        db: The database session object. This object is automatically injected by FastAPI.
+
+    Returns:
+        The result of unliking the post.
+
+    Raises:
+        HTTPException: If the post could not be found or the caller isn't authorized (404) or the caller isn't
+        authenticated (401). A 404 is thrown for authorization errors because the caller should not know of
+        the existence of the post.
+    """
+    post = get_post_and_validate_or_raise(post_id, authorization, db)
+    user = utils.get_user_from_auth_or_raise(db, authorization)
+    posts.unlike_post(db, user, post)
     return {"likes": post.like_count}

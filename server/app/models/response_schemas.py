@@ -9,6 +9,7 @@ class UserFieldErrors(Base):
     last_name: Optional[str]
     email: Optional[str]
     private_account: Optional[str]
+    post_notifications: Optional[str]
     follow_notifications: Optional[str]
     post_liked_notifications: Optional[str]
 

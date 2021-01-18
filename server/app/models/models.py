@@ -31,7 +31,7 @@ class User(Base):
     preferences = relationship("UserPrefs", uselist=False, back_populates="user", cascade="all, delete",
                                passive_deletes=True)
 
-    posts = relationship("Post", back_populates="user", cascade="all, delete", passive_deletes=True)
+    posts: list["Post"] = relationship("Post", back_populates="user", cascade="all, delete", passive_deletes=True)
 
     following: list["User"] = relationship("User",
                                            secondary=follow,
@@ -130,12 +130,16 @@ class PlaceData(Base):
 
 
 post_tag = Table("post_tag", Base.metadata,
-                 Column("post_id", BigInteger, ForeignKey("post.id", ondelete="CASCADE"), nullable=False),
-                 Column("tag_id", BigInteger, ForeignKey("tag.id", ondelete="CASCADE"), nullable=False))
+                 Column("post_id", BigInteger, ForeignKey("post.id", ondelete="CASCADE"), nullable=False,
+                        primary_key=True),
+                 Column("tag_id", BigInteger, ForeignKey("tag.id", ondelete="CASCADE"), nullable=False,
+                        primary_key=True))
 
 post_like = Table("post_like", Base.metadata,
-                  Column("user_id", BigInteger, ForeignKey("user.id", ondelete="CASCADE"), nullable=False),
-                  Column("post_id", BigInteger, ForeignKey("post.id", ondelete="CASCADE"), nullable=False),
+                  Column("user_id", BigInteger, ForeignKey("user.id", ondelete="CASCADE"), nullable=False,
+                         primary_key=True),
+                  Column("post_id", BigInteger, ForeignKey("post.id", ondelete="CASCADE"), nullable=False,
+                         primary_key=True),
                   Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()))
 
 

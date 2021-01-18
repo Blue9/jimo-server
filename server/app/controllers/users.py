@@ -1,4 +1,3 @@
-import string
 from typing import Optional
 
 from sqlalchemy import false, or_
@@ -7,7 +6,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.sql.functions import concat
 
 from app.controllers import auth
-from app.models.models import User, Post, UserPrefs
+from app.models.models import User, Post, UserPrefs, post_like
 from app.models.request_schemas import UpdateUserRequest
 from app.models.response_schemas import UpdateUserResponse, UserFieldErrors, CreateUserResponse
 

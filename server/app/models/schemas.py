@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 
 from pydantic import BaseModel, Field, validator, root_validator
 
@@ -57,6 +57,7 @@ class PublicUser(Base):
 
 
 class UserPrefs(Base):
+    post_notifications: bool
     follow_notifications: bool
     post_liked_notifications: bool
 
@@ -73,12 +74,12 @@ class Place(Base):
 
     @root_validator(pre=True)
     def get_location(cls, values):
-        assert "latitude" in values, "latitude should be in values"
-        assert "longitude" in values, "longitude should be in values"
-        return dict(values, location=Location(latitude=values["latitude"], longitude=values["longitude"]))
+        if values.get("latitude") is not None and values.get("longitude") is not None:
+            return dict(values, location=Location(latitude=values["latitude"], longitude=values["longitude"]))
+        return values
 
 
-class Post(Base):
+class ORMPost(Base):
     urlsafe_id: str = Field(alias="postId")
     user: PublicUser
     place: Place
@@ -89,14 +90,25 @@ class Post(Base):
     like_count: int
     custom_location: Optional[Location]
 
+    @validator("content")
+    def validate_content(cls, content):
+        return content.strip()
+
+    @validator("created_at")
+    def validate_created_at(cls, created_at):
+        # Needed so Swift can automatically decode
+        return created_at.replace(microsecond=0)
+
     @root_validator(pre=True)
     def get_location(cls, values):
-        if values.get("custom_location") is None:
-            return values
-        assert "custom_latitude" in values, "custom_latitude should be in values"
-        assert "custom_longitude" in values, "custom_longitude should be in values"
-        return dict(values,
-                    custom_location=Location(latitude=values["custom_latitude"], longitude=values["custom_longitude"]))
+        if values.get("custom_latitude") is not None and values.get("custom_longitude") is not None:
+            return dict(values, custom_location=Location(latitude=values["custom_latitude"],
+                                                         longitude=values["custom_longitude"]))
+        return values
+
+
+class Post(ORMPost):
+    liked: bool
 
 
 # Not used for now
@@ -106,6 +118,11 @@ class Comment(Base):
     post: str  # This is the post ID
     content: str
     created_at: datetime
+
+    @validator("created_at")
+    def validate_created_at(cls, created_at):
+        # Swift can't automatically decode w/ milliseconds
+        return created_at.replace(microsecond=0)
 
     @root_validator(pre=True)
     def get_post_id(cls, values):  # noqa
