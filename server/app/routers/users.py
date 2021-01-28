@@ -12,7 +12,7 @@ from app.models.models import User
 from app.models.schemas import PublicUser
 from app.models.response_schemas import CreateUserResponse, UpdateUserResponse
 from app.routers import utils
-from app.routers.utils import get_email_or_raise, validate_user, check_can_view_user_else_raise, get_user_or_raise
+from app.routers.utils import get_uid_or_raise, validate_user, check_can_view_user_else_raise, get_user_or_raise
 
 router = APIRouter()
 
@@ -33,8 +33,8 @@ def create_user(request: CreateUserRequest, authorization: Optional[str] = Heade
         HTTPException: If the auth header is invalid (401).
     """
     print("Create users")
-    email_from_auth = get_email_or_raise(authorization)
-    return users.create_user(db, email_from_auth, request.username, request.first_name, request.last_name)
+    uid_from_auth = get_uid_or_raise(authorization)
+    return users.create_user(db, uid_from_auth, request.username, request.first_name, request.last_name)
 
 
 @router.get("/{username}", response_model=PublicUser)
@@ -52,7 +52,7 @@ def get_user(username: str, authorization: Optional[str] = Header(None), db: Ses
     Raises:
         HTTPException: If the user could not be found (404) or the caller isn't authenticated (401).
     """
-    _caller_email = get_email_or_raise(authorization)
+    _caller_uid = get_uid_or_raise(authorization)
     user: models.User = get_user_or_raise(username, db)
     return parse_obj_as(PublicUser, user)
 
@@ -75,9 +75,9 @@ def update_user(username: str, request: UpdateUserRequest, authorization: Option
         HTTPException: If the user could not be found (404), the caller isn't authenticated (401), or the caller
         isn't authorized (403).
     """
-    user_email = get_email_or_raise(authorization)
+    user_uid = get_uid_or_raise(authorization)
     user: models.User = get_user_or_raise(username, db)
-    if user.email != user_email:
+    if user.uid != user_uid:
         raise HTTPException(403, detail="Not authorized")
     return users.update_user(db, user, request)
 
@@ -99,11 +99,11 @@ def get_followers(username: str, authorization: Optional[str] = Header(None), db
         HTTPException: If the user could not be found (404), the caller isn't authenticated (401), or the user's
         privacy settings block the caller from viewing their posts (e.g. private account) (403).
     """
-    caller_email = get_email_or_raise(authorization)
+    caller_uid = get_uid_or_raise(authorization)
     # TODO(gmekkat): Paginate results
     user: User = users.get_user(db, username)
     validate_user(user)
-    check_can_view_user_else_raise(user=user, caller_email=caller_email)
+    check_can_view_user_else_raise(user=user, caller_uid=caller_uid)
     return parse_obj_as(List[PublicUser], user.followers)
 
 
@@ -124,11 +124,11 @@ def get_following(username: str, authorization: Optional[str] = Header(None), db
         HTTPException: If the user could not be found (404), the caller isn't authenticated (401), or the user's
         privacy settings block the caller from viewing their posts (e.g. private account) (403).
     """
-    caller_email = get_email_or_raise(authorization)
+    caller_uid = get_uid_or_raise(authorization)
     # TODO(gmekkat): Paginate results
     user = users.get_user(db, username)
     validate_user(user)
-    check_can_view_user_else_raise(user=user, caller_email=caller_email)
+    check_can_view_user_else_raise(user=user, caller_uid=caller_uid)
     return parse_obj_as(List[PublicUser], user.following)
 
 
@@ -153,7 +153,7 @@ def get_posts(username: str, authorization: Optional[str] = Header(None), db: Se
     # TODO(gmekkat): Paginate results
     user = users.get_user(db, username)
     validate_user(user)
-    check_can_view_user_else_raise(user=user, caller_email=caller_user.email)
+    check_can_view_user_else_raise(user=user, caller_uid=caller_user.uid)
     posts = []
     for post in user.posts:
         fields = schemas.ORMPost.from_orm(post).dict()
@@ -176,10 +176,10 @@ def get_feed(username: str, before: Optional[str] = None, authorization: Optiona
         The feed for the given user as a list of Post objects in reverse chronological order. This endpoint returns
         at most 50 posts and can be paginated using the optional before param.
     """
-    caller_email = get_email_or_raise(authorization)
+    caller_uid = get_uid_or_raise(authorization)
     user = users.get_user(db, username)
     validate_user(user)
-    if user.email != caller_email:
+    if user.uid != caller_uid:
         raise HTTPException(403, "Not authorized")
     feed = users.get_feed(db, user, before)
     if feed is None:

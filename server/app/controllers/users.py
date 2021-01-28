@@ -1,13 +1,14 @@
 from typing import Optional
 
-from sqlalchemy import false, or_
+from geoalchemy2 import Geometry
+from sqlalchemy import false, or_, case, cast
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
-from sqlalchemy.sql.functions import concat
+from sqlalchemy.sql.functions import concat, func
 
 from app.controllers import auth
-from app.models.models import User, Post, UserPrefs, post_like
-from app.models.request_schemas import UpdateUserRequest
+from app.models.models import User, Post, UserPrefs, Place
+from app.models.request_schemas import UpdateUserRequest, RectangularRegion
 from app.models.response_schemas import UpdateUserResponse, UserFieldErrors, CreateUserResponse
 
 
@@ -16,9 +17,8 @@ def username_taken(db: Session, username: str) -> bool:
     return db.query(User).filter(User.username_lower == username.lower()).count() > 0
 
 
-def email_taken(db: Session, email: str) -> bool:
-    """Return whether or not a user with the given email exists."""
-    return db.query(User).filter(User.email == email).count() > 0
+def uid_exists(db: Session, uid: str) -> bool:
+    return db.query(User).filter(User.uid == uid).count() > 0
 
 
 def get_user(db: Session, username: str) -> Optional[User]:
@@ -26,22 +26,22 @@ def get_user(db: Session, username: str) -> Optional[User]:
     return db.query(User).filter(User.username == username).first()
 
 
-def get_user_by_email(db: Session, email: str) -> Optional[User]:
-    """Return the user with the given email or None if no such user exists."""
-    return db.query(User).filter(User.email == email).first()
+def get_user_by_uid(db: Session, uid: str) -> Optional[User]:
+    """Return the user with the given uid or None if no such user exists."""
+    return db.query(User).filter(User.uid == uid).first()
 
 
-def create_user(db: Session, email: str, username: str, first_name: str, last_name: str) -> CreateUserResponse:
+def create_user(db: Session, uid: str, username: str, first_name: str, last_name: str) -> CreateUserResponse:
     """Try to create a user with the given information, returning whether the user could be created or not."""
-    new_user = User(email=email, username=username, first_name=first_name, last_name=last_name)
+    new_user = User(uid=uid, username=username, first_name=first_name, last_name=last_name)
     db.add(new_user)
     try:
         db.commit()
     except IntegrityError as e:
         db.rollback()
-        # A user with the same username or email exists
-        if email_taken(db, email):
-            error = UserFieldErrors(email="Profile already exists.")
+        # A user with the same uid or username exists
+        if uid_exists(db, uid):
+            error = UserFieldErrors(uid="User exists.")
             return CreateUserResponse(created=None, error=error)
         elif username_taken(db, username):
             error = UserFieldErrors(username="Username taken.")
@@ -132,6 +132,30 @@ def get_feed(db: Session, user: User, before_post_id: Optional[str] = None) -> O
     if before_post is not None:
         query = query.filter(Post.id > before_post.id)
     return query.order_by(Post.created_at.desc()).limit(50).all()
+
+
+def get_map(db: Session, user: User, bounds: RectangularRegion) -> list[Post]:
+    """Get the user's map view, returning up to the 50 most recent posts in the given region."""
+    # TODO this is broken, fix
+    following_ids = [u.id for u in user.following] + [user.id]
+    min_x = bounds.center_long - bounds.span_long / 2
+    max_x = bounds.center_long + bounds.span_long / 2
+    min_y = bounds.center_lat - bounds.span_lat / 2
+    max_y = bounds.center_lat + bounds.span_lat / 2
+
+    min_x = min_x + 360 if min_x < -180 else min_x
+    max_x = max_x - 360 if max_x > 180 else max_x
+    post_id_query = db.query(Post.id).filter(Post.user_id.in_(following_ids), Post.deleted == false()).join(
+        Place).filter(
+        case([(Post.custom_location.isnot(None), _intersects(Post.custom_location, min_x, min_y, max_x, max_y))],
+             else_=_intersects(Place.location, min_x, min_y, max_x, max_y))).order_by(Post.created_at.desc()).limit(50)
+    return db.query(Post).filter(Post.id.in_(post_id_query)).all()
+
+
+def _intersects(location_field, min_x, min_y, max_x, max_y):
+    return func.ST_Intersects(
+        func.ST_ShiftLongitude(cast(location_field, Geometry)),
+        func.ST_ShiftLongitude(func.ST_MakeEnvelope(min_x, min_y, max_x, max_y, 4326)))
 
 
 def search_users(db: Session, query: str) -> list[User]:

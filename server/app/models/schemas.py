@@ -63,7 +63,7 @@ class UserPrefs(Base):
 
 
 class PrivateUser(PublicUser):
-    email: str
+    uid: str
     preferences: Optional[UserPrefs]
 
 

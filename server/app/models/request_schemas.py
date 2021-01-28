@@ -1,6 +1,6 @@
 from typing import Optional
 
-from pydantic import validator
+from pydantic import validator, root_validator
 
 from app.models import validators
 from app.models.schemas import Base, Location, Region
@@ -80,3 +80,18 @@ class CreatePostRequest(Base):
     content: str
     image_url: Optional[str]
     custom_location: Optional[Location]
+
+
+class RectangularRegion(Base):
+    center_lat: float
+    center_long: float
+    span_lat: float
+    span_long: float
+
+    @root_validator(pre=True)
+    def get_region(cls, values):
+        assert -90 <= values.get("center_lat") <= 90
+        assert -180 <= values.get("center_long") <= 180
+        assert 0 <= values.get("span_lat") <= 180
+        assert 0 <= values.get("span_long") <= 360
+        return values

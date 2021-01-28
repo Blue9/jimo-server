@@ -10,21 +10,21 @@ def validate_user(user: models.User):
         raise HTTPException(404, detail="User not found")
 
 
-def check_can_view_user_else_raise(user: models.User, caller_email: str = None,
+def check_can_view_user_else_raise(user: models.User, caller_uid: str = None,
                                    custom_exception: HTTPException = None):
-    if user.email == caller_email:
+    if user.uid == caller_uid:
         return
     if user.private_account:
-        authorized = any(u.email == caller_email for u in user.followers)
+        authorized = any(u.uid == caller_uid for u in user.followers)
         if not authorized:
             raise HTTPException(403, "Not authorized") if custom_exception is None else custom_exception
 
 
-def get_email_or_raise(authorization) -> str:
-    email = auth.get_email_from_auth_header(authorization)
-    if email is None:
+def get_uid_or_raise(authorization) -> str:
+    uid = auth.get_uid_from_auth_header(authorization)
+    if uid is None:
         raise HTTPException(401, "Not authenticated")
-    return email
+    return uid
 
 
 def get_user_or_raise(username: str, db: Session) -> models.User:
@@ -33,12 +33,12 @@ def get_user_or_raise(username: str, db: Session) -> models.User:
     return user
 
 
-def get_user_from_email_or_raise(db: Session, email: str) -> models.User:
-    user: models.User = users.get_user_by_email(db, email)
+def get_user_from_uid_or_raise(db: Session, uid: str) -> models.User:
+    user: models.User = users.get_user_by_uid(db, uid)
     validate_user(user)
     return user
 
 
 def get_user_from_auth_or_raise(db: Session, authorization: str) -> models.User:
-    user_email = get_email_or_raise(authorization)
-    return get_user_from_email_or_raise(db, user_email)
+    uid = get_uid_or_raise(authorization)
+    return get_user_from_uid_or_raise(db, uid)

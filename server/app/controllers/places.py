@@ -1,7 +1,4 @@
-from typing import Optional
-
-from geoalchemy2 import Geometry
-from sqlalchemy import func, cast, asc
+from sqlalchemy import func, asc
 from sqlalchemy.orm import Session
 
 from app.controllers import utils
@@ -37,24 +34,15 @@ def get_place_or_create(db: Session, request: MaybeCreatePlaceRequest) -> Place:
     First, we use use the region radius that was passed in the request if provided. We then check if any place has the
     same name and is within this distance, returning one if it exists.
 
-    <not done for now>
-    If no such place can be found or a region is not passed in, we filter to every place with the same name. Then, we
-    compute the median radius of these places from the place_data table. Then, we see if the request's location is
-    within the radius of any of these places, and if so, we return such a place.
-    </not done for now>
-
     Otherwise, we try to find a matching place within 10 meters.
 
     If we still cannot find an existing place, we create a new place.
 
-    Note: Regardless of any of the above outcomes, we store the request's region (if provided) and additional data in
-    place_data to improve data quality. Most of this data will probably be redundant since it only comes from Apple
-    Maps at the moment.
+    We ALSO store the request's region (if provided) and additional data in place_data to improve data quality. Most of
+    this data will probably be redundant since it only comes from Apple Maps at the moment.
 
     Note: if a malicious user passed in a very large radius, we would likely find a matching place and return one.
-    Their malicious region data would get added to our place_data table and our radii could get skewed upward. Because
-    of this, the second check is potentially less accurate than the first one, which is why they are ordered in that
-    way.
+    Their malicious region data would get added to our place_data table and our radii could get skewed upward.
 
     Args:
         db: The database session.

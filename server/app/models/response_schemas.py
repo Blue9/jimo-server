@@ -4,10 +4,10 @@ from app.models.schemas import Base, PrivateUser
 
 
 class UserFieldErrors(Base):
+    uid: Optional[str]
     username: Optional[str]
     first_name: Optional[str]
     last_name: Optional[str]
-    email: Optional[str]
     private_account: Optional[str]
     post_notifications: Optional[str]
     follow_notifications: Optional[str]

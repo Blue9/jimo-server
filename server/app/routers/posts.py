@@ -10,18 +10,18 @@ from app.models import schemas, models
 from app.models.request_schemas import CreatePostRequest
 from app.models.response_schemas import LikePostResponse
 from app.routers import utils
-from app.routers.utils import get_email_or_raise, check_can_view_user_else_raise
+from app.routers.utils import get_uid_or_raise, check_can_view_user_else_raise
 
 router = APIRouter()
 
 
 def get_post_and_validate_or_raise(post_id: str, authorization: Optional[str], db: Session) -> models.Post:
-    caller_email = get_email_or_raise(authorization)
+    caller_uid = get_uid_or_raise(authorization)
     post: models.Post = posts.get_post(db, post_id)
     post_not_found = HTTPException(404, detail="Post not found")
     if post is None or post.deleted:
         raise post_not_found
-    check_can_view_user_else_raise(user=post.user, caller_email=caller_email, custom_exception=post_not_found)
+    check_can_view_user_else_raise(user=post.user, caller_uid=caller_uid, custom_exception=post_not_found)
     return post
 
 

@@ -32,11 +32,11 @@ def index():
     return {"success": True}
 
 
-@app.get("/testToken/{email}")
-def get_test_token(email: str):
+@app.get("/testToken/{uid}")
+def get_test_token(uid: str):
     try:
         from starlette.responses import Response
-        return Response(content=auth.get_test_token(email))
+        return Response(content=auth.get_test_token(uid))
     except Exception:
         raise HTTPException(404)
 
@@ -55,10 +55,10 @@ def get_me(authorization: Optional[str] = Header(None), db: Session = Depends(ge
     Raises:
         HTTPException: If the user could not be found (404) or the caller isn't authenticated (401).
     """
-    email = auth.get_email_from_auth_header(authorization)
-    if email is None:
+    uid = auth.get_uid_from_auth_header(authorization)
+    if uid is None:
         raise HTTPException(401, "Not authenticated")
-    user = users.get_user_by_email(db, email)
+    user = users.get_user_by_uid(db, uid)
     if user is None:
         raise HTTPException(404, "User not found")
     return user
@@ -73,4 +73,5 @@ def get_place(lat: float, long: float, db: Session = Depends(get_db)):
 
 app.include_router(routers.users.router, prefix="/users")
 app.include_router(routers.posts.router, prefix="/posts")
+app.include_router(routers.places.router, prefix="/places")
 app.include_router(routers.search.router, prefix="/search")
