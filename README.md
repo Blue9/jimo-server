@@ -30,7 +30,7 @@ Variable | Value
 ## Running the frontend
 
 1. Run `pod install` in `Jimo/`. You need to install [CocoaPods](https://cocoapods.org/) for this.
-2. Open the Xcode project.
+2. Open the Xcode project (open the `.xcworkspace` file).
 3. Make sure the server is running.
 4. In APIClient.swift change `apiURL.host` to your local IP address the server is running on (this should probably be in a plist but this works for now)
 5. Run!
