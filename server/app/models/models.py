@@ -1,5 +1,5 @@
 from sqlalchemy import Column, BigInteger, String, DateTime, Boolean, ForeignKey, Table, select, func, and_, Float, \
-    Computed
+    Computed, UniqueConstraint, Index
 from geoalchemy2 import Geography
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.associationproxy import association_proxy
@@ -100,6 +100,9 @@ class Place(Base):
     updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     posts = relationship("Post", back_populates="place")
 
+    # Only want one row per (name, latitude, longitude)
+    __table_args__ = (UniqueConstraint("name", "latitude", "longitude", name="_place_name_location"),)
+
 
 class PlaceData(Base):
     """
@@ -108,6 +111,7 @@ class PlaceData(Base):
     __tablename__ = "place_data"
 
     id = Column(BigInteger, primary_key=True, nullable=False)
+    user_id = Column(BigInteger, ForeignKey("user.id"), nullable=False)
     place_id = Column(BigInteger, ForeignKey("place.id"), nullable=False)
 
     # Region that describes the boundary of the place
@@ -127,6 +131,9 @@ class PlaceData(Base):
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     place = relationship("Place")
+
+    # Only want one row per (user, place) pair
+    __table_args__ = (UniqueConstraint("user_id", "place_id", name="_place_data_user_place_uc"),)
 
 
 post_tag = Table("post_tag", Base.metadata,
@@ -176,6 +183,10 @@ class Post(Base):
     # Column property
     like_count = None
     comment_count = None
+
+    # Only want one row per (user, place) pair for all non-deleted posts
+    __table_args__ = (Index("_posts_user_place_uc", "user_id", "place_id", unique=True, postgresql_where=(~deleted)),)
+    # __table_args__ = (UniqueConstraint("user_id", "place_id", name="_posts_user_place_uc"),)
 
 
 class Comment(Base):

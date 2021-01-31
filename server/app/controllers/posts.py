@@ -9,8 +9,11 @@ from app.models.request_schemas import CreatePostRequest
 
 
 def get_post(db: Session, post_id: str):
-    """Return the post with the given urlsafe_id or None if no such post exists."""
-    return db.query(Post).filter(Post.urlsafe_id == post_id).first()
+    """Return the post with the given urlsafe_id or None if no such post exists or the post is deleted."""
+    post = db.query(Post).filter(Post.urlsafe_id == post_id).first()
+    if post is None or post.deleted:
+        return None
+    return post
 
 
 def get_category_or_raise(db: Session, category_name: str) -> Category:
@@ -23,7 +26,8 @@ def get_category_or_raise(db: Session, category_name: str) -> Category:
 
 def already_posted(db: Session, user: User, place: Place):
     """Return true if the user already posted this place, false otherwise."""
-    existing_post = db.query(Post).filter(and_(Post.user_id == user.id, Post.place_id == place.id)).first()
+    existing_post = db.query(Post).filter(
+        and_(Post.user_id == user.id, Post.place_id == place.id, Post.deleted == False)).first()
     return existing_post is not None
 
 
@@ -52,7 +56,7 @@ def unlike_post(db: Session, user: User, post: Post):
 def create_post(db: Session, user: User, request: CreatePostRequest) -> Optional[Post]:
     """Try to create a post with the given details, raising a ValueError if the request is invalid."""
     category = get_category_or_raise(db, request.category)
-    place = places.get_place_or_create(db, request.place)
+    place = places.get_place_or_create(db, user, request.place)
     if already_posted(db, user, place):
         raise ValueError("You already posted that place.")
     custom_latitude = request.custom_location.latitude if request.custom_location else None

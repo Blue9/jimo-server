@@ -26,3 +26,7 @@ class UpdateUserResponse(Base):
 
 class LikePostResponse(Base):
     likes: int
+
+
+class DeletePostResponse(Base):
+    deleted: bool

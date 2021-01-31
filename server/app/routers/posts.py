@@ -8,7 +8,7 @@ from app.controllers import posts
 from app.database import get_db
 from app.models import schemas, models
 from app.models.request_schemas import CreatePostRequest
-from app.models.response_schemas import LikePostResponse
+from app.models.response_schemas import LikePostResponse, DeletePostResponse
 from app.routers import utils
 from app.routers.utils import get_uid_or_raise, check_can_view_user_else_raise
 
@@ -19,7 +19,7 @@ def get_post_and_validate_or_raise(post_id: str, authorization: Optional[str], d
     caller_uid = get_uid_or_raise(authorization)
     post: models.Post = posts.get_post(db, post_id)
     post_not_found = HTTPException(404, detail="Post not found")
-    if post is None or post.deleted:
+    if post is None:
         raise post_not_found
     check_can_view_user_else_raise(user=post.user, caller_uid=caller_uid, custom_exception=post_not_found)
     return post
@@ -73,6 +73,30 @@ def get_post(post_id: str, authorization: Optional[str] = Header(None), db: Sess
     liked = user in post.likes
     fields = schemas.ORMPost.from_orm(post).dict()
     return schemas.Post(**fields, liked=liked)
+
+
+@router.delete("/{post_id}", response_model=DeletePostResponse)
+def delete_post(post_id: str, authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
+    """Delete the given post.
+
+    Args:
+        post_id: The post id (maps to urlsafe_id in database).
+        authorization: Authorization header. This string is automatically injected by FastAPI.
+        db: The database session object. This object is automatically injected by FastAPI.
+
+    Returns:
+        The post object.
+
+    Raises:
+        Whether the post could be deleted or not.
+    """
+    user: models.User = utils.get_user_from_auth_or_raise(db, authorization)
+    post = posts.get_post(db, post_id)
+    if post is not None and post.user == user:
+        post.deleted = True
+        db.commit()
+        return DeletePostResponse(deleted=True)
+    return DeletePostResponse(deleted=False)
 
 
 @router.get("/{post_id}/comments", response_model=List[schemas.Comment])

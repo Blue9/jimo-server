@@ -9,6 +9,7 @@ T = TypeVar("T")
 
 def get_urlsafe_id() -> str:
     """Get a random url-safe id."""
+    # return "9bdd6cf3-fecb-4c5e-a4bb-02dfae2555d4"
     return str(uuid.uuid4())
 
 
@@ -25,7 +26,13 @@ def add_with_urlsafe_id(db: Session, create_model: Callable[[str], T], max_tries
         try:
             db.commit()
             return model
-        except IntegrityError:
-            print("URL safe id collision!", urlsafe_id)
+        except IntegrityError as e:
             db.rollback()
+            error_message = str(e)
+            print(error_message)
+            if "post_urlsafe_id_key" in error_message:
+                print("URL safe id collision!", urlsafe_id)
+            else:
+                # The error was caused by something else
+                raise e
     raise ValueError(f"Failed to add post after {max_tries} tries.")

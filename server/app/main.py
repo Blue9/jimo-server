@@ -64,13 +64,6 @@ def get_me(authorization: Optional[str] = Header(None), db: Session = Depends(ge
     return user
 
 
-@app.get("/place", response_model=List[schemas.Place])
-def get_place(lat: float, long: float, db: Session = Depends(get_db)):
-    from app.models.request_schemas import MaybeCreatePlaceRequest
-    return places.get_place_or_create(db, MaybeCreatePlaceRequest(name="test",
-                                                                  location=Location(latitude=lat, longitude=long)))
-
-
 app.include_router(routers.users.router, prefix="/users")
 app.include_router(routers.posts.router, prefix="/posts")
 app.include_router(routers.places.router, prefix="/places")
