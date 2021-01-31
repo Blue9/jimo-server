@@ -1,6 +1,7 @@
 from sqlalchemy import create_engine
 
-from app.database import engine
+from app.controllers import categories
+from app.database import engine, get_db
 from app.models import models
 
 PRINT_SCHEMA = False
@@ -20,6 +21,7 @@ def print_schema():
 if __name__ == "__main__":
     print("Creating tables...")
     models.Base.metadata.create_all(bind=engine)
+    categories.add_categories_to_db(next(get_db()))
     print("Created all tables!")
 
     if PRINT_SCHEMA:
