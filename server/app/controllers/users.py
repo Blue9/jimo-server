@@ -1,7 +1,7 @@
 from typing import Optional
 
 from geoalchemy2 import Geometry
-from sqlalchemy import false, or_, case, cast
+from sqlalchemy import false, or_, case, cast, and_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.functions import concat, func
@@ -132,6 +132,12 @@ def get_feed(db: Session, user: User, before_post_id: Optional[str] = None) -> O
     if before_post is not None:
         query = query.filter(Post.id > before_post.id)
     return query.order_by(Post.created_at.desc()).limit(50).all()
+
+
+def get_posts(db: Session, user: User) -> list[Post]:
+    """Get the user's posts that aren't deleted."""
+    return db.query(Post).filter(and_(Post.user_id == user.id, Post.deleted == False)).order_by(
+        Post.created_at.desc()).all()
 
 
 def get_map(db: Session, user: User, bounds: RectangularRegion) -> list[Post]:

@@ -155,10 +155,9 @@ def get_posts(username: str, authorization: Optional[str] = Header(None), db: Se
     validate_user(user)
     check_can_view_user_else_raise(user=user, caller_uid=caller_user.uid)
     posts = []
-    for post in user.posts:
-        if not post.deleted:
-            fields = schemas.ORMPost.from_orm(post).dict()
-            posts.insert(0, schemas.Post(**fields, liked=caller_user in post.likes))
+    for post in users.get_posts(db, user):
+        fields = schemas.ORMPost.from_orm(post).dict()
+        posts.append(schemas.Post(**fields, liked=caller_user in post.likes))
     return posts
 
 
