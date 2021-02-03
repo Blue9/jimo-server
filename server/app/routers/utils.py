@@ -6,7 +6,7 @@ from app.models import models
 
 
 def validate_user(user: models.User):
-    if user is None or user.deactivated:
+    if user is None or user.deleted:
         raise HTTPException(404, detail="User not found")
 
 

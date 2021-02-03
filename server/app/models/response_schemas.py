@@ -30,3 +30,12 @@ class LikePostResponse(Base):
 
 class DeletePostResponse(Base):
     deleted: bool
+
+
+class UserInviteStatus(Base):
+    invited: bool
+
+
+class UserWaitlistStatus(Base):
+    invited: bool
+    waitlisted: bool

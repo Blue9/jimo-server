@@ -32,9 +32,9 @@ def create_user(request: CreateUserRequest, authorization: Optional[str] = Heade
     Raises:
         HTTPException: If the auth header is invalid (401).
     """
-    print("Create users")
+    print("Create user")
     uid_from_auth = get_uid_or_raise(authorization)
-    return users.create_user(db, uid_from_auth, request.username, request.first_name, request.last_name)
+    return users.create_user(db, uid_from_auth, request)
 
 
 @router.get("/{username}", response_model=PublicUser)

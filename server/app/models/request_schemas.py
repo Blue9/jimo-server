@@ -61,6 +61,15 @@ class UpdateUserRequest(Base):
         return CreateUserRequest.validate_last_name(last_name)
 
 
+class InviteUserRequest(Base):
+    phone_number: str
+
+    @validator("phone_number")
+    def validate_phone_number(cls, phone_number):
+        # TODO make sure it's in e164 format
+        return phone_number
+
+
 class MaybeCreatePlaceRequest(Base):
     name: str
     location: Location

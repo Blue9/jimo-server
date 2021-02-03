@@ -25,6 +25,11 @@ def get_uid_from_token(id_token: str) -> Optional[str]:
         return None
 
 
+def get_phone_number_from_uid(uid: str) -> Optional[str]:
+    firebase_user = auth.get_user(uid)
+    return firebase_user.phone_number
+
+
 def get_uid_from_auth_header(authorization: str) -> Optional[str]:
     """Get the user's uid from the given authorization header."""
     if authorization is None or not authorization.startswith("Bearer "):

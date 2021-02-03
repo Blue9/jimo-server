@@ -7,9 +7,9 @@ from sqlalchemy.orm import Session
 from sqlalchemy.sql.functions import concat, func
 
 from app.controllers import auth
-from app.models.models import User, Post, UserPrefs, Place
-from app.models.request_schemas import UpdateUserRequest, RectangularRegion
-from app.models.response_schemas import UpdateUserResponse, UserFieldErrors, CreateUserResponse
+from app.models.models import User, Post, UserPrefs, Place, Invite, Waitlist
+from app.models.request_schemas import UpdateUserRequest, RectangularRegion, CreateUserRequest
+from app.models.response_schemas import UpdateUserResponse, UserFieldErrors, CreateUserResponse, UserInviteStatus
 
 
 def username_taken(db: Session, username: str) -> bool:
@@ -31,9 +31,51 @@ def get_user_by_uid(db: Session, uid: str) -> Optional[User]:
     return db.query(User).filter(User.uid == uid).first()
 
 
-def create_user(db: Session, uid: str, username: str, first_name: str, last_name: str) -> CreateUserResponse:
+def is_invited(db: Session, uid: str) -> bool:
+    phone_number = auth.get_phone_number_from_uid(uid)
+    if phone_number is None:
+        return False
+    return db.query(Invite).filter(Invite.phone_number == phone_number).count() > 0
+
+
+def on_waitlist(db: Session, uid: str) -> bool:
+    phone_number = auth.get_phone_number_from_uid(uid)
+    if phone_number is None:
+        return False
+    return db.query(Waitlist).filter(Waitlist.phone_number == phone_number).count() > 0
+
+
+def invite_user(db: Session, user: User, phone_number: str) -> UserInviteStatus:
+    invite = Invite(phone_number=phone_number, invited_by=user.id)
+    db.add(invite)
+    try:
+        db.commit()
+        return UserInviteStatus(invited=True)
+    except IntegrityError as e:
+        print(e)
+        db.rollback()
+        return UserInviteStatus(invited=False)
+
+
+def join_waitlist(db: Session, uid: str):
+    phone_number = auth.get_phone_number_from_uid(uid)
+    if phone_number is None:
+        raise ValueError("Phone number not found")
+    row = Waitlist(phone_number=auth.get_phone_number_from_uid(uid))
+    db.add(row)
+    try:
+        db.commit()
+    except IntegrityError as e:
+        # Already on waitlist
+        print(e)
+        db.rollback()
+
+
+def create_user(db: Session, uid: str, request: CreateUserRequest) -> CreateUserResponse:
     """Try to create a user with the given information, returning whether the user could be created or not."""
-    new_user = User(uid=uid, username=username, first_name=first_name, last_name=last_name)
+    if not is_invited(db, uid):
+        return CreateUserResponse(created=None, error=UserFieldErrors(uid="You aren't invited yet."))
+    new_user = User(uid=uid, username=request.username, first_name=request.first_name, last_name=request.last_name)
     db.add(new_user)
     try:
         db.commit()
@@ -43,7 +85,7 @@ def create_user(db: Session, uid: str, username: str, first_name: str, last_name
         if uid_exists(db, uid):
             error = UserFieldErrors(uid="User exists.")
             return CreateUserResponse(created=None, error=error)
-        elif username_taken(db, username):
+        elif username_taken(db, request.username):
             error = UserFieldErrors(username="Username taken.")
             return CreateUserResponse(created=None, error=error)
         else:

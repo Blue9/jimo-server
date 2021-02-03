@@ -26,7 +26,7 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     private_account = Column(Boolean, nullable=False, server_default=expression.false())
-    deactivated = Column(Boolean, nullable=False, server_default=expression.false())
+    deleted = Column(Boolean, nullable=False, server_default=expression.false())
 
     preferences = relationship("UserPrefs", uselist=False, back_populates="user", cascade="all, delete",
                                passive_deletes=True)
@@ -47,6 +47,23 @@ class User(Base):
     post_count = None
     follower_count = None
     following_count = None
+
+
+class Waitlist(Base):
+    __tablename__ = "waitlist"
+
+    id = Column(BigInteger, primary_key=True, nullable=False)
+    phone_number = Column(String, unique=True, nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class Invite(Base):
+    __tablename__ = "invite"
+
+    id = Column(BigInteger, primary_key=True, nullable=False)
+    phone_number = Column(String, nullable=False)
+    invited_by = Column(BigInteger, ForeignKey("user.id", ondelete="CASCADE"), nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
 
 class UserPrefs(Base):
