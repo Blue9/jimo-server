@@ -66,6 +66,16 @@ class Invite(Base):
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
 
+class FCMToken(Base):
+    __tablename__ = "fcm_token"
+
+    id = Column(BigInteger, primary_key=True, nullable=False)
+    user_id = Column(BigInteger, ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
+    token = Column(String, nullable=False)
+
+    __table_args__ = (UniqueConstraint("user_id", "token", name="_user_token"),)
+
+
 class UserPrefs(Base):
     __tablename__ = "preferences"
 
@@ -128,7 +138,7 @@ class PlaceData(Base):
     __tablename__ = "place_data"
 
     id = Column(BigInteger, primary_key=True, nullable=False)
-    user_id = Column(BigInteger, ForeignKey("user.id"), nullable=False)
+    user_id = Column(BigInteger, ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
     place_id = Column(BigInteger, ForeignKey("place.id"), nullable=False)
 
     # Region that describes the boundary of the place

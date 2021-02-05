@@ -39,3 +39,8 @@ class UserInviteStatus(Base):
 class UserWaitlistStatus(Base):
     invited: bool
     waitlisted: bool
+
+
+# Used for both registration and removal
+class NotificationTokenResponse(Base):
+    success: bool

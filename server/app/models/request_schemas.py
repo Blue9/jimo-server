@@ -104,3 +104,7 @@ class RectangularRegion(Base):
         assert 0 <= values.get("span_lat") <= 180
         assert 0 <= values.get("span_long") <= 360
         return values
+
+
+class NotificationTokenRequest(Base):
+    token: str

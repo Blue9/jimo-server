@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.orm import Session
 
 import app.controllers.posts
-from app.controllers import posts
+from app.controllers import posts, notifications
 from app.database import get_db
 from app.models import schemas, models
 from app.models.request_schemas import CreatePostRequest
@@ -140,6 +140,8 @@ def like_post(post_id: str, authorization: Optional[str] = Header(None), db: Ses
     post = get_post_and_validate_or_raise(post_id, authorization, db)
     user = utils.get_user_from_auth_or_raise(db, authorization)
     posts.like_post(db, user, post)
+    # Notify the user that their post was liked
+    notifications.notify_post_liked(db, post, liked_by=user)
     return {"likes": post.like_count}
 
 

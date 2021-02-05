@@ -64,6 +64,7 @@ def get_me(authorization: Optional[str] = Header(None), db: Session = Depends(ge
     return user
 
 
+app.include_router(routers.notifications.router, prefix="/notifications")
 app.include_router(routers.users.router, prefix="/users")
 app.include_router(routers.posts.router, prefix="/posts")
 app.include_router(routers.places.router, prefix="/places")
