@@ -182,7 +182,7 @@ def get_discover(db: Session, user: User) -> list[Post]:
     one_week_ago = datetime.datetime.utcnow() - datetime.timedelta(weeks=1)
     # TODO also filter by Post.user_id != user.id, for now it's easier to test without
     return db.query(Post).filter(
-        and_(Post.image_url.isnot(None), Post.created_at > one_week_ago)).order_by(
+        and_(Post.deleted == False, Post.image_url.isnot(None), Post.created_at > one_week_ago)).order_by(
         Post.like_count.desc()).limit(100)
 
 
