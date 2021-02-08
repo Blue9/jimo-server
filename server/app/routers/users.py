@@ -189,3 +189,26 @@ def get_feed(username: str, before: Optional[str] = None, authorization: Optiona
         fields = schemas.ORMPost.from_orm(post).dict()
         posts.append(schemas.Post(**fields, liked=user in post.likes))
     return posts
+
+
+@router.get("/{username}/discover", response_model=List[schemas.Post])
+def get_feed(username: str, authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
+    """Get the discover feed for the given user.
+
+    Args:
+        username: The username string.
+        authorization: Authorization header. This string is automatically injected by FastAPI.
+        db: The database session object. This object is automatically injected by FastAPI.
+
+    Returns:
+        The discover feed for the given user as a list of Post objects in reverse chronological order.
+    """
+    user = utils.get_user_from_auth_or_raise(db, authorization)
+    if user.username_lower != username.lower():
+        raise HTTPException(403, "Not authorized")
+    discover_feed = users.get_discover(db, user)
+    posts = []
+    for post in discover_feed:
+        fields = schemas.ORMPost.from_orm(post).dict()
+        posts.append(schemas.Post(**fields, liked=user in post.likes))
+    return posts

@@ -14,7 +14,7 @@ def get_uid_from_token(id_token: str) -> Optional[str]:
     """Get the user's uid from the given Firebase id token."""
     # TODO(gmekkat): remove in production
     test_token = "test"
-    test_uid = "k4EZgOr5UJgpwMkIb3WmOMv9dKu1"
+    test_uid = "fPn9Ib2R7NPl9UHwcCoOncC7hbJ3"
     if id_token == test_token:
         return test_uid
     try:

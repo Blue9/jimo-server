@@ -1,3 +1,4 @@
+import datetime
 from typing import Optional
 
 from geoalchemy2 import Geometry
@@ -23,7 +24,7 @@ def uid_exists(db: Session, uid: str) -> bool:
 
 def get_user(db: Session, username: str) -> Optional[User]:
     """Return the user with the given username or None if no such user exists."""
-    return db.query(User).filter(User.username == username).first()
+    return db.query(User).filter(User.username_lower == username.lower()).first()
 
 
 def get_user_by_uid(db: Session, uid: str) -> Optional[User]:
@@ -174,6 +175,15 @@ def get_feed(db: Session, user: User, before_post_id: Optional[str] = None) -> O
     if before_post is not None:
         query = query.filter(Post.id > before_post.id)
     return query.order_by(Post.created_at.desc()).limit(50).all()
+
+
+def get_discover(db: Session, user: User) -> list[Post]:
+    """Get the user's discover feed."""
+    one_week_ago = datetime.datetime.utcnow() - datetime.timedelta(weeks=1)
+    # TODO also filter by Post.user_id != user.id, for now it's easier to test without
+    return db.query(Post).filter(
+        and_(Post.image_url.isnot(None), Post.created_at > one_week_ago)).order_by(
+        Post.like_count.desc()).limit(100)
 
 
 def get_posts(db: Session, user: User) -> list[Post]:

@@ -9,6 +9,9 @@ from app.models.models import User, FCMToken, Post
 
 
 def register_fcm_token(db: Session, user: User, token: str):
+    existing = db.query(FCMToken).filter(and_(FCMToken.user_id == user.id, FCMToken.token == token)).count() > 0
+    if existing:
+        return
     fcm_token = FCMToken(user_id=user.id, token=token)
     db.add(fcm_token)
     try:
