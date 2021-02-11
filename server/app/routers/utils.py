@@ -1,7 +1,7 @@
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from app.controllers import auth, users
+from app.controllers import firebase, users
 from app.models import models
 
 
@@ -21,7 +21,7 @@ def check_can_view_user_else_raise(user: models.User, caller_uid: str = None,
 
 
 def get_uid_or_raise(authorization) -> str:
-    uid = auth.get_uid_from_auth_header(authorization)
+    uid = firebase.get_uid_from_auth_header(authorization)
     if uid is None:
         raise HTTPException(401, "Not authenticated")
     return uid

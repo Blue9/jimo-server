@@ -1,9 +1,9 @@
 from sqlalchemy import Column, BigInteger, String, DateTime, Boolean, ForeignKey, Table, select, func, and_, Float, \
-    Computed, UniqueConstraint, Index
+    Computed, UniqueConstraint, Index, false
 from geoalchemy2 import Geography
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.associationproxy import association_proxy
-from sqlalchemy.orm import relationship, column_property
+from sqlalchemy.orm import relationship, column_property, aliased
 from sqlalchemy.sql import expression
 
 from app.database import Base
@@ -22,11 +22,13 @@ class User(Base):
     username = Column(String(length=255), unique=True, nullable=False)
     first_name = Column(String(length=255), nullable=False)
     last_name = Column(String(length=255), nullable=False)
+    phone_number = Column(String(length=255), nullable=True)
     profile_picture_url = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     private_account = Column(Boolean, nullable=False, server_default=expression.false())
     deleted = Column(Boolean, nullable=False, server_default=expression.false())
+    username_lower = Column(String(length=255), Computed("LOWER(username)"), unique=True, nullable=False)
 
     preferences = relationship("UserPrefs", uselist=False, back_populates="user", cascade="all, delete",
                                passive_deletes=True)
@@ -40,8 +42,6 @@ class User(Base):
                                            cascade="all, delete",
                                            backref="followers")
     followers: list["User"] = None  # Computed with backref above
-
-    username_lower = Column(String(length=255), Computed("LOWER(username)"), unique=True, nullable=False)
 
     # Computed column properties
     post_count = None
@@ -125,7 +125,6 @@ class Place(Base):
 
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
-    posts = relationship("Post", back_populates="place")
 
     # Only want one row per (name, latitude, longitude)
     __table_args__ = (UniqueConstraint("name", "latitude", "longitude", name="_place_name_location"),)
@@ -197,8 +196,8 @@ class Post(Base):
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
-    user = relationship("User", back_populates="posts")
-    place = relationship("Place", back_populates="posts")
+    user = relationship("User")
+    place = relationship("Place")
     _category = relationship("Category")
     _tags = relationship("Tag", secondary=post_tag, cascade="all, delete", passive_deletes=True)
     likes = relationship("User", secondary=post_like, cascade="all, delete", passive_deletes=True)
@@ -213,7 +212,6 @@ class Post(Base):
 
     # Only want one row per (user, place) pair for all non-deleted posts
     __table_args__ = (Index("_posts_user_place_uc", "user_id", "place_id", unique=True, postgresql_where=(~deleted)),)
-    # __table_args__ = (UniqueConstraint("user_id", "place_id", name="_posts_user_place_uc"),)
 
 
 class Comment(Base):
@@ -232,15 +230,24 @@ class Comment(Base):
 
 
 # Column properties
-follow_alias = follow.alias()
-# The follow alias is necessary because the followers+following relationship will join on follow, so we need another
-# name to refer to follow in this subquery.
 
-User.post_count = column_property(select([func.count()]).where(Post.user_id == User.id), deferred=True)
-User.follower_count = column_property(select([func.count()]).where(follow_alias.c.to_user_id == User.id), deferred=True)
+# Users
+other_user = aliased(User)
+User.post_count = column_property(select([func.count()]).where(and_(Post.user_id == User.id, Post.deleted == false())),
+                                  deferred=True)
+User.follower_count = column_property(
+    select([func.count()]).select_from(follow.join(other_user, follow.c.from_user_id == other_user.id)).where(
+        and_(follow.c.to_user_id == User.id, other_user.deleted == false())), deferred=True)
+
 User.following_count = column_property(
-    select([func.count()]).where(follow_alias.c.from_user_id == User.id), deferred=True)
+    select([func.count()]).select_from(follow.join(other_user, follow.c.to_user_id == other_user.id)).where(
+        and_(follow.c.from_user_id == User.id, other_user.deleted == false())), deferred=True)
 
-Post.like_count = column_property(select([func.count()]).where(Post.id == post_like.c.post_id))
+# Posts
+Post.like_count = column_property(
+    select([func.count()]).select_from(post_like.join(User)).where(
+        and_(Post.id == post_like.c.post_id, User.deleted == false())), deferred=True)
+
 Post.comment_count = column_property(
-    select([func.count()]).where(and_(Post.id == Comment.post_id, Comment.deleted == expression.false())))
+    select([func.count()]).where(and_(Post.id == Comment.post_id, Comment.deleted == expression.false())),
+    deferred=True)

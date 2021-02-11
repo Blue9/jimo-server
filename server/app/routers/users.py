@@ -4,10 +4,10 @@ from fastapi import APIRouter, Depends, HTTPException, Header
 from pydantic.tools import parse_obj_as
 from sqlalchemy.orm import Session
 
-from app.controllers import users
+from app.controllers import users, firebase
 from app.database import get_db
 from app.models import models, schemas
-from app.models.request_schemas import CreateUserRequest, UpdateUserRequest
+from app.models.request_schemas import CreateUserRequest, UpdateUserRequest, PhoneNumberList
 from app.models.models import User
 from app.models.schemas import PublicUser
 from app.models.response_schemas import CreateUserResponse, UpdateUserResponse
@@ -34,7 +34,8 @@ def create_user(request: CreateUserRequest, authorization: Optional[str] = Heade
     """
     print("Create user")
     uid_from_auth = get_uid_or_raise(authorization)
-    return users.create_user(db, uid_from_auth, request)
+    phone_number: Optional[str] = firebase.get_phone_number_from_uid(uid_from_auth)
+    return users.create_user(db, uid_from_auth, request, phone_number=phone_number)
 
 
 @router.get("/{username}", response_model=PublicUser)
@@ -192,7 +193,7 @@ def get_feed(username: str, before: Optional[str] = None, authorization: Optiona
 
 
 @router.get("/{username}/discover", response_model=List[schemas.Post])
-def get_feed(username: str, authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
+def get_discover_feed(username: str, authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
     """Get the discover feed for the given user.
 
     Args:
@@ -206,9 +207,34 @@ def get_feed(username: str, authorization: Optional[str] = Header(None), db: Ses
     user = utils.get_user_from_auth_or_raise(db, authorization)
     if user.username_lower != username.lower():
         raise HTTPException(403, "Not authorized")
-    discover_feed = users.get_discover(db, user)
+    discover_feed = users.get_discover_feed(db)
     posts = []
     for post in discover_feed:
         fields = schemas.ORMPost.from_orm(post).dict()
         posts.append(schemas.Post(**fields, liked=user in post.likes))
     return posts
+
+
+@router.get("/{username}/suggested", response_model=List[schemas.PublicUser])
+def get_suggested_users(username: str, authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
+    """Get the list of featured jimo accounts."""
+    user = utils.get_user_from_auth_or_raise(db, authorization)
+    if user.username_lower != username.lower():
+        raise HTTPException(403, "Not authorized")
+    featured_usernames = ["food", "jimo", "chicago", "nyc"]
+    featured_users = [users.get_user(db, username) for username in featured_usernames]
+    return list(filter(lambda u: u is not None, featured_users))
+
+
+@router.post("/{username}/contacts", response_model=List[schemas.PublicUser])
+def get_existing_users(username: str, request: PhoneNumberList, authorization: Optional[str] = Header(None),
+                       db: Session = Depends(get_db)):
+    """Get the existing users from the list of e164 formatted phone numbers."""
+    user = utils.get_user_from_auth_or_raise(db, authorization)
+    if user.username_lower != username.lower():
+        raise HTTPException(403, "Not authorized")
+    if user.phone_number is not None:
+        phone_numbers = [number for number in request.phone_numbers if number != user.phone_number]
+    else:
+        phone_numbers = request.phone_numbers
+    return users.get_users_by_phone_numbers(db, phone_numbers)

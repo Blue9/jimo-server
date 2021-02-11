@@ -108,3 +108,12 @@ class RectangularRegion(Base):
 
 class NotificationTokenRequest(Base):
     token: str
+
+
+class PhoneNumberList(Base):
+    phone_numbers: list[str]
+
+    @validator("phone_numbers")
+    def validate_phone_numbers(cls, phone_numbers):
+        # TODO make sure each number is in e164 format
+        return phone_numbers

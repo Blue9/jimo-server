@@ -8,7 +8,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 from app import routers
-from app.controllers import auth, users, places
+from app.controllers import firebase, users, places
 from app.database import get_db
 from app.models import schemas
 from app.models.schemas import PrivateUser, Location
@@ -36,7 +36,7 @@ def index():
 def get_test_token(uid: str):
     try:
         from starlette.responses import Response
-        return Response(content=auth.get_test_token(uid))
+        return Response(content=firebase.get_test_token(uid))
     except Exception:
         raise HTTPException(404)
 
@@ -55,7 +55,7 @@ def get_me(authorization: Optional[str] = Header(None), db: Session = Depends(ge
     Raises:
         HTTPException: If the user could not be found (404) or the caller isn't authenticated (401).
     """
-    uid = auth.get_uid_from_auth_header(authorization)
+    uid = firebase.get_uid_from_auth_header(authorization)
     if uid is None:
         raise HTTPException(401, "Not authenticated")
     user = users.get_user_by_uid(db, uid)

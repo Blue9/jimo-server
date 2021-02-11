@@ -9,7 +9,6 @@ T = TypeVar("T")
 
 def get_urlsafe_id() -> str:
     """Get a random url-safe id."""
-    # return "9bdd6cf3-fecb-4c5e-a4bb-02dfae2555d4"
     return str(uuid.uuid4())
 
 

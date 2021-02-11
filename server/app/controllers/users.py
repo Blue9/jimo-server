@@ -7,40 +7,46 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.functions import concat, func
 
-from app.controllers import auth
+from app.controllers import firebase, auth
 from app.models.models import User, Post, UserPrefs, Place, Invite, Waitlist
 from app.models.request_schemas import UpdateUserRequest, RectangularRegion, CreateUserRequest
 from app.models.response_schemas import UpdateUserResponse, UserFieldErrors, CreateUserResponse, UserInviteStatus
 
 
 def username_taken(db: Session, username: str) -> bool:
-    """Return whether or not a user with the given username exists."""
+    """Return whether or not a user (deleted or not) with the given username exists."""
     return db.query(User).filter(User.username_lower == username.lower()).count() > 0
 
 
 def uid_exists(db: Session, uid: str) -> bool:
+    """Return whether or not a user (deleted or not) with the given uid exists."""
     return db.query(User).filter(User.uid == uid).count() > 0
 
 
 def get_user(db: Session, username: str) -> Optional[User]:
-    """Return the user with the given username or None if no such user exists."""
-    return db.query(User).filter(User.username_lower == username.lower()).first()
+    """Return the user with the given username or None if no such user exists or the user is deleted."""
+    return db.query(User).filter(and_(User.username_lower == username.lower(), User.deleted == false())).first()
+
+
+def get_users_by_phone_numbers(db: Session, phone_numbers: list[str]) -> list[User]:
+    """Return the list of users with the given phone numbers."""
+    return db.query(User).filter(and_(User.phone_number.in_(phone_numbers), User.deleted == false())).all()
 
 
 def get_user_by_uid(db: Session, uid: str) -> Optional[User]:
-    """Return the user with the given uid or None if no such user exists."""
-    return db.query(User).filter(User.uid == uid).first()
+    """Return the user with the given uid or None if no such user exists or the user is deleted."""
+    return db.query(User).filter(and_(User.uid == uid, User.deleted == false())).first()
 
 
 def is_invited(db: Session, uid: str) -> bool:
-    phone_number = auth.get_phone_number_from_uid(uid)
+    phone_number = firebase.get_phone_number_from_uid(uid)
     if phone_number is None:
         return False
     return db.query(Invite).filter(Invite.phone_number == phone_number).count() > 0
 
 
 def on_waitlist(db: Session, uid: str) -> bool:
-    phone_number = auth.get_phone_number_from_uid(uid)
+    phone_number = firebase.get_phone_number_from_uid(uid)
     if phone_number is None:
         return False
     return db.query(Waitlist).filter(Waitlist.phone_number == phone_number).count() > 0
@@ -49,20 +55,15 @@ def on_waitlist(db: Session, uid: str) -> bool:
 def invite_user(db: Session, user: User, phone_number: str) -> UserInviteStatus:
     invite = Invite(phone_number=phone_number, invited_by=user.id)
     db.add(invite)
-    try:
-        db.commit()
-        return UserInviteStatus(invited=True)
-    except IntegrityError as e:
-        print(e)
-        db.rollback()
-        return UserInviteStatus(invited=False)
+    db.commit()
+    return UserInviteStatus(invited=True)
 
 
 def join_waitlist(db: Session, uid: str):
-    phone_number = auth.get_phone_number_from_uid(uid)
+    phone_number = firebase.get_phone_number_from_uid(uid)
     if phone_number is None:
         raise ValueError("Phone number not found")
-    row = Waitlist(phone_number=auth.get_phone_number_from_uid(uid))
+    row = Waitlist(phone_number=firebase.get_phone_number_from_uid(uid))
     db.add(row)
     try:
         db.commit()
@@ -72,11 +73,12 @@ def join_waitlist(db: Session, uid: str):
         db.rollback()
 
 
-def create_user(db: Session, uid: str, request: CreateUserRequest) -> CreateUserResponse:
+def create_user(db: Session, uid: str, request: CreateUserRequest, phone_number: Optional[str]) -> CreateUserResponse:
     """Try to create a user with the given information, returning whether the user could be created or not."""
     if not is_invited(db, uid):
         return CreateUserResponse(created=None, error=UserFieldErrors(uid="You aren't invited yet."))
-    new_user = User(uid=uid, username=request.username, first_name=request.first_name, last_name=request.last_name)
+    new_user = User(uid=uid, username=request.username, first_name=request.first_name, last_name=request.last_name,
+                    phone_number=phone_number)
     db.add(new_user)
     try:
         db.commit()
@@ -113,7 +115,7 @@ def update_user(db: Session, user: User, request: UpdateUserRequest) -> UpdateUs
             db.rollback()
             setattr(errors, column_name, message_if_fail)
 
-    if request.username and len(request.username) > 0:
+    if request.username:
         attempt_update("username", "Username taken.")
     if request.first_name:
         attempt_update("first_name", "Failed to update first name")
@@ -162,40 +164,46 @@ def update_user_prefs(db: Session, user: User, request: UpdateUserRequest) -> Op
         return None
 
 
+def get_posts(db: Session, user: User) -> list[Post]:
+    """Get the user's posts that aren't deleted."""
+    return db.query(Post).filter(and_(Post.user_id == user.id, Post.deleted == false())).order_by(
+        Post.created_at.desc()).all()
+
+
+def get_following(user: User) -> list[User]:
+    """Return the list of active users the given user is following."""
+    return [u for u in user.following if not u.deleted]
+
+
 def get_feed(db: Session, user: User, before_post_id: Optional[str] = None) -> Optional[list[Post]]:
     """Get the user's feed, returning None if the user is not authorized or if before_post_id is invalid."""
     before_post = None
     if before_post_id is not None:
-        before_post = db.query(Post).filter(Post.urlsafe_id == before_post_id, Post.deleted == false()).first()
+        before_post = db.query(Post).filter(Post.urlsafe_id == before_post_id).first()
         if before_post is None or not auth.user_can_view_post(user, before_post):
             return None
-    following_ids = [u.id for u in user.following]
-    following_ids.append(user.id)
+    following = get_following(user)
+    following.append(user)
+    following_ids = [u.id for u in following]
     query = db.query(Post).filter(Post.user_id.in_(following_ids), Post.deleted == false())
     if before_post is not None:
-        query = query.filter(Post.id > before_post.id)
+        query = query.filter(Post.id < before_post.id)
     return query.order_by(Post.created_at.desc()).limit(50).all()
 
 
-def get_discover(db: Session, user: User) -> list[Post]:
+def get_discover_feed(db: Session) -> list[Post]:
     """Get the user's discover feed."""
     one_week_ago = datetime.datetime.utcnow() - datetime.timedelta(weeks=1)
     # TODO also filter by Post.user_id != user.id, for now it's easier to test without
     return db.query(Post).filter(
-        and_(Post.deleted == False, Post.image_url.isnot(None), Post.created_at > one_week_ago)).order_by(
+        and_(Post.image_url.isnot(None), Post.created_at > one_week_ago, Post.deleted == false())).order_by(
         Post.like_count.desc()).limit(100)
-
-
-def get_posts(db: Session, user: User) -> list[Post]:
-    """Get the user's posts that aren't deleted."""
-    return db.query(Post).filter(and_(Post.user_id == user.id, Post.deleted == False)).order_by(
-        Post.created_at.desc()).all()
 
 
 def get_map(db: Session, user: User, bounds: RectangularRegion) -> list[Post]:
     """Get the user's map view, returning up to the 50 most recent posts in the given region."""
     # TODO this is broken, fix
-    following_ids = [u.id for u in user.following] + [user.id]
+    following_ids = [u.id for u in get_following(user)] + [user.id]
     min_x = bounds.center_long - bounds.span_long / 2
     max_x = bounds.center_long + bounds.span_long / 2
     min_y = bounds.center_lat - bounds.span_lat / 2
@@ -203,17 +211,17 @@ def get_map(db: Session, user: User, bounds: RectangularRegion) -> list[Post]:
 
     min_x = min_x + 360 if min_x < -180 else min_x
     max_x = max_x - 360 if max_x > 180 else max_x
+
+    def _intersects(location_field):
+        return func.ST_Intersects(
+            func.ST_ShiftLongitude(cast(location_field, Geometry)),
+            func.ST_ShiftLongitude(func.ST_MakeEnvelope(min_x, min_y, max_x, max_y, 4326)))
+
     post_id_query = db.query(Post.id).filter(Post.user_id.in_(following_ids), Post.deleted == false()).join(
         Place).filter(
-        case([(Post.custom_location.isnot(None), _intersects(Post.custom_location, min_x, min_y, max_x, max_y))],
-             else_=_intersects(Place.location, min_x, min_y, max_x, max_y))).order_by(Post.created_at.desc()).limit(50)
+        case([(Post.custom_location.isnot(None), _intersects(Post.custom_location))],
+             else_=_intersects(Place.location))).order_by(Post.created_at.desc()).limit(50)
     return db.query(Post).filter(Post.id.in_(post_id_query)).all()
-
-
-def _intersects(location_field, min_x, min_y, max_x, max_y):
-    return func.ST_Intersects(
-        func.ST_ShiftLongitude(cast(location_field, Geometry)),
-        func.ST_ShiftLongitude(func.ST_MakeEnvelope(min_x, min_y, max_x, max_y, 4326)))
 
 
 def search_users(db: Session, query: str) -> list[User]:
@@ -221,6 +229,6 @@ def search_users(db: Session, query: str) -> list[User]:
         # Only search if the query is >= 3 chars
         return []
     # First search usernames
-    return db.query(User).filter(
+    return db.query(User).filter(User.deleted == false()).filter(
         or_(User.username.ilike(f"{query}%"), concat(User.first_name, " ", User.last_name).ilike(f"{query}%"))).limit(
         50).all()

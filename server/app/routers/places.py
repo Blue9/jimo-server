@@ -15,8 +15,8 @@ router = APIRouter()
 
 
 @router.get("/map", response_model=list[schemas.Post])
-def get_places(center_lat: float, center_long: float, span_lat: float, span_long: float,
-               authorization: Optional[str] = Header(None), db: Session = Depends(get_db)) -> list[schemas.Post]:
+def get_map(center_lat: float, center_long: float, span_lat: float, span_long: float,
+            authorization: Optional[str] = Header(None), db: Session = Depends(get_db)) -> list[schemas.Post]:
     try:
         bounding_box = RectangularRegion(center_lat=center_lat, center_long=center_long, span_lat=span_lat,
                                          span_long=span_long)
