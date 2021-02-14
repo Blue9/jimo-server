@@ -8,10 +8,7 @@ class UserFieldErrors(Base):
     username: Optional[str]
     first_name: Optional[str]
     last_name: Optional[str]
-    private_account: Optional[str]
-    post_notifications: Optional[str]
-    follow_notifications: Optional[str]
-    post_liked_notifications: Optional[str]
+    other: Optional[str]
 
 
 class CreateUserResponse(Base):
@@ -19,9 +16,9 @@ class CreateUserResponse(Base):
     error: Optional[UserFieldErrors]
 
 
-class UpdateUserResponse(Base):
+class UpdateProfileResponse(Base):
     user: Optional[PrivateUser]
-    errors: Optional[UserFieldErrors]
+    error: Optional[UserFieldErrors]
 
 
 class LikePostResponse(Base):

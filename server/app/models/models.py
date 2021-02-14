@@ -17,8 +17,8 @@ follow = Table("follow", Base.metadata,
 class User(Base):
     __tablename__ = "user"
 
-    id = Column(BigInteger, primary_key=True, nullable=False)
-    uid = Column(String, unique=True, nullable=False)
+    id = Column(BigInteger, primary_key=True, nullable=False)  # Database id, used for relationships
+    uid = Column(String, unique=True, nullable=False)  # Firebase id, maps to Firebase users
     username = Column(String(length=255), unique=True, nullable=False)
     first_name = Column(String(length=255), nullable=False)
     last_name = Column(String(length=255), nullable=False)

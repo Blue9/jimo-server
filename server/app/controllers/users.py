@@ -9,8 +9,8 @@ from sqlalchemy.sql.functions import concat, func
 
 from app.controllers import firebase, auth
 from app.models.models import User, Post, UserPrefs, Place, Invite, Waitlist
-from app.models.request_schemas import UpdateUserRequest, RectangularRegion, CreateUserRequest
-from app.models.response_schemas import UpdateUserResponse, UserFieldErrors, CreateUserResponse, UserInviteStatus
+from app.models.request_schemas import UpdateProfileRequest, RectangularRegion, CreateUserRequest
+from app.models.response_schemas import UpdateProfileResponse, UserFieldErrors, CreateUserResponse, UserInviteStatus
 
 
 def username_taken(db: Session, username: str) -> bool:
@@ -82,6 +82,12 @@ def create_user(db: Session, uid: str, request: CreateUserRequest, phone_number:
     db.add(new_user)
     try:
         db.commit()
+        # Initialize user preferences
+        prefs = UserPrefs(user_id=new_user.id, post_notifications=False, follow_notifications=True,
+                          post_liked_notifications=True)
+        db.add(prefs)
+        db.commit()
+        return CreateUserResponse(created=new_user, error=None)
     except IntegrityError as e:
         db.rollback()
         # A user with the same uid or username exists
@@ -94,74 +100,43 @@ def create_user(db: Session, uid: str, request: CreateUserRequest, phone_number:
         else:
             # Unknown error
             print(e)
-            return CreateUserResponse(created=None, error=None)
-    # Initialize user preferences
-    prefs = UserPrefs(user_id=new_user.id, post_notifications=False, follow_notifications=True,
-                      post_liked_notifications=True)
-    db.add(prefs)
-    db.commit()
-    return CreateUserResponse(created=new_user, error=None)
+            return CreateUserResponse(created=None, error=UserFieldErrors(other="Unknown error."))
 
 
-def update_user(db: Session, user: User, request: UpdateUserRequest) -> UpdateUserResponse:
+def update_user(db: Session, user: User, request: UpdateProfileRequest) -> UpdateProfileResponse:
     """Update the given user with the given details."""
-    errors = UserFieldErrors()
-
-    def attempt_update(column_name, message_if_fail):
-        try:
-            setattr(user, column_name, getattr(request, column_name))
-            db.commit()
-        except IntegrityError:
-            db.rollback()
-            setattr(errors, column_name, message_if_fail)
-
     if request.username:
-        attempt_update("username", "Username taken.")
+        user.username = request.username
     if request.first_name:
-        attempt_update("first_name", "Failed to update first name")
+        user.first_name = request.first_name
     if request.last_name:
-        attempt_update("last_name", "Failed to update last name")
-    if request.private_account is not None:
-        attempt_update("private_account", "Failed to update private account settings")
+        user.last_name = request.last_name
+    if request.profile_picture_url:
+        user.profile_picture_url = request.profile_picture_url
 
-    user_pref_errors = update_user_prefs(db, user, request)
-    if user_pref_errors:
-        errors.post_notifications = user_pref_errors.post_notifications
-        errors.follow_notifications = user_pref_errors.follow_notifications
-        errors.post_liked_notifications = user_pref_errors.post_liked_notifications
+    try:
+        user.updated_at = datetime.datetime.utcnow()
+        db.commit()
+        return UpdateProfileResponse(user=user, error=None)
+    except IntegrityError as e:
+        db.rollback()
+        if username_taken(db, request.username):
+            return UpdateProfileResponse(user=None, error=UserFieldErrors(username="Username taken."))
+        else:
+            # Unknown error
+            print(e)
+            return UpdateProfileResponse(user=None, error=UserFieldErrors(other="Unknown error."))
 
-    if len(errors.dict(exclude_none=True)):
-        return UpdateUserResponse(user=user, errors=errors)
-    else:
-        return UpdateUserResponse(user=user)
 
-
-def update_user_prefs(db: Session, user: User, request: UpdateUserRequest) -> Optional[UserFieldErrors]:
-    errors = UserFieldErrors()
-    user_prefs = db.query(UserPrefs).filter(UserPrefs.user_id == user.id).first()
-
-    def attempt_update(column_name, message_if_fail):
-        if user_prefs is None:
-            # Something is wrong, the user was not created properly
-            # This state should never happen
-            setattr(errors, column_name, message_if_fail)
-            return
-        try:
-            setattr(user_prefs, column_name, getattr(request, column_name))
-            db.commit()
-        except IntegrityError:
-            db.rollback()
-            setattr(errors, column_name, message_if_fail)
-
-    if request.follow_notifications is not None:
-        attempt_update("follow_notifications", "Failed to update notification settings")
-    if request.post_liked_notifications is not None:
-        attempt_update("post_liked_notifications", "Failed to update notification settings")
-
-    if len(errors.dict(exclude_none=True)):
-        return errors
-    else:
-        return None
+def update_preferences(db: Session, user: User, request: UserPrefs) -> UserPrefs:
+    prefs: UserPrefs = user.preferences
+    prefs.follow_notifications = request.follow_notifications
+    prefs.post_liked_notifications = request.post_liked_notifications
+    prefs.post_notifications = request.post_notifications
+    db.commit()
+    return UserPrefs(follow_notifications=prefs.follow_notifications,
+                     post_liked_notifications=prefs.post_liked_notifications,
+                     post_notifications=prefs.post_notifications)
 
 
 def get_posts(db: Session, user: User) -> list[Post]:

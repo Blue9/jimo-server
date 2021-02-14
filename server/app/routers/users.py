@@ -7,10 +7,10 @@ from sqlalchemy.orm import Session
 from app.controllers import users, firebase
 from app.database import get_db
 from app.models import models, schemas
-from app.models.request_schemas import CreateUserRequest, UpdateUserRequest, PhoneNumberList
+from app.models.request_schemas import CreateUserRequest, UpdateProfileRequest, PhoneNumberList
 from app.models.models import User
-from app.models.schemas import PublicUser
-from app.models.response_schemas import CreateUserResponse, UpdateUserResponse
+from app.models.schemas import PublicUser, UserPrefs
+from app.models.response_schemas import CreateUserResponse, UpdateProfileResponse
 from app.routers import utils
 from app.routers.utils import get_uid_or_raise, validate_user, check_can_view_user_else_raise, get_user_or_raise
 
@@ -32,7 +32,6 @@ def create_user(request: CreateUserRequest, authorization: Optional[str] = Heade
     Raises:
         HTTPException: If the auth header is invalid (401).
     """
-    print("Create user")
     uid_from_auth = get_uid_or_raise(authorization)
     phone_number: Optional[str] = firebase.get_phone_number_from_uid(uid_from_auth)
     return users.create_user(db, uid_from_auth, request, phone_number=phone_number)
@@ -58,10 +57,10 @@ def get_user(username: str, authorization: Optional[str] = Header(None), db: Ses
     return parse_obj_as(PublicUser, user)
 
 
-@router.post("/{username}", response_model=UpdateUserResponse, response_model_exclude_none=True)
-def update_user(username: str, request: UpdateUserRequest, authorization: Optional[str] = Header(None),
+@router.post("/{username}", response_model=UpdateProfileResponse, response_model_exclude_none=True)
+def update_user(username: str, request: UpdateProfileRequest, authorization: Optional[str] = Header(None),
                 db: Session = Depends(get_db)):
-    """Update the settings for the given user.
+    """Update the given user's profile.
 
     Args:
         username: The username string.
@@ -70,7 +69,7 @@ def update_user(username: str, request: UpdateUserRequest, authorization: Option
         db: The database session object. This object is automatically injected by FastAPI.
 
     Returns:
-        The updated user object and settings.
+        The updated user object.
 
     Raises:
         HTTPException: If the user could not be found (404), the caller isn't authenticated (401), or the caller
@@ -81,6 +80,54 @@ def update_user(username: str, request: UpdateUserRequest, authorization: Option
     if user.uid != user_uid:
         raise HTTPException(403, detail="Not authorized")
     return users.update_user(db, user, request)
+
+
+@router.get("/{username}/preferences", response_model=UserPrefs, response_model_exclude_none=True)
+def get_preferences(username: str, authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
+    """Get the given user's preferences.
+
+    Args:
+        username: The username string.
+        authorization: Authorization header. This string is automatically injected by FastAPI.
+        db: The database session object. This object is automatically injected by FastAPI.
+
+    Returns:
+        The user's preferences.
+
+    Raises:
+        HTTPException: If the user could not be found (404), the caller isn't authenticated (401), or the caller
+        isn't authorized (403).
+    """
+    user_uid = get_uid_or_raise(authorization)
+    user: models.User = get_user_or_raise(username, db)
+    if user.uid != user_uid:
+        raise HTTPException(403, detail="Not authorized")
+    return user.preferences
+
+
+@router.post("/{username}/preferences", response_model=UserPrefs, response_model_exclude_none=True)
+def update_preferences(username: str, request: UserPrefs, authorization: Optional[str] = Header(None),
+                       db: Session = Depends(get_db)):
+    """Update the given user's preferences.
+
+    Args:
+        username: The username string.
+        request: The preferences update request.
+        authorization: Authorization header. This string is automatically injected by FastAPI.
+        db: The database session object. This object is automatically injected by FastAPI.
+
+    Returns:
+        The updated user preferences.
+
+    Raises:
+        HTTPException: If the user could not be found (404), the caller isn't authenticated (401), or the caller
+        isn't authorized (403).
+    """
+    user_uid = get_uid_or_raise(authorization)
+    user: models.User = get_user_or_raise(username, db)
+    if user.uid != user_uid:
+        raise HTTPException(403, detail="Not authorized")
+    return users.update_preferences(db, user, request)
 
 
 @router.get("/{username}/followers", response_model=List[PublicUser])

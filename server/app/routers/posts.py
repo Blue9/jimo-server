@@ -141,7 +141,8 @@ def like_post(post_id: str, authorization: Optional[str] = Header(None), db: Ses
     user = utils.get_user_from_auth_or_raise(db, authorization)
     posts.like_post(db, user, post)
     # Notify the user that their post was liked
-    notifications.notify_post_liked(db, post, liked_by=user)
+    # TODO move to background task
+    notifications.notify_post_liked_if_enabled(db, post, liked_by=user)
     return {"likes": post.like_count}
 
 

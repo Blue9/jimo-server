@@ -33,14 +33,16 @@ class CreateUserRequest(Base):
         return last_name
 
 
-class UpdateUserRequest(Base):
+class UpdateProfileRequest(Base):
+    profile_picture_url: Optional[str]
     username: Optional[str]
     first_name: Optional[str]
     last_name: Optional[str]
-    private_account: Optional[bool]
 
-    follow_notifications: Optional[bool]
-    post_liked_notifications: Optional[bool]
+    @validator("profile_picture_url")
+    def validate_profile_picture_url(cls, profile_picture_url):
+        # TODO validate profile picture url
+        return profile_picture_url
 
     @validator("username")
     def validate_username(cls, username):
