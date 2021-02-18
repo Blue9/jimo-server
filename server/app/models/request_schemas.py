@@ -92,6 +92,13 @@ class CreatePostRequest(Base):
     image_url: Optional[str]
     custom_location: Optional[Location]
 
+    @validator("content")
+    def validate_content(cls, content):
+        content = content.strip()
+        if len(content) > 2000:
+            raise ValueError("Note too long (max length 2000 chars)")
+        return content
+
 
 class RectangularRegion(Base):
     center_lat: float
