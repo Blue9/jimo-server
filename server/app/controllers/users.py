@@ -204,6 +204,7 @@ def search_users(db: Session, query: str) -> list[User]:
         # Only search if the query is >= 3 chars
         return []
     # First search usernames
+    # TODO this is inefficient, we should move to a real search engine
     return db.query(User).filter(User.deleted == false()).filter(
         or_(User.username.ilike(f"{query}%"), concat(User.first_name, " ", User.last_name).ilike(f"{query}%"))).limit(
         50).all()
