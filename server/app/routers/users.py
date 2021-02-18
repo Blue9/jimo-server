@@ -10,7 +10,7 @@ from app.models import models, schemas
 from app.models.request_schemas import CreateUserRequest, UpdateProfileRequest, PhoneNumberList
 from app.models.models import User
 from app.models.schemas import PublicUser, UserPrefs
-from app.models.response_schemas import CreateUserResponse, UpdateProfileResponse
+from app.models.response_schemas import CreateUserResponse, UpdateProfileResponse, FollowUserResponse
 from app.routers import utils
 from app.routers.utils import get_uid_or_raise, validate_user, check_can_view_user_else_raise, get_user_or_raise
 
@@ -285,3 +285,89 @@ def get_existing_users(username: str, request: PhoneNumberList, authorization: O
     else:
         phone_numbers = request.phone_numbers
     return users.get_users_by_phone_numbers(db, phone_numbers)
+
+
+@router.get("/{username}/follow_status", response_model=FollowUserResponse)
+def follow_status(username: str, authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
+    """Get follow status.
+
+    Args:
+        username: The username string to check follow status.
+        authorization: Authorization header. This string is automatically injected by FastAPI.
+        db: The database session object. This object is automatically injected by FastAPI.
+
+    Returns:
+        A boolean where true indicated the user is followed and false indicates the user is not followed.
+        TODO: Eventually when we add private users we can add another status for pending.
+
+    Raises:
+        HTTPException: If the user could not be found (404), the caller isn't authenticated (401),
+        or the caller is trying check status of themself (400).
+    """
+    caller_uid = get_uid_or_raise(authorization)
+    to_user = users.get_user(db, username)
+    validate_user(to_user)
+    if to_user.uid == caller_uid:
+        raise HTTPException(400, "Cannot follow yourself")
+
+    from_user = utils.get_user_from_uid_or_raise(db, caller_uid)
+
+    return FollowUserResponse(followed=(to_user in from_user.following))
+
+
+@router.post("/{username}/follow", response_model=FollowUserResponse)
+def follow_user(username: str, authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
+    """Follow a user.
+
+    Args:
+        username: The username string to follow.
+        authorization: Authorization header. This string is automatically injected by FastAPI.
+        db: The database session object. This object is automatically injected by FastAPI.
+
+    Returns:
+        A boolean where true indicated the user is followed and false indicates the user is not followed.
+
+    Raises:
+        HTTPException: If the user could not be found (404), the caller isn't authenticated (401), the user is already
+        followed (400), or the caller is trying to follow themself (400).
+    """
+    caller_uid = get_uid_or_raise(authorization)
+    to_user = users.get_user(db, username)
+    validate_user(to_user)
+    if to_user.uid == caller_uid:
+        raise HTTPException(400, "Cannot follow yourself")
+
+    from_user = utils.get_user_from_uid_or_raise(db, caller_uid)
+    if to_user in from_user.following:
+        raise HTTPException(400, "Already following this user")
+
+    return users.follow_user(db, from_user, to_user)
+
+
+@router.post("/{username}/unfollow", response_model=FollowUserResponse)
+def unfollow_user(username: str, authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
+    """Unfollow a user.
+
+    Args:
+        username: The username string to follow.
+        authorization: Authorization header. This string is automatically injected by FastAPI.
+        db: The database session object. This object is automatically injected by FastAPI.
+
+    Returns:
+        A boolean where true indicated the user is followed and false indicates the user is not followed.
+
+    Raises:
+        HTTPException: If the user could not be found (404), the caller isn't authenticated (401), the user is not
+        already followed (400), or the caller is trying to unfollow themself (400).
+    """
+    caller_uid = get_uid_or_raise(authorization)
+    to_user = users.get_user(db, username)
+    validate_user(to_user)
+    if to_user.uid == caller_uid:
+        raise HTTPException(400, "Cannot follow yourself")
+
+    from_user = utils.get_user_from_uid_or_raise(db, caller_uid)
+    if to_user not in from_user.following:
+        raise HTTPException(400, "Already not following this user")
+
+    return users.unfollow_user(db, from_user, to_user)

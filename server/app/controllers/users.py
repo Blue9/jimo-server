@@ -8,9 +8,9 @@ from sqlalchemy.orm import Session
 from sqlalchemy.sql.functions import concat, func
 
 from app.controllers import firebase, auth
-from app.models.models import User, Post, UserPrefs, Place, Invite, Waitlist
+from app.models.models import User, Post, UserPrefs, Place, Invite, Waitlist, follow
 from app.models.request_schemas import UpdateProfileRequest, RectangularRegion, CreateUserRequest
-from app.models.response_schemas import UpdateProfileResponse, UserFieldErrors, CreateUserResponse, UserInviteStatus
+from app.models.response_schemas import UpdateProfileResponse, UserFieldErrors, CreateUserResponse, UserInviteStatus, FollowUserResponse
 
 
 def username_taken(db: Session, username: str) -> bool:
@@ -197,6 +197,25 @@ def get_map(db: Session, user: User, bounds: RectangularRegion) -> list[Post]:
         case([(Post.custom_location.isnot(None), _intersects(Post.custom_location))],
              else_=_intersects(Place.location))).order_by(Post.created_at.desc()).limit(50)
     return db.query(Post).filter(Post.id.in_(post_id_query)).all()
+
+
+def follow_user(db: Session, from_user: User, to_user: User) -> FollowUserResponse:
+    from_user.following.append(to_user)
+    db.commit()
+    return FollowUserResponse(followed=True, followers=(len(to_user.followers)))
+
+
+def unfollow_user(db: Session, from_user: User, to_user: User) -> FollowUserResponse:
+    unfollow = follow.delete().where(and_(follow.c.from_user_id == from_user.id, follow.c.to_user_id == to_user.id))
+    db.execute(unfollow)
+    db.commit()
+    return FollowUserResponse(followed=False, followers=(len(to_user.followers)))
+
+
+def _intersects(location_field, min_x, min_y, max_x, max_y):
+    return func.ST_Intersects(
+        func.ST_ShiftLongitude(cast(location_field, Geometry)),
+        func.ST_ShiftLongitude(func.ST_MakeEnvelope(min_x, min_y, max_x, max_y, 4326)))
 
 
 def search_users(db: Session, query: str) -> list[User]:
