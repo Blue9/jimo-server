@@ -32,6 +32,11 @@ class DeletePostResponse(Base):
     deleted: bool
 
 
+class FollowUserResponse(Base):
+    followed: bool
+    followers: Optional[int]
+
+
 class UserInviteStatus(Base):
     invited: bool
 
