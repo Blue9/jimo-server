@@ -204,8 +204,9 @@ def get_posts(username: str, authorization: Optional[str] = Header(None), db: Se
     check_can_view_user_else_raise(user=user, caller_uid=caller_user.uid)
     posts = []
     for post in users.get_posts(db, user):
-        fields = schemas.ORMPost.from_orm(post).dict()
-        posts.append(schemas.Post(**fields, liked=caller_user in post.likes))
+        # ORMPostWithoutUser avoids querying post.user N times
+        fields = schemas.ORMPostWithoutUser.from_orm(post).dict()
+        posts.append(schemas.Post(**fields, user=user, liked=caller_user in post.likes))
     return posts
 
 
@@ -307,11 +308,7 @@ def follow_status(username: str, authorization: Optional[str] = Header(None), db
     caller_uid = get_uid_or_raise(authorization)
     to_user = users.get_user(db, username)
     validate_user(to_user)
-    if to_user.uid == caller_uid:
-        raise HTTPException(400, "Cannot follow yourself")
-
     from_user = utils.get_user_from_uid_or_raise(db, caller_uid)
-
     return FollowUserResponse(followed=(to_user in from_user.following))
 
 

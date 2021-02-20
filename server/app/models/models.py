@@ -229,6 +229,20 @@ class Comment(Base):
     post = relationship("Post", back_populates="comments")
 
 
+# Reports
+
+class PostReport(Base):
+    __tablename__ = "post_report"
+    id = Column(BigInteger, primary_key=True, nullable=False)
+    post_id = Column(BigInteger, ForeignKey("post.id", ondelete="CASCADE"), nullable=False)
+    reported_by_user_id = Column(BigInteger, ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
+    details = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    # Can only report a post once
+    __table_args__ = (UniqueConstraint("post_id", "reported_by_user_id", name="_report_post_user_uc"),)
+
+
 # Column properties
 
 # Users

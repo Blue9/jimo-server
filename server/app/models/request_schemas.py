@@ -126,3 +126,14 @@ class PhoneNumberList(Base):
     def validate_phone_numbers(cls, phone_numbers):
         # TODO make sure each number is in e164 format
         return phone_numbers
+
+
+class ReportPostRequest(Base):
+    details: Optional[str]
+
+    @validator("details")
+    def validate_details(cls, details):
+        details = details.strip()
+        if len(details) > 2000:
+            raise ValueError("Max length is 2000 characters")
+        return details

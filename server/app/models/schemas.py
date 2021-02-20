@@ -79,9 +79,8 @@ class Place(Base):
         return values
 
 
-class ORMPost(Base):
+class ORMPostWithoutUser(Base):
     urlsafe_id: str = Field(alias="postId")
-    user: PublicUser
     place: Place
     category: str
     content: str
@@ -105,6 +104,10 @@ class ORMPost(Base):
             return dict(values, custom_location=Location(latitude=values["custom_latitude"],
                                                          longitude=values["custom_longitude"]))
         return values
+
+
+class ORMPost(ORMPostWithoutUser):
+    user: PublicUser
 
 
 class Post(ORMPost):

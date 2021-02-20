@@ -43,6 +43,5 @@ class UserWaitlistStatus(Base):
     waitlisted: bool
 
 
-# Used for both registration and removal
-class NotificationTokenResponse(Base):
+class SimpleResponse(Base):
     success: bool

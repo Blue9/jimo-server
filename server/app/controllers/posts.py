@@ -1,10 +1,11 @@
 from typing import Optional
 
 from sqlalchemy import and_, false
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.controllers import places, utils, categories
-from app.models.models import Post, Comment, User, Place, post_like
+from app.models.models import Post, Comment, User, Place, post_like, PostReport
 from app.models.request_schemas import CreatePostRequest
 
 
@@ -53,3 +54,14 @@ def create_post(db: Session, user: User, request: CreatePostRequest) -> Optional
                                      custom_latitude=custom_latitude, custom_longitude=custom_longitude,
                                      content=request.content, image_url=request.image_url)
     return utils.add_with_urlsafe_id(db, build_post)
+
+
+def report_post(db: Session, post: Post, reported_by: User, details: Optional[str]) -> bool:
+    report = PostReport(post_id=post.id, reported_by_user_id=reported_by.id, details=details)
+    try:
+        db.add(report)
+        db.commit()
+        return True
+    except IntegrityError:
+        db.rollback()
+        return False

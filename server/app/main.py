@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Header, Depends
 from fastapi.encoders import jsonable_encoder
@@ -8,10 +8,9 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 from app import routers
-from app.controllers import firebase, users, places
+from app.controllers import firebase, users
 from app.database import get_db
-from app.models import schemas
-from app.models.schemas import PrivateUser, Location
+from app.models.schemas import PrivateUser
 
 app = FastAPI()
 

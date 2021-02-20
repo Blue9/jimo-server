@@ -7,8 +7,8 @@ import app.controllers.posts
 from app.controllers import posts, notifications
 from app.database import get_db
 from app.models import schemas, models
-from app.models.request_schemas import CreatePostRequest
-from app.models.response_schemas import LikePostResponse, DeletePostResponse
+from app.models.request_schemas import CreatePostRequest, ReportPostRequest
+from app.models.response_schemas import LikePostResponse, DeletePostResponse, SimpleResponse
 from app.routers import utils
 from app.routers.utils import get_uid_or_raise, check_can_view_user_else_raise
 
@@ -167,3 +167,14 @@ def unlike_post(post_id: str, authorization: Optional[str] = Header(None), db: S
     user = utils.get_user_from_auth_or_raise(db, authorization)
     posts.unlike_post(db, user, post)
     return {"likes": post.like_count}
+
+
+@router.post("/{post_id}/report", response_model=SimpleResponse)
+def report_post(post_id: str, request: ReportPostRequest, authorization: Optional[str] = Header(None),
+                db: Session = Depends(get_db)):
+    """Report the given post."""
+    post = get_post_and_validate_or_raise(post_id, authorization, db)
+    reported_by = utils.get_user_from_auth_or_raise(db, authorization)
+    success = posts.report_post(db, post, reported_by, details=request.details)
+    # TODO: if successful, notify ourselves (e.g, email)
+    return SimpleResponse(success=success)
