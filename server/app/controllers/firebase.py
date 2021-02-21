@@ -6,7 +6,7 @@ from firebase_admin.auth import InvalidIdTokenError, ExpiredIdTokenError, Revoke
     UserNotFoundError, UserRecord
 from firebase_admin.exceptions import FirebaseError
 
-import config
+from app import config
 
 _app = firebase_admin.initialize_app()
 
@@ -22,7 +22,6 @@ def get_uid_from_token(id_token: str) -> Optional[str]:
         decoded_token = auth.verify_id_token(id_token, check_revoked=True)
         return decoded_token.get("uid")
     except (InvalidIdTokenError, ExpiredIdTokenError, RevokedIdTokenError, CertificateFetchError) as e:
-        print("error with", e)
         return None
 
 

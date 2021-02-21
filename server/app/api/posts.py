@@ -1,32 +1,30 @@
-from typing import List, Optional
+from typing import Optional, List
 
-from fastapi import APIRouter, Depends, HTTPException, Header
+from fastapi import APIRouter, HTTPException, Header, Depends
 from sqlalchemy.orm import Session
 
-import app.controllers.posts
+from app import schemas
+from app.api import utils
 from app.controllers import posts, notifications
-from app.database import get_db
-from app.models import schemas, models
-from app.models.request_schemas import CreatePostRequest, ReportPostRequest
-from app.models.response_schemas import LikePostResponse, DeletePostResponse, SimpleResponse
-from app.routers import utils
-from app.routers.utils import get_uid_or_raise, check_can_view_user_else_raise
+from app.db.database import get_db
+from app.models import models
 
 router = APIRouter()
 
 
 def get_post_and_validate_or_raise(post_id: str, authorization: Optional[str], db: Session) -> models.Post:
-    caller_uid = get_uid_or_raise(authorization)
+    caller_uid = utils.get_uid_or_raise(authorization)
     post: models.Post = posts.get_post(db, post_id)
     post_not_found = HTTPException(404, detail="Post not found")
     if post is None:
         raise post_not_found
-    check_can_view_user_else_raise(user=post.user, caller_uid=caller_uid, custom_exception=post_not_found)
+    utils.check_can_view_user_else_raise(user=post.user, caller_uid=caller_uid, custom_exception=post_not_found)
     return post
 
 
-@router.post("/", response_model=schemas.Post)
-def create_post(request: CreatePostRequest, authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
+@router.post("/", response_model=schemas.post.Post)
+def create_post(request: schemas.post.CreatePostRequest, authorization: Optional[str] = Header(None),
+                db: Session = Depends(get_db)):
     """Create a new post.
 
     Args:
@@ -42,16 +40,16 @@ def create_post(request: CreatePostRequest, authorization: Optional[str] = Heade
     """
     user: models.User = utils.get_user_from_auth_or_raise(db, authorization)
     try:
-        post = app.controllers.posts.create_post(db, user, request)
-        fields = schemas.ORMPost.from_orm(post).dict()
+        post = posts.create_post(db, user, request)
+        fields = schemas.post.ORMPost.from_orm(post).dict()
         liked = user in post.likes
-        return schemas.Post(**fields, liked=liked)
+        return schemas.post.Post(**fields, liked=liked)
     except ValueError as e:
         print(e)
         raise HTTPException(400, detail=str(e))
 
 
-@router.get("/{post_id}", response_model=schemas.Post)
+@router.get("/{post_id}", response_model=schemas.post.Post)
 def get_post(post_id: str, authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
     """Get the given post.
 
@@ -71,11 +69,11 @@ def get_post(post_id: str, authorization: Optional[str] = Header(None), db: Sess
     user: models.User = utils.get_user_from_auth_or_raise(db, authorization)
     post = get_post_and_validate_or_raise(post_id, authorization, db)
     liked = user in post.likes
-    fields = schemas.ORMPost.from_orm(post).dict()
-    return schemas.Post(**fields, liked=liked)
+    fields = schemas.post.ORMPost.from_orm(post).dict()
+    return schemas.post.Post(**fields, liked=liked)
 
 
-@router.delete("/{post_id}", response_model=DeletePostResponse)
+@router.delete("/{post_id}", response_model=schemas.post.DeletePostResponse)
 def delete_post(post_id: str, authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
     """Delete the given post.
 
@@ -95,11 +93,11 @@ def delete_post(post_id: str, authorization: Optional[str] = Header(None), db: S
     if post is not None and post.user == user:
         post.deleted = True
         db.commit()
-        return DeletePostResponse(deleted=True)
-    return DeletePostResponse(deleted=False)
+        return schemas.post.DeletePostResponse(deleted=True)
+    return schemas.post.DeletePostResponse(deleted=False)
 
 
-@router.get("/{post_id}/comments", response_model=List[schemas.Comment])
+@router.get("/{post_id}/comments", response_model=List[schemas.post.Comment])
 def get_comments(post_id: str, authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
     """Get the given post's comments.
 
@@ -120,7 +118,7 @@ def get_comments(post_id: str, authorization: Optional[str] = Header(None), db: 
     return post.comments
 
 
-@router.post("/{post_id}/likes", response_model=LikePostResponse)
+@router.post("/{post_id}/likes", response_model=schemas.post.LikePostResponse)
 def like_post(post_id: str, authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
     """Like the given post if the user has not already liked the post.
 
@@ -146,7 +144,7 @@ def like_post(post_id: str, authorization: Optional[str] = Header(None), db: Ses
     return {"likes": post.like_count}
 
 
-@router.delete("/{post_id}/likes", response_model=LikePostResponse)
+@router.delete("/{post_id}/likes", response_model=schemas.post.LikePostResponse)
 def unlike_post(post_id: str, authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
     """Unlike the given post if the user has already liked the post.
 
@@ -169,12 +167,12 @@ def unlike_post(post_id: str, authorization: Optional[str] = Header(None), db: S
     return {"likes": post.like_count}
 
 
-@router.post("/{post_id}/report", response_model=SimpleResponse)
-def report_post(post_id: str, request: ReportPostRequest, authorization: Optional[str] = Header(None),
+@router.post("/{post_id}/report", response_model=schemas.base.SimpleResponse)
+def report_post(post_id: str, request: schemas.post.ReportPostRequest, authorization: Optional[str] = Header(None),
                 db: Session = Depends(get_db)):
     """Report the given post."""
     post = get_post_and_validate_or_raise(post_id, authorization, db)
     reported_by = utils.get_user_from_auth_or_raise(db, authorization)
     success = posts.report_post(db, post, reported_by, details=request.details)
     # TODO: if successful, notify ourselves (e.g, email)
-    return SimpleResponse(success=success)
+    return schemas.base.SimpleResponse(success=success)

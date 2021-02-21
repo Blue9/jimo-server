@@ -1,7 +1,7 @@
 from sqlalchemy import create_engine
 
 from app.controllers import categories
-from app.database import engine, get_db
+from app.db.database import engine, get_db
 from app.models import models
 
 PRINT_SCHEMA = False
@@ -14,8 +14,8 @@ def print_schema():
         else:
             print(sql.compile(dialect=engine.dialect))
 
-    engine = create_engine('postgresql://', strategy='mock', executor=dump)  # noqa
-    models.Base.metadata.create_all(engine, checkfirst=False)
+    print_engine = create_engine("postgresql://", strategy="mock", executor=dump)
+    models.Base.metadata.create_all(print_engine, checkfirst=False)
 
 
 if __name__ == "__main__":

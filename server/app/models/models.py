@@ -6,7 +6,7 @@ from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.orm import relationship, column_property, aliased
 from sqlalchemy.sql import expression
 
-from app.database import Base
+from app.db.database import Base
 
 follow = Table("follow", Base.metadata,
                Column("from_user_id", BigInteger, ForeignKey("user.id", ondelete="CASCADE"), primary_key=True),

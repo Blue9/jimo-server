@@ -7,10 +7,9 @@ from sqlalchemy.orm import Session
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
-from app import routers
+from app import schemas, api
 from app.controllers import firebase, users
-from app.database import get_db
-from app.models.schemas import PrivateUser
+from app.db.database import get_db
 
 app = FastAPI()
 
@@ -40,7 +39,7 @@ def get_test_token(uid: str):
         raise HTTPException(404)
 
 
-@app.get("/me", response_model=PrivateUser)
+@app.get("/me", response_model=schemas.user.PrivateUser)
 def get_me(authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
     """Get the given user based on the auth details.
 
@@ -63,9 +62,9 @@ def get_me(authorization: Optional[str] = Header(None), db: Session = Depends(ge
     return user
 
 
-app.include_router(routers.notifications.router, prefix="/notifications")
-app.include_router(routers.users.router, prefix="/users")
-app.include_router(routers.posts.router, prefix="/posts")
-app.include_router(routers.places.router, prefix="/places")
-app.include_router(routers.search.router, prefix="/search")
-app.include_router(routers.waitlist.router, prefix="/waitlist")
+app.include_router(api.notifications.router, prefix="/notifications")
+app.include_router(api.users.router, prefix="/users")
+app.include_router(api.posts.router, prefix="/posts")
+app.include_router(api.places.router, prefix="/places")
+app.include_router(api.search.router, prefix="/search")
+app.include_router(api.waitlist.router, prefix="/waitlist")
