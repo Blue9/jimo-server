@@ -243,6 +243,15 @@ class PostReport(Base):
     __table_args__ = (UniqueConstraint("post_id", "reported_by_user_id", name="_report_post_user_uc"),)
 
 
+class Feedback(Base):
+    __tablename__ = "feedback"
+    id = Column(BigInteger, primary_key=True, nullable=False)
+    user_id = Column(BigInteger, ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    contents = Column(String, nullable=False)
+    follow_up = Column(Boolean, nullable=False, server_default=expression.false())
+
+
 # Column properties
 
 # Users
