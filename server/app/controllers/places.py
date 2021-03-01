@@ -1,5 +1,4 @@
-from geoalchemy2 import Geometry
-from sqlalchemy import func, asc, and_, cast, false, case
+from sqlalchemy import func, asc, and_, false, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -98,25 +97,20 @@ def get_place_or_create(db: Session, user: models.User, request: schemas.place.M
     return place
 
 
-def get_map(db: Session, user: models.User, bounds: schemas.place.RectangularRegion) -> list[models.Post]:
-    """Get the user's map view, returning up to the 50 most recent posts in the given region."""
-    # TODO this is broken, fix
+def get_map(db: Session, user: models.User) -> list[schemas.post.Post]:
+    """Get the user's map view, returning up to the 1000 most recent posts."""
     following_ids = [u.id for u in get_following(user)] + [user.id]
-    min_x = bounds.center_long - bounds.span_long / 2
-    max_x = bounds.center_long + bounds.span_long / 2
-    min_y = bounds.center_lat - bounds.span_lat / 2
-    max_y = bounds.center_lat + bounds.span_lat / 2
+    posts = db.query(models.Post, select([func.count() > 0])
+                     .where(and_(models.post_like.c.post_id == models.Post.id,
+                                 models.post_like.c.user_id == user.id))
+                     .label("post_liked")) \
+        .filter(models.Post.user_id.in_(following_ids), models.Post.deleted == false()) \
+        .order_by(models.Post.created_at.desc()) \
+        .limit(1000) \
+        .all()
 
-    min_x = min_x + 360 if min_x < -180 else min_x
-    max_x = max_x - 360 if max_x > 180 else max_x
-
-    def _intersects(location_field):
-        return func.ST_Intersects(
-            func.ST_ShiftLongitude(cast(location_field, Geometry)),
-            func.ST_ShiftLongitude(func.ST_MakeEnvelope(min_x, min_y, max_x, max_y, 4326)))
-
-    post_id_query = db.query(models.Post.id).filter(models.Post.user_id.in_(following_ids),
-                                                    models.Post.deleted == false()).join(models.Place).filter(
-        case([(models.Post.custom_location.isnot(None), _intersects(models.Post.custom_location))],
-             else_=_intersects(models.Place.location))).order_by(models.Post.created_at.desc()).limit(50)
-    return db.query(models.Post).filter(models.Post.id.in_(post_id_query)).all()
+    all_posts = []
+    for post, is_post_liked in posts:
+        fields = schemas.post.ORMPost.from_orm(post).dict()
+        all_posts.append(schemas.post.Post(**fields, liked=is_post_liked))
+    return all_posts
