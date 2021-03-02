@@ -179,11 +179,14 @@ def get_feed(db: Session, user: models.User, before_post_id: Optional[str] = Non
 
 def get_discover_feed(db: Session) -> list[models.Post]:
     """Get the user's discover feed."""
-    one_week_ago = datetime.datetime.utcnow() - datetime.timedelta(weeks=1)
+    one_week_ago = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(weeks=1)
     # TODO also filter by Post.user_id != user.id, for now it's easier to test without
-    return db.query(models.Post).filter(and_(models.Post.image_url.isnot(None), models.Post.created_at > one_week_ago,
-                                             models.Post.deleted == false())).order_by(
-        models.Post.like_count.desc()).limit(100)
+    return db.query(models.Post) \
+        .filter(models.Post.image_url.isnot(None), models.Post.created_at > one_week_ago,
+                models.Post.deleted == false()) \
+        .order_by(models.Post.like_count.desc()) \
+        .limit(100) \
+        .all()
 
 
 def follow_user(db: Session, from_user: models.User, to_user: models.User) -> schemas.user.FollowUserResponse:
