@@ -1,4 +1,6 @@
-from fastapi import HTTPException
+import imghdr
+
+from fastapi import HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from app.controllers import firebase, users
@@ -42,3 +44,14 @@ def get_user_from_uid_or_raise(db: Session, uid: str) -> models.User:
 def get_user_from_auth_or_raise(db: Session, authorization: str) -> models.User:
     uid = get_uid_or_raise(authorization)
     return get_user_from_uid_or_raise(db, uid)
+
+
+def check_valid_image(file: UploadFile):
+    if file.content_type != "image/jpeg" or imghdr.what(file.file) != "jpeg":
+        raise HTTPException(400, detail="File is not an image")
+    file_size = 0
+    for chunk in file.file:
+        file_size += len(chunk)
+        if file_size > 2 * 1024 * 1024:
+            raise HTTPException(400, detail="Max file size is 2MB")
+    file.file.seek(0)

@@ -36,11 +36,16 @@ def save_place_data(db: Session, user: models.User, place: models.Place,
 
 def create_place(db: Session, request: schemas.place.MaybeCreatePlaceRequest) -> models.Place:
     """Create a place in the database with the given details."""
-    build_place = lambda url_id: models.Place(urlsafe_id=url_id, name=request.name, latitude=request.location.latitude,
-                                              longitude=request.location.longitude)
+    place = models.Place(name=request.name, latitude=request.location.latitude, longitude=request.location.longitude)
     try:
-        return utils.add_with_urlsafe_id(db, build_place)
-    except IntegrityError:
+        db.add(place)
+        db.commit()
+        return place
+    except IntegrityError as e:
+        db.rollback()
+        if utils.is_unique_column_error(e, models.Place.urlsafe_id.key):
+            raise ValueError("UUID collision")
+        # else the place exists
         return db.query(models.Place).filter(
             and_(models.Place.name == request.name, models.Place.latitude == request.location.latitude,
                  models.Place.longitude == request.location.longitude)).first()

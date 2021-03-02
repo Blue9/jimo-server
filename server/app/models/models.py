@@ -1,7 +1,7 @@
 from sqlalchemy import Column, BigInteger, String, DateTime, Boolean, ForeignKey, Table, select, func, and_, Float, \
-    Computed, UniqueConstraint, Index, false
+    Computed, UniqueConstraint, Index, false, text
 from geoalchemy2 import Geography
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.orm import relationship, column_property, aliased
 from sqlalchemy.sql import expression
@@ -23,9 +23,10 @@ class User(Base):
     first_name = Column(String(length=255), nullable=False)
     last_name = Column(String(length=255), nullable=False)
     phone_number = Column(String(length=255), nullable=True)
-    profile_picture_url = Column(String, nullable=True)
+    profile_picture_id = Column(BigInteger, ForeignKey("image_upload.id"), unique=True,
+                                nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
     private_account = Column(Boolean, nullable=False, server_default=expression.false())
     deleted = Column(Boolean, nullable=False, server_default=expression.false())
     username_lower = Column(String(length=255), Computed("LOWER(username)"), unique=True, nullable=False)
@@ -42,6 +43,9 @@ class User(Base):
                                            cascade="all, delete",
                                            backref="followers")
     followers: list["User"] = None  # Computed with backref above
+
+    profile_picture = relationship("ImageUpload", primaryjoin=lambda: User.profile_picture_id == ImageUpload.id)
+    profile_picture_url = association_proxy("profile_picture", "firebase_public_url")
 
     # Computed column properties
     post_count = None
@@ -107,7 +111,7 @@ class Place(Base):
     __tablename__ = "place"
 
     id = Column(BigInteger, primary_key=True, nullable=False)
-    urlsafe_id = Column(String, unique=True, nullable=False)
+    urlsafe_id = Column(UUID(as_uuid=True), unique=True, nullable=False, server_default=text("gen_random_uuid()"))
     name = Column(String, nullable=False)
 
     # Latitude and longitude of the place
@@ -180,7 +184,7 @@ class Post(Base):
     __tablename__ = "post"
 
     id = Column(BigInteger, primary_key=True, nullable=False)
-    urlsafe_id = Column(String, unique=True, nullable=False)
+    urlsafe_id = Column(UUID(as_uuid=True), unique=True, nullable=False, server_default=text("gen_random_uuid()"))
     user_id = Column(BigInteger, ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
     place_id = Column(BigInteger, ForeignKey("place.id"), nullable=False)
     category_id = Column(BigInteger, ForeignKey("category.id"), nullable=False)
@@ -191,19 +195,21 @@ class Post(Base):
                              Computed("ST_MakePoint(custom_longitude, custom_latitude)::geography"), nullable=True)
 
     content = Column(String, nullable=False)
-    image_url = Column(String, nullable=True)
+    image_id = Column(BigInteger, ForeignKey("image_upload.id"), unique=True, nullable=True)
     deleted = Column(Boolean, nullable=False, server_default=expression.false())
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
 
     user = relationship("User")
     place = relationship("Place")
+    image = relationship("ImageUpload")
     _category = relationship("Category")
     _tags = relationship("Tag", secondary=post_tag, cascade="all, delete", passive_deletes=True)
     likes = relationship("User", secondary=post_like, cascade="all, delete", passive_deletes=True)
     comments = relationship("Comment", back_populates="post")
 
     tags = association_proxy("_tags", "name")
+    image_url = association_proxy("image", "firebase_public_url")
     category = association_proxy("_category", "name")
 
     # Column property
@@ -211,13 +217,14 @@ class Post(Base):
     comment_count = None
 
     # Only want one row per (user, place) pair for all non-deleted posts
-    __table_args__ = (Index("_posts_user_place_uc", "user_id", "place_id", unique=True, postgresql_where=(~deleted)),)
+    user_place_uc = "_posts_user_place_uc"
+    __table_args__ = (Index(user_place_uc, "user_id", "place_id", unique=True, postgresql_where=(~deleted)),)
 
 
 class Comment(Base):
     __tablename__ = "comment"
     id = Column(BigInteger, primary_key=True, nullable=False)
-    urlsafe_id = Column(String, unique=True, nullable=False)
+    urlsafe_id = Column(UUID(as_uuid=True), unique=True, nullable=False, server_default=text("gen_random_uuid()"))
     user_id = Column(BigInteger, ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
     post_id = Column(BigInteger, ForeignKey("post.id", ondelete="CASCADE"), nullable=False)
     content = Column(String, nullable=False)
@@ -241,6 +248,18 @@ class PostReport(Base):
 
     # Can only report a post once
     __table_args__ = (UniqueConstraint("post_id", "reported_by_user_id", name="_report_post_user_uc"),)
+
+
+class ImageUpload(Base):
+    __tablename__ = "image_upload"
+
+    id = Column(BigInteger, primary_key=True, nullable=False)
+    urlsafe_id = Column(UUID(as_uuid=True), unique=True, nullable=False, server_default=text("gen_random_uuid()"))
+    user_id = Column(BigInteger, ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
+    firebase_blob_name = Column(String, nullable=True)  # Set after creating the row in db
+    firebase_public_url = Column(String, nullable=True)  # Set after creating the row in db
+    used = Column(Boolean, nullable=False, server_default=false())  # Prevent using the same image in different places
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
 
 class Feedback(Base):

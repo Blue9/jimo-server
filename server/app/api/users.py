@@ -13,7 +13,7 @@ from app.models import models
 router = APIRouter()
 
 
-@router.post("/", response_model=schemas.user.CreateUserResponse)
+@router.post("/", response_model=schemas.user.CreateUserResponse, response_model_exclude_none=True)
 def create_user(request: schemas.user.CreateUserRequest, authorization: Optional[str] = Header(None),
                 db: Session = Depends(get_db)):
     """Create a new user.
@@ -79,7 +79,7 @@ def update_user(username: str, request: schemas.user.UpdateProfileRequest, autho
     return users.update_user(db, user, request)
 
 
-@router.get("/{username}/preferences", response_model=schemas.user.UserPrefs, response_model_exclude_none=True)
+@router.get("/{username}/preferences", response_model=schemas.user.UserPrefs)
 def get_preferences(username: str, authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
     """Get the given user's preferences.
 

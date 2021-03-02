@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app import schemas
 from app.controllers import categories, places, utils
+from app.controllers.images import get_image_with_lock_else_throw
 from app.models import models
 
 
@@ -43,19 +44,32 @@ def unlike_post(db: Session, user: models.User, post: models.Post):
     db.commit()
 
 
-def create_post(db: Session, user: models.User, request: schemas.post.CreatePostRequest) -> Optional[models.Post]:
+def create_post(db: Session, user: models.User, request: schemas.post.CreatePostRequest) -> models.Post:
     """Try to create a post with the given details, raising a ValueError if the request is invalid."""
     category = categories.get_category_or_raise(db, request.category)
     place = places.get_place_or_create(db, user, request.place)
     if already_posted(db, user, place):
         raise ValueError("You already posted that place.")
+    image = get_image_with_lock_else_throw(db, user, request.image_id) if request.image_id is not None else None
     custom_latitude = request.custom_location.latitude if request.custom_location else None
     custom_longitude = request.custom_location.longitude if request.custom_location else None
-    build_post = lambda url_id: models.Post(urlsafe_id=url_id, user_id=user.id, place_id=place.id,
-                                            category_id=category.id, custom_latitude=custom_latitude,
-                                            custom_longitude=custom_longitude, content=request.content,
-                                            image_url=request.image_url)
-    return utils.add_with_urlsafe_id(db, build_post)
+    post = models.Post(user_id=user.id, place_id=place.id, category_id=category.id, custom_latitude=custom_latitude,
+                       custom_longitude=custom_longitude, content=request.content, image_id=image.id if image else None)
+    try:
+        if image:
+            image.used = True
+        db.add(post)
+        db.commit()
+        return post
+    except IntegrityError as e:
+        db.rollback()
+        if utils.is_unique_constraint_error(e, models.Post.user_place_uc):
+            raise ValueError("You already posted that place.")
+        elif utils.is_unique_column_error(e, models.Post.image_id.key):
+            raise ValueError("Duplicate image.")
+        else:
+            print(e)
+            raise ValueError("Could not create post.")
 
 
 def report_post(db: Session, post: models.Post, reported_by: models.User, details: Optional[str]) -> bool:

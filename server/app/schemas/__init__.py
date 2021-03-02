@@ -1,1 +1,1 @@
-from . import base, feedback, invite, place, post, user
+from . import base, feedback, image, invite, place, post, user

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.sql.functions import concat
 
 from app import schemas
-from app.controllers import firebase, auth
+from app.controllers import firebase, auth, images
 from app.models import models
 
 
@@ -109,17 +109,22 @@ def create_user(db: Session, uid: str, request: schemas.user.CreateUserRequest,
 def update_user(db: Session, user: models.User,
                 request: schemas.user.UpdateProfileRequest) -> schemas.user.UpdateProfileResponse:
     """Update the given user with the given details."""
+    if request.profile_picture_id:
+        image = images.maybe_get_image_with_lock(db, user, request.profile_picture_id)
+        if image is None:
+            db.rollback()
+            return schemas.user.UpdateProfileResponse(user=None,
+                                                      error=schemas.user.UserFieldErrors(other="Invalid image"))
+        image.used = True
+        user.profile_picture_id = image.id
     if request.username:
         user.username = request.username
     if request.first_name:
         user.first_name = request.first_name
     if request.last_name:
         user.last_name = request.last_name
-    if request.profile_picture_url:
-        user.profile_picture_url = request.profile_picture_url
 
     try:
-        user.updated_at = datetime.datetime.utcnow()
         db.commit()
         return schemas.user.UpdateProfileResponse(user=user, error=None)
     except IntegrityError as e:

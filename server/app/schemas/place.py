@@ -1,3 +1,4 @@
+import uuid
 from typing import Optional
 
 from pydantic import Field, validator, root_validator
@@ -35,7 +36,7 @@ class Region(Location):
 
 
 class Place(Base):
-    urlsafe_id: str = Field(alias="placeId")
+    urlsafe_id: uuid.UUID = Field(alias="placeId")
     name: str
     location: Location
 

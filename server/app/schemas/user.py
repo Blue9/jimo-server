@@ -1,3 +1,4 @@
+import uuid
 from typing import Optional
 
 from pydantic import validator
@@ -57,15 +58,10 @@ class CreateUserRequest(Base):
 
 
 class UpdateProfileRequest(Base):
-    profile_picture_url: Optional[str]
+    profile_picture_id: Optional[uuid.UUID]
     username: Optional[str]
     first_name: Optional[str]
     last_name: Optional[str]
-
-    @validator("profile_picture_url")
-    def validate_profile_picture_url(cls, profile_picture_url):
-        # TODO validate profile picture url
-        return profile_picture_url
 
     @validator("username")
     def validate_username(cls, username):

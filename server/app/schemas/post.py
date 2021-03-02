@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime
 from typing import Optional
 
@@ -10,7 +11,7 @@ from app.schemas.user import PublicUser
 
 # ORM types
 class ORMPostWithoutUser(Base):
-    urlsafe_id: str = Field(alias="postId")
+    urlsafe_id: uuid.UUID = Field(alias="postId")
     place: Place
     category: str
     content: str
@@ -46,7 +47,7 @@ class Post(ORMPost):
 
 # Not used for now
 class Comment(Base):
-    urlsafe_id: str = Field(alias="commentId")
+    urlsafe_id: uuid.UUID = Field(alias="commentId")
     user: PublicUser
     post: str  # This is the post ID
     content: str
@@ -68,7 +69,7 @@ class CreatePostRequest(Base):
     place: MaybeCreatePlaceRequest
     category: str
     content: str
-    image_url: Optional[str]
+    image_id: Optional[uuid.UUID]
     custom_location: Optional[Location]
 
     @validator("content")

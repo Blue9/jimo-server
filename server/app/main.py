@@ -1,8 +1,9 @@
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException, Header, Depends
+from fastapi import FastAPI, HTTPException, Header, Depends, UploadFile, File
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from starlette.requests import Request
 from starlette.responses import JSONResponse
@@ -10,6 +11,7 @@ from starlette.responses import JSONResponse
 from app import schemas, api
 from app.controllers import firebase, users
 from app.db.database import get_db
+from app.models import models
 
 app = FastAPI()
 
@@ -60,6 +62,31 @@ def get_me(authorization: Optional[str] = Header(None), db: Session = Depends(ge
     if user is None:
         raise HTTPException(404, "User not found")
     return user
+
+
+@app.post("/images", response_model=schemas.image.ImageUploadResponse)
+def upload_image(file: UploadFile = File(...), authorization: Optional[str] = Header(None),
+                 db: Session = Depends(get_db)):
+    """Upload the given image to Firebase if allowed, returning the image id (used for posts + profile pictures)."""
+    user: models.User = api.utils.get_user_from_auth_or_raise(db, authorization)
+    api.utils.check_valid_image(file)
+    image_upload: models.ImageUpload = models.ImageUpload(user_id=user.id)
+    try:
+        db.add(image_upload)
+        db.commit()
+    except IntegrityError:
+        # Right now this only happens in the case of a UUID collision which should be almost impossible
+        raise HTTPException(400, detail="Could not upload image")
+    response = firebase.upload_image(user, image_id=image_upload.urlsafe_id, file_obj=file.file)
+    if response is None:
+        db.delete(image_upload)
+        db.commit()
+        raise HTTPException(500, detail="Failed to upload image")
+    blob_name, url = response
+    image_upload.firebase_blob_name = blob_name
+    image_upload.firebase_public_url = url
+    db.commit()
+    return schemas.image.ImageUploadResponse(image_id=image_upload.urlsafe_id)
 
 
 app.include_router(api.notifications.router, prefix="/notifications")

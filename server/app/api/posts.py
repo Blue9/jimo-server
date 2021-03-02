@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app import schemas
 from app.api import utils
-from app.controllers import posts, notifications
+from app.controllers import posts, notifications, firebase
 from app.db.database import get_db
 from app.models import models
 
@@ -89,10 +89,12 @@ def delete_post(post_id: str, authorization: Optional[str] = Header(None), db: S
         Whether the post could be deleted or not.
     """
     user: models.User = utils.get_user_from_auth_or_raise(db, authorization)
-    post = posts.get_post(db, post_id)
+    post: Optional[models.Post] = posts.get_post(db, post_id)
     if post is not None and post.user == user:
         post.deleted = True
         db.commit()
+        # TODO Run in background task
+        firebase.make_image_private(post.image.firebase_blob_name)
         return schemas.post.DeletePostResponse(deleted=True)
     return schemas.post.DeletePostResponse(deleted=False)
 
