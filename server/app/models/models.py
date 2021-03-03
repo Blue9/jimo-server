@@ -65,7 +65,7 @@ class Invite(Base):
     __tablename__ = "invite"
 
     id = Column(BigInteger, primary_key=True, nullable=False)
-    phone_number = Column(String, nullable=False)
+    phone_number = Column(String, unique=True, nullable=False)
     invited_by = Column(BigInteger, ForeignKey("user.id", ondelete="CASCADE"), nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 

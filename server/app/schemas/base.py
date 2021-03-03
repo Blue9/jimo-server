@@ -1,3 +1,5 @@
+import re
+
 from pydantic import BaseModel
 
 
@@ -17,3 +19,24 @@ class Base(BaseModel):
 
 class SimpleResponse(Base):
     success: bool
+
+
+class PhoneNumber(str):
+    """E.164 phone number validation (note: very lenient)."""
+    regex = re.compile(r"^\+[1-9]\d{1,14}$")
+
+    @classmethod
+    def __get_validators__(cls):
+        yield cls.validate
+
+    @classmethod
+    def validate(cls, v):
+        if not isinstance(v, str):
+            raise TypeError("String required")
+        m = cls.regex.fullmatch(v)
+        if not m:
+            raise ValueError("Invalid phone number format")
+        return cls(f"{v}")
+
+    def __repr__(self):
+        return f"PhoneNumber({super().__repr__()})"

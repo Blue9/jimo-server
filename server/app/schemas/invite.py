@@ -1,21 +1,17 @@
-from pydantic import validator
+from typing import Optional
 
-from app.schemas.base import Base
+from app.schemas.base import Base, PhoneNumber
 
 
 # Request types
 class InviteUserRequest(Base):
-    phone_number: str
-
-    @validator("phone_number")
-    def validate_phone_number(cls, phone_number):
-        # TODO make sure it's in e164 format
-        return phone_number
+    phone_number: PhoneNumber
 
 
 # Response types
 class UserInviteStatus(Base):
     invited: bool
+    message: Optional[str]
 
 
 class UserWaitlistStatus(Base):

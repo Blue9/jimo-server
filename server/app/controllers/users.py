@@ -6,7 +6,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.functions import concat
 
-from app import schemas
+from app import schemas, config
 from app.controllers import firebase, auth, images
 from app.models import models
 
@@ -53,9 +53,20 @@ def on_waitlist(db: Session, uid: str) -> bool:
 
 
 def invite_user(db: Session, user: models.User, phone_number: str) -> schemas.invite.UserInviteStatus:
+    num_used_invites = db.query(models.Invite).filter(models.Invite.invited_by == user.id).count()
+    if num_used_invites >= config.invites_per_user:
+        return schemas.invite.UserInviteStatus(invited=False, message="Reached invite limit.")
+    # Possible race condition if this gets called multiple times for the same user at the same time
+    # Rate limiting the endpoint should take care of it, plus the worst case is that someone invites extra users
+    # which isn't really a problem
     invite = models.Invite(phone_number=phone_number, invited_by=user.id)
-    db.add(invite)
-    db.commit()
+    try:
+        db.add(invite)
+        db.commit()
+    except IntegrityError:
+        # User already invited
+        return schemas.invite.UserInviteStatus(invited=False, message="User is already invited.")
+        pass
     return schemas.invite.UserInviteStatus(invited=True)
 
 
