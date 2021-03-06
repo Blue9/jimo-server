@@ -1,12 +1,13 @@
 from typing import Optional, List
 
 import pydantic
-from fastapi import APIRouter, Header, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app import schemas
 from app.api import utils
-from app.controllers import firebase, users
+from app.controllers import users
+from app.controllers.firebase import FirebaseUser, get_firebase_user
 from app.db.database import get_db
 from app.models import models
 
@@ -14,13 +15,13 @@ router = APIRouter()
 
 
 @router.post("/", response_model=schemas.user.CreateUserResponse, response_model_exclude_none=True)
-def create_user(request: schemas.user.CreateUserRequest, authorization: Optional[str] = Header(None),
+def create_user(request: schemas.user.CreateUserRequest, firebase_user: FirebaseUser = Depends(get_firebase_user),
                 db: Session = Depends(get_db)):
     """Create a new user.
 
     Args:
         request: The request to create the user. The uid should exist in Firebase.
-        authorization: Authorization header. This string is automatically injected by FastAPI.
+        firebase_user: Firebase user from auth header.
         db: The database session object. This object is automatically injected by FastAPI.
 
     Returns:
@@ -29,18 +30,17 @@ def create_user(request: schemas.user.CreateUserRequest, authorization: Optional
     Raises:
         HTTPException: If the auth header is invalid (401).
     """
-    uid_from_auth = utils.get_uid_or_raise(authorization)
-    phone_number: Optional[str] = firebase.get_phone_number_from_uid(uid_from_auth)
-    return users.create_user(db, uid_from_auth, request, phone_number=phone_number)
+    phone_number: Optional[str] = firebase_user.shared_firebase.get_phone_number_from_uid(firebase_user.uid)
+    return users.create_user(db, firebase_user, request, phone_number=phone_number)
 
 
 @router.get("/{username}", response_model=schemas.user.PublicUser)
-def get_user(username: str, authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
+def get_user(username: str, _firebase_user: FirebaseUser = Depends(get_firebase_user), db: Session = Depends(get_db)):
     """Get the given user's details.
 
     Args:
         username: The username string.
-        authorization: Authorization header. This string is automatically injected by FastAPI.
+        _firebase_user: Firebase user from auth header.
         db: The database session object. This object is automatically injected by FastAPI.
 
     Returns:
@@ -49,20 +49,20 @@ def get_user(username: str, authorization: Optional[str] = Header(None), db: Ses
     Raises:
         HTTPException: If the user could not be found (404) or the caller isn't authenticated (401).
     """
-    _caller_uid = utils.get_uid_or_raise(authorization)
     user: models.User = utils.get_user_or_raise(username, db)
     return pydantic.parse_obj_as(schemas.user.PublicUser, user)
 
 
 @router.post("/{username}", response_model=schemas.user.UpdateProfileResponse, response_model_exclude_none=True)
-def update_user(username: str, request: schemas.user.UpdateProfileRequest, authorization: Optional[str] = Header(None),
+def update_user(username: str, request: schemas.user.UpdateProfileRequest,
+                firebase_user: FirebaseUser = Depends(get_firebase_user),
                 db: Session = Depends(get_db)):
     """Update the given user's profile.
 
     Args:
         username: The username string.
         request: The request to update the user.
-        authorization: Authorization header. This string is automatically injected by FastAPI.
+        firebase_user: Firebase user from auth header.
         db: The database session object. This object is automatically injected by FastAPI.
 
     Returns:
@@ -72,20 +72,20 @@ def update_user(username: str, request: schemas.user.UpdateProfileRequest, autho
         HTTPException: If the user could not be found (404), the caller isn't authenticated (401), or the caller
         isn't authorized (403).
     """
-    user_uid = utils.get_uid_or_raise(authorization)
     user: models.User = utils.get_user_or_raise(username, db)
-    if user.uid != user_uid:
+    if user.uid != firebase_user.uid:
         raise HTTPException(403, detail="Not authorized")
     return users.update_user(db, user, request)
 
 
 @router.get("/{username}/preferences", response_model=schemas.user.UserPrefs)
-def get_preferences(username: str, authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
+def get_preferences(username: str, firebase_user: FirebaseUser = Depends(get_firebase_user),
+                    db: Session = Depends(get_db)):
     """Get the given user's preferences.
 
     Args:
         username: The username string.
-        authorization: Authorization header. This string is automatically injected by FastAPI.
+        firebase_user: Firebase user from auth header.
         db: The database session object. This object is automatically injected by FastAPI.
 
     Returns:
@@ -95,22 +95,22 @@ def get_preferences(username: str, authorization: Optional[str] = Header(None), 
         HTTPException: If the user could not be found (404), the caller isn't authenticated (401), or the caller
         isn't authorized (403).
     """
-    user_uid = utils.get_uid_or_raise(authorization)
     user: models.User = utils.get_user_or_raise(username, db)
-    if user.uid != user_uid:
+    if user.uid != firebase_user.uid:
         raise HTTPException(403, detail="Not authorized")
     return user.preferences
 
 
 @router.post("/{username}/preferences", response_model=schemas.user.UserPrefs, response_model_exclude_none=True)
-def update_preferences(username: str, request: schemas.user.UserPrefs, authorization: Optional[str] = Header(None),
+def update_preferences(username: str, request: schemas.user.UserPrefs,
+                       firebase_user: FirebaseUser = Depends(get_firebase_user),
                        db: Session = Depends(get_db)):
     """Update the given user's preferences.
 
     Args:
         username: The username string.
         request: The preferences update request.
-        authorization: Authorization header. This string is automatically injected by FastAPI.
+        firebase_user: Firebase user from auth header.
         db: The database session object. This object is automatically injected by FastAPI.
 
     Returns:
@@ -120,20 +120,20 @@ def update_preferences(username: str, request: schemas.user.UserPrefs, authoriza
         HTTPException: If the user could not be found (404), the caller isn't authenticated (401), or the caller
         isn't authorized (403).
     """
-    user_uid = utils.get_uid_or_raise(authorization)
     user: models.User = utils.get_user_or_raise(username, db)
-    if user.uid != user_uid:
+    if user.uid != firebase_user.uid:
         raise HTTPException(403, detail="Not authorized")
     return users.update_preferences(db, user, request)
 
 
 @router.get("/{username}/followers", response_model=List[schemas.user.PublicUser])
-def get_followers(username: str, authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
+def get_followers(username: str, firebase_user: FirebaseUser = Depends(get_firebase_user),
+                  db: Session = Depends(get_db)):
     """Get the given user's followers.
 
     Args:
         username: The username string.
-        authorization: Authorization header. This string is automatically injected by FastAPI.
+        firebase_user: Firebase user from auth header.
         db: The database session object. This object is automatically injected by FastAPI.
 
     Returns:
@@ -144,21 +144,21 @@ def get_followers(username: str, authorization: Optional[str] = Header(None), db
         HTTPException: If the user could not be found (404), the caller isn't authenticated (401), or the user's
         privacy settings block the caller from viewing their posts (e.g. private account) (403).
     """
-    caller_uid = utils.get_uid_or_raise(authorization)
     # TODO(gmekkat): Paginate results
     user: models.User = users.get_user(db, username)
     utils.validate_user(user)
-    utils.check_can_view_user_else_raise(user=user, caller_uid=caller_uid)
+    utils.check_can_view_user_else_raise(user=user, caller_uid=firebase_user.uid)
     return pydantic.parse_obj_as(List[schemas.user.PublicUser], user.followers)
 
 
 @router.get("/{username}/following", response_model=List[schemas.user.PublicUser])
-def get_following(username: str, authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
+def get_following(username: str, firebase_user: FirebaseUser = Depends(get_firebase_user),
+                  db: Session = Depends(get_db)):
     """Get the accounts that the given user follows.
 
     Args:
         username: The username string.
-        authorization: Authorization header. This string is automatically injected by FastAPI.
+        firebase_user: Firebase user from auth header.
         db: The database session object. This object is automatically injected by FastAPI.
 
     Returns:
@@ -169,21 +169,20 @@ def get_following(username: str, authorization: Optional[str] = Header(None), db
         HTTPException: If the user could not be found (404), the caller isn't authenticated (401), or the user's
         privacy settings block the caller from viewing their posts (e.g. private account) (403).
     """
-    caller_uid = utils.get_uid_or_raise(authorization)
     # TODO(gmekkat): Paginate results
     user = users.get_user(db, username)
     utils.validate_user(user)
-    utils.check_can_view_user_else_raise(user=user, caller_uid=caller_uid)
+    utils.check_can_view_user_else_raise(user=user, caller_uid=firebase_user.uid)
     return pydantic.parse_obj_as(List[schemas.user.PublicUser], user.following)
 
 
 @router.get("/{username}/posts", response_model=List[schemas.post.Post])
-def get_posts(username: str, authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
+def get_posts(username: str, firebase_user: FirebaseUser = Depends(get_firebase_user), db: Session = Depends(get_db)):
     """Get the posts of the given user.
 
     Args:
         username: The username string.
-        authorization: Authorization header. This string is automatically injected by FastAPI.
+        firebase_user: Firebase user from auth header.
         db: The database session object. This object is automatically injected by FastAPI.
 
     Returns:
@@ -194,7 +193,7 @@ def get_posts(username: str, authorization: Optional[str] = Header(None), db: Se
         HTTPException: If the user could not be found (404), the caller isn't authenticated (401), or the user's
         privacy settings block the caller from viewing their posts (e.g. private account) (403).
     """
-    caller_user = utils.get_user_from_auth_or_raise(db, authorization)
+    caller_user = utils.get_user_from_uid_or_raise(db, firebase_user.uid)
     # TODO(gmekkat): Paginate results
     user = users.get_user(db, username)
     utils.validate_user(user)
@@ -208,24 +207,23 @@ def get_posts(username: str, authorization: Optional[str] = Header(None), db: Se
 
 
 @router.get("/{username}/feed", response_model=List[schemas.post.Post])
-def get_feed(username: str, before: Optional[str] = None, authorization: Optional[str] = Header(None),
+def get_feed(username: str, before: Optional[str] = None, firebase_user: FirebaseUser = Depends(get_firebase_user),
              db: Session = Depends(get_db)):
     """Get the feed for the given user.
 
     Args:
         username: The username string.
         before: Get all posts before this one. Returns a 404 if the post could not be found.
-        authorization: Authorization header. This string is automatically injected by FastAPI.
+        firebase_user: Firebase user from auth header.
         db: The database session object. This object is automatically injected by FastAPI.
 
     Returns:
         The feed for the given user as a list of Post objects in reverse chronological order. This endpoint returns
         at most 50 posts and can be paginated using the optional before param.
     """
-    caller_uid = utils.get_uid_or_raise(authorization)
     user = users.get_user(db, username)
     utils.validate_user(user)
-    if user.uid != caller_uid:
+    if user.uid != firebase_user.uid:
         raise HTTPException(403, "Not authorized")
     feed = users.get_feed(db, user, before)
     if feed is None:
@@ -238,18 +236,19 @@ def get_feed(username: str, before: Optional[str] = None, authorization: Optiona
 
 
 @router.get("/{username}/discover", response_model=List[schemas.post.Post])
-def get_discover_feed(username: str, authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
+def get_discover_feed(username: str, firebase_user: FirebaseUser = Depends(get_firebase_user),
+                      db: Session = Depends(get_db)):
     """Get the discover feed for the given user.
 
     Args:
         username: The username string.
-        authorization: Authorization header. This string is automatically injected by FastAPI.
+        firebase_user: Firebase user from auth header.
         db: The database session object. This object is automatically injected by FastAPI.
 
     Returns:
         The discover feed for the given user as a list of Post objects in reverse chronological order.
     """
-    user = utils.get_user_from_auth_or_raise(db, authorization)
+    user = utils.get_user_from_uid_or_raise(db, firebase_user.uid)
     if user.username_lower != username.lower():
         raise HTTPException(403, "Not authorized")
     discover_feed = users.get_discover_feed(db)
@@ -261,9 +260,10 @@ def get_discover_feed(username: str, authorization: Optional[str] = Header(None)
 
 
 @router.get("/{username}/suggested", response_model=List[schemas.user.PublicUser])
-def get_suggested_users(username: str, authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
+def get_suggested_users(username: str, firebase_user: FirebaseUser = Depends(get_firebase_user),
+                        db: Session = Depends(get_db)):
     """Get the list of featured jimo accounts."""
-    user = utils.get_user_from_auth_or_raise(db, authorization)
+    user = utils.get_user_from_uid_or_raise(db, firebase_user.uid)
     if user.username_lower != username.lower():
         raise HTTPException(403, "Not authorized")
     featured_usernames = ["food", "jimo", "chicago", "nyc"]
@@ -273,9 +273,9 @@ def get_suggested_users(username: str, authorization: Optional[str] = Header(Non
 
 @router.post("/{username}/contacts", response_model=List[schemas.user.PublicUser])
 def get_existing_users(username: str, request: schemas.user.PhoneNumberList,
-                       authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
+                       firebase_user: FirebaseUser = Depends(get_firebase_user), db: Session = Depends(get_db)):
     """Get the existing users from the list of e164 formatted phone numbers."""
-    user = utils.get_user_from_auth_or_raise(db, authorization)
+    user = utils.get_user_from_uid_or_raise(db, firebase_user.uid)
     if user.username_lower != username.lower():
         raise HTTPException(403, "Not authorized")
     if user.phone_number is not None:
@@ -286,12 +286,13 @@ def get_existing_users(username: str, request: schemas.user.PhoneNumberList,
 
 
 @router.get("/{username}/follow_status", response_model=schemas.user.FollowUserResponse)
-def follow_status(username: str, authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
+def follow_status(username: str, firebase_user: FirebaseUser = Depends(get_firebase_user),
+                  db: Session = Depends(get_db)):
     """Get follow status.
 
     Args:
         username: The username string to check follow status.
-        authorization: Authorization header. This string is automatically injected by FastAPI.
+        firebase_user: Firebase user from auth header.
         db: The database session object. This object is automatically injected by FastAPI.
 
     Returns:
@@ -302,20 +303,19 @@ def follow_status(username: str, authorization: Optional[str] = Header(None), db
         HTTPException: If the user could not be found (404), the caller isn't authenticated (401),
         or the caller is trying check status of themself (400).
     """
-    caller_uid = utils.get_uid_or_raise(authorization)
     to_user = users.get_user(db, username)
     utils.validate_user(to_user)
-    from_user = utils.get_user_from_uid_or_raise(db, caller_uid)
+    from_user = utils.get_user_from_uid_or_raise(db, firebase_user.uid)
     return schemas.user.FollowUserResponse(followed=(to_user in from_user.following))
 
 
 @router.post("/{username}/follow", response_model=schemas.user.FollowUserResponse)
-def follow_user(username: str, authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
+def follow_user(username: str, firebase_user: FirebaseUser = Depends(get_firebase_user), db: Session = Depends(get_db)):
     """Follow a user.
 
     Args:
         username: The username string to follow.
-        authorization: Authorization header. This string is automatically injected by FastAPI.
+        firebase_user: Firebase user from auth header.
         db: The database session object. This object is automatically injected by FastAPI.
 
     Returns:
@@ -325,22 +325,22 @@ def follow_user(username: str, authorization: Optional[str] = Header(None), db: 
         HTTPException: If the user could not be found (404), the caller isn't authenticated (401), the user is already
         followed (400), or the caller is trying to follow themself (400).
     """
-    caller_uid = utils.get_uid_or_raise(authorization)
     to_user = users.get_user(db, username)
     utils.validate_user(to_user)
-    if to_user.uid == caller_uid:
+    if to_user.uid == firebase_user.uid:
         raise HTTPException(400, "Cannot follow yourself")
-    from_user = utils.get_user_from_uid_or_raise(db, caller_uid)
+    from_user = utils.get_user_from_uid_or_raise(db, firebase_user.uid)
     return users.follow_user(db, from_user, to_user)
 
 
 @router.post("/{username}/unfollow", response_model=schemas.user.FollowUserResponse)
-def unfollow_user(username: str, authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
+def unfollow_user(username: str, firebase_user: FirebaseUser = Depends(get_firebase_user),
+                  db: Session = Depends(get_db)):
     """Unfollow a user.
 
     Args:
         username: The username string to follow.
-        authorization: Authorization header. This string is automatically injected by FastAPI.
+        firebase_user: Firebase user from auth header.
         db: The database session object. This object is automatically injected by FastAPI.
 
     Returns:
@@ -350,10 +350,9 @@ def unfollow_user(username: str, authorization: Optional[str] = Header(None), db
         HTTPException: If the user could not be found (404), the caller isn't authenticated (401), the user is not
         already followed (400), or the caller is trying to unfollow themself (400).
     """
-    caller_uid = utils.get_uid_or_raise(authorization)
     to_user = users.get_user(db, username)
     utils.validate_user(to_user)
-    if to_user.uid == caller_uid:
+    if to_user.uid == firebase_user.uid:
         raise HTTPException(400, "Cannot follow yourself")
-    from_user = utils.get_user_from_uid_or_raise(db, caller_uid)
+    from_user = utils.get_user_from_uid_or_raise(db, firebase_user.uid)
     return users.unfollow_user(db, from_user, to_user)

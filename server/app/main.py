@@ -1,6 +1,4 @@
-from typing import Optional
-
-from fastapi import FastAPI, HTTPException, Header, Depends, UploadFile, File
+from fastapi import FastAPI, HTTPException, Depends, UploadFile, File
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from sqlalchemy.exc import IntegrityError
@@ -9,7 +7,8 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 from app import schemas, api
-from app.controllers import firebase, users
+from app.controllers import users
+from app.controllers.firebase import FirebaseUser, get_firebase_user
 from app.db.database import get_db
 from app.models import models
 
@@ -32,21 +31,12 @@ def index():
     return {"success": True}
 
 
-@app.get("/testToken/{uid}")
-def get_test_token(uid: str):
-    try:
-        from starlette.responses import Response
-        return Response(content=firebase.get_test_token(uid))
-    except Exception:
-        raise HTTPException(404)
-
-
 @app.get("/me", response_model=schemas.user.PrivateUser)
-def get_me(authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
+def get_me(firebase_user: FirebaseUser = Depends(get_firebase_user), db: Session = Depends(get_db)):
     """Get the given user based on the auth details.
 
     Args:
-        authorization: Authorization header. This string is automatically injected by FastAPI.
+        firebase_user: Firebase user from auth header.
         db: The database session object. This object is automatically injected by FastAPI.
 
     Returns:
@@ -55,20 +45,17 @@ def get_me(authorization: Optional[str] = Header(None), db: Session = Depends(ge
     Raises:
         HTTPException: If the user could not be found (404) or the caller isn't authenticated (401).
     """
-    uid = firebase.get_uid_from_auth_header(authorization)
-    if uid is None:
-        raise HTTPException(401, "Not authenticated")
-    user = users.get_user_by_uid(db, uid)
+    user = users.get_user_by_uid(db, firebase_user.uid)
     if user is None:
         raise HTTPException(404, "User not found")
     return user
 
 
 @app.post("/images", response_model=schemas.image.ImageUploadResponse)
-def upload_image(file: UploadFile = File(...), authorization: Optional[str] = Header(None),
+def upload_image(file: UploadFile = File(...), firebase_user: FirebaseUser = Depends(get_firebase_user),
                  db: Session = Depends(get_db)):
     """Upload the given image to Firebase if allowed, returning the image id (used for posts + profile pictures)."""
-    user: models.User = api.utils.get_user_from_auth_or_raise(db, authorization)
+    user: models.User = api.utils.get_user_from_uid_or_raise(db, firebase_user.uid)
     api.utils.check_valid_image(file)
     image_upload: models.ImageUpload = models.ImageUpload(user_id=user.id)
     try:
@@ -77,7 +64,7 @@ def upload_image(file: UploadFile = File(...), authorization: Optional[str] = He
     except IntegrityError:
         # Right now this only happens in the case of a UUID collision which should be almost impossible
         raise HTTPException(400, detail="Could not upload image")
-    response = firebase.upload_image(user, image_id=image_upload.urlsafe_id, file_obj=file.file)
+    response = firebase_user.shared_firebase.upload_image(user, image_id=image_upload.urlsafe_id, file_obj=file.file)
     if response is None:
         db.delete(image_upload)
         db.commit()

@@ -8,6 +8,7 @@ from sqlalchemy.sql.functions import concat
 
 from app import schemas, config
 from app.controllers import firebase, auth, images
+from app.controllers.firebase import FirebaseUser
 from app.models import models
 
 
@@ -38,15 +39,15 @@ def get_user_by_uid(db: Session, uid: str) -> Optional[models.User]:
     return db.query(models.User).filter(and_(models.User.uid == uid, models.User.deleted == false())).first()
 
 
-def is_invited(db: Session, uid: str) -> bool:
-    phone_number = firebase.get_phone_number_from_uid(uid)
+def is_invited(db: Session, firebase_user: FirebaseUser) -> bool:
+    phone_number = firebase_user.shared_firebase.get_phone_number_from_uid(firebase_user.uid)
     if phone_number is None:
         return False
     return db.query(models.Invite).filter(models.Invite.phone_number == phone_number).count() > 0
 
 
-def on_waitlist(db: Session, uid: str) -> bool:
-    phone_number = firebase.get_phone_number_from_uid(uid)
+def on_waitlist(db: Session, firebase_user: FirebaseUser) -> bool:
+    phone_number = firebase_user.shared_firebase.get_phone_number_from_uid(firebase_user.uid)
     if phone_number is None:
         return False
     return db.query(models.Waitlist).filter(models.Waitlist.phone_number == phone_number).count() > 0
@@ -57,8 +58,8 @@ def invite_user(db: Session, user: models.User, phone_number: str) -> schemas.in
     if num_used_invites >= config.invites_per_user:
         return schemas.invite.UserInviteStatus(invited=False, message="Reached invite limit.")
     # Possible race condition if this gets called multiple times for the same user at the same time
-    # Rate limiting the endpoint should take care of it, plus the worst case is that someone invites extra users
-    # which isn't really a problem
+    # Rate limiting the endpoint based on the auth header should take care of it, plus the worst case is that someone
+    # invites extra users which isn't really a problem
     invite = models.Invite(phone_number=phone_number, invited_by=user.id)
     try:
         db.add(invite)
@@ -70,11 +71,11 @@ def invite_user(db: Session, user: models.User, phone_number: str) -> schemas.in
     return schemas.invite.UserInviteStatus(invited=True)
 
 
-def join_waitlist(db: Session, uid: str):
-    phone_number = firebase.get_phone_number_from_uid(uid)
+def join_waitlist(db: Session, firebase_user: FirebaseUser):
+    phone_number = firebase_user.shared_firebase.get_phone_number_from_uid(firebase_user.uid)
     if phone_number is None:
         raise ValueError("Phone number not found")
-    row = models.Waitlist(phone_number=firebase.get_phone_number_from_uid(uid))
+    row = models.Waitlist(phone_number=phone_number)
     db.add(row)
     try:
         db.commit()
@@ -84,13 +85,13 @@ def join_waitlist(db: Session, uid: str):
         db.rollback()
 
 
-def create_user(db: Session, uid: str, request: schemas.user.CreateUserRequest,
+def create_user(db: Session, firebase_user: FirebaseUser, request: schemas.user.CreateUserRequest,
                 phone_number: Optional[str]) -> schemas.user.CreateUserResponse:
     """Try to create a user with the given information, returning whether the user could be created or not."""
-    if not is_invited(db, uid):
+    if not is_invited(db, firebase_user):
         return schemas.user.CreateUserResponse(created=None,
                                                error=schemas.user.UserFieldErrors(uid="You aren't invited yet."))
-    new_user = models.User(uid=uid, username=request.username, first_name=request.first_name,
+    new_user = models.User(uid=firebase_user.uid, username=request.username, first_name=request.first_name,
                            last_name=request.last_name, phone_number=phone_number)
     db.add(new_user)
     try:
@@ -104,7 +105,7 @@ def create_user(db: Session, uid: str, request: schemas.user.CreateUserRequest,
     except IntegrityError as e:
         db.rollback()
         # A user with the same uid or username exists
-        if uid_exists(db, uid):
+        if uid_exists(db, firebase_user.uid):
             error = schemas.user.UserFieldErrors(uid="User exists.")
             return schemas.user.CreateUserResponse(created=None, error=error)
         elif username_taken(db, request.username):

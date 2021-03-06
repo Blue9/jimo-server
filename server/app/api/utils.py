@@ -41,11 +41,6 @@ def get_user_from_uid_or_raise(db: Session, uid: str) -> models.User:
     return user
 
 
-def get_user_from_auth_or_raise(db: Session, authorization: str) -> models.User:
-    uid = get_uid_or_raise(authorization)
-    return get_user_from_uid_or_raise(db, uid)
-
-
 def check_valid_image(file: UploadFile):
     if file.content_type != "image/jpeg" or imghdr.what(file.file) != "jpeg":
         raise HTTPException(400, detail="File is not an image")
