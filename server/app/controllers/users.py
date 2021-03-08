@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.sql.functions import concat
 
 from app import schemas, config
-from app.controllers import firebase, auth, images
+from app.controllers import auth, images
 from app.controllers.firebase import FirebaseUser
 from app.models import models
 

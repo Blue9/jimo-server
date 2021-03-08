@@ -1,6 +1,4 @@
-from typing import Optional
-
-from fastapi import APIRouter, Header, Depends
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app import schemas

@@ -1,6 +1,6 @@
 import uuid
 from dataclasses import dataclass
-from typing import Optional, IO, Tuple
+from typing import Optional, IO, Tuple, Protocol
 
 import firebase_admin
 from fastapi import Header, HTTPException
@@ -11,6 +11,18 @@ from firebase_admin.exceptions import FirebaseError
 from google.cloud.exceptions import GoogleCloudError
 
 from app.models import models
+
+
+class FirebaseAdminProtocol(Protocol):
+    def get_uid_from_token(self, id_token: str) -> Optional[str]: ...
+
+    def get_phone_number_from_uid(self, uid: str) -> str: ...
+
+    def get_uid_from_auth_header(self, authorization: str) -> Optional[str]: ...
+
+    def upload_image(self, user: models.User, image_id: str, file_obj: IO) -> Optional[Tuple[str, str]]: ...
+
+    def make_image_private(self, blob_name: str): ...
 
 
 class FirebaseAdmin:
@@ -76,7 +88,7 @@ class FirebaseAdmin:
 
 @dataclass
 class FirebaseUser:
-    shared_firebase: FirebaseAdmin
+    shared_firebase: FirebaseAdminProtocol
     uid: str
 
 
