@@ -24,6 +24,8 @@ class FirebaseAdminProtocol(Protocol):
 
     def make_image_private(self, blob_name: str): ...
 
+    def delete_image(self, blob_name: str): ...
+
 
 class FirebaseAdmin:
     def __init__(self):
@@ -84,6 +86,13 @@ class FirebaseAdmin:
         blob = bucket.get_blob(blob_name)
         if blob:
             blob.make_private()
+
+    def delete_image(self, blob_name: str):
+        """Delete the given image."""
+        bucket = storage.bucket(app=self._app)
+        blob = bucket.get_blob(blob_name)
+        if blob:
+            blob.delete()
 
 
 @dataclass

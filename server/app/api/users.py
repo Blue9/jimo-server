@@ -75,7 +75,12 @@ def update_user(username: str, request: schemas.user.UpdateProfileRequest,
     user: models.User = utils.get_user_or_raise(username, db)
     if user.uid != firebase_user.uid:
         raise HTTPException(403, detail="Not authorized")
-    return users.update_user(db, user, request)
+    old_profile_picture = user.profile_picture
+    response = users.update_user(db, user, request)
+    if old_profile_picture and user.profile_picture_id != old_profile_picture.id:
+        # Remove the old image
+        firebase_user.shared_firebase.delete_image(old_profile_picture.firebase_blob_name)
+    return response
 
 
 @router.get("/{username}/preferences", response_model=schemas.user.UserPrefs)
