@@ -9,8 +9,9 @@ from sqlalchemy.sql import expression
 from app.db.database import Base
 
 follow = Table("follow", Base.metadata,
-               Column("from_user_id", BigInteger, ForeignKey("user.id", ondelete="CASCADE"), primary_key=True),
-               Column("to_user_id", BigInteger, ForeignKey("user.id", ondelete="CASCADE"), primary_key=True),
+               Column("id", BigInteger, primary_key=True, nullable=False),
+               Column("from_user_id", BigInteger, ForeignKey("user.id", ondelete="CASCADE")),
+               Column("to_user_id", BigInteger, ForeignKey("user.id", ondelete="CASCADE")),
                Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()))
 
 
@@ -159,10 +160,9 @@ class PlaceData(Base):
 
 
 post_like = Table("post_like", Base.metadata,
-                  Column("user_id", BigInteger, ForeignKey("user.id", ondelete="CASCADE"), nullable=False,
-                         primary_key=True),
-                  Column("post_id", BigInteger, ForeignKey("post.id", ondelete="CASCADE"), nullable=False,
-                         primary_key=True),
+                  Column("id", BigInteger, primary_key=True, nullable=False),
+                  Column("user_id", BigInteger, ForeignKey("user.id", ondelete="CASCADE"), nullable=False),
+                  Column("post_id", BigInteger, ForeignKey("post.id", ondelete="CASCADE"), nullable=False),
                   Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()))
 
 
