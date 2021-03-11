@@ -21,14 +21,6 @@ def already_posted(db: Session, user: models.User, place: models.Place):
                                              models.Post.deleted == false())).count() > 0
 
 
-def get_comments(db: Session, post_id: str) -> Optional[list[models.Comment]]:
-    """Get the comments for the given post, returning None if no such post exists."""
-    post = db.query(models.Post).filter(and_(models.Post.urlsafe_id == post_id, models.Post.deleted == false())).first()
-    if not post:
-        return None
-    return [c for c in post.comments if not c.deleted]
-
-
 def like_post(db: Session, user: models.User, post: models.Post):
     """Like the given post."""
     # TODO(gmekkat) make sure this is fine

@@ -131,56 +131,6 @@ def update_preferences(username: str, request: schemas.user.UserPrefs,
     return users.update_preferences(db, user, request)
 
 
-@router.get("/{username}/followers", response_model=List[schemas.user.PublicUser])
-def get_followers(username: str, firebase_user: FirebaseUser = Depends(get_firebase_user),
-                  db: Session = Depends(get_db)):
-    """Get the given user's followers.
-
-    Args:
-        username: The username string.
-        firebase_user: Firebase user from auth header.
-        db: The database session object. This object is automatically injected by FastAPI.
-
-    Returns:
-        The requested user's followers as a list of PublicUser objects. This endpoint does not currently
-        paginate the response.
-
-    Raises:
-        HTTPException: If the user could not be found (404), the caller isn't authenticated (401), or the user's
-        privacy settings block the caller from viewing their posts (e.g. private account) (403).
-    """
-    # TODO(gmekkat): Paginate results
-    user: models.User = users.get_user(db, username)
-    utils.validate_user(user)
-    utils.check_can_view_user_else_raise(user=user, caller_uid=firebase_user.uid)
-    return pydantic.parse_obj_as(List[schemas.user.PublicUser], user.followers)
-
-
-@router.get("/{username}/following", response_model=List[schemas.user.PublicUser])
-def get_following(username: str, firebase_user: FirebaseUser = Depends(get_firebase_user),
-                  db: Session = Depends(get_db)):
-    """Get the accounts that the given user follows.
-
-    Args:
-        username: The username string.
-        firebase_user: Firebase user from auth header.
-        db: The database session object. This object is automatically injected by FastAPI.
-
-    Returns:
-        The users that the given user follows as a list of PublicUser objects. This endpoint does not currently
-        paginate the response.
-
-    Raises:
-        HTTPException: If the user could not be found (404), the caller isn't authenticated (401), or the user's
-        privacy settings block the caller from viewing their posts (e.g. private account) (403).
-    """
-    # TODO(gmekkat): Paginate results
-    user = users.get_user(db, username)
-    utils.validate_user(user)
-    utils.check_can_view_user_else_raise(user=user, caller_uid=firebase_user.uid)
-    return pydantic.parse_obj_as(List[schemas.user.PublicUser], user.following)
-
-
 @router.get("/{username}/posts", response_model=List[schemas.post.Post])
 def get_posts(username: str, firebase_user: FirebaseUser = Depends(get_firebase_user), db: Session = Depends(get_db)):
     """Get the posts of the given user.
@@ -271,6 +221,7 @@ def get_suggested_users(username: str, firebase_user: FirebaseUser = Depends(get
     user = utils.get_user_from_uid_or_raise(db, firebase_user.uid)
     if user.username_lower != username.lower():
         raise HTTPException(403, "Not authorized")
+    # TODO: move to table
     featured_usernames = ["food", "jimo", "chicago", "nyc"]
     featured_users = [users.get_user(db, username) for username in featured_usernames]
     return list(filter(lambda u: u is not None, featured_users))
@@ -290,9 +241,9 @@ def get_existing_users(username: str, request: schemas.user.PhoneNumberList,
     return users.get_users_by_phone_numbers(db, phone_numbers)
 
 
-@router.get("/{username}/follow_status", response_model=schemas.user.FollowUserResponse)
-def follow_status(username: str, firebase_user: FirebaseUser = Depends(get_firebase_user),
-                  db: Session = Depends(get_db)):
+@router.get("/{username}/followStatus", response_model=schemas.user.FollowUserResponse)
+def get_follow_status(username: str, firebase_user: FirebaseUser = Depends(get_firebase_user),
+                      db: Session = Depends(get_db)):
     """Get follow status.
 
     Args:

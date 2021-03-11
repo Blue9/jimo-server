@@ -22,7 +22,7 @@ class User(Base):
     username = Column(String(length=255), unique=True, nullable=False)
     first_name = Column(String(length=255), nullable=False)
     last_name = Column(String(length=255), nullable=False)
-    phone_number = Column(String(length=255), nullable=True)
+    phone_number = Column(String(length=255), unique=True, nullable=True)
     profile_picture_id = Column(BigInteger, ForeignKey("image_upload.id"), unique=True,
                                 nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
@@ -100,13 +100,6 @@ class Category(Base):
     name = Column(String, unique=True, nullable=False)
 
 
-class Tag(Base):
-    __tablename__ = "tag"
-
-    id = Column(BigInteger, primary_key=True, nullable=False)
-    name = Column(String, unique=True, nullable=False)
-
-
 class Place(Base):
     __tablename__ = "place"
 
@@ -166,12 +159,6 @@ class PlaceData(Base):
     __table_args__ = (UniqueConstraint("user_id", "place_id", name="_place_data_user_place_uc"),)
 
 
-post_tag = Table("post_tag", Base.metadata,
-                 Column("post_id", BigInteger, ForeignKey("post.id", ondelete="CASCADE"), nullable=False,
-                        primary_key=True),
-                 Column("tag_id", BigInteger, ForeignKey("tag.id", ondelete="CASCADE"), nullable=False,
-                        primary_key=True))
-
 post_like = Table("post_like", Base.metadata,
                   Column("user_id", BigInteger, ForeignKey("user.id", ondelete="CASCADE"), nullable=False,
                          primary_key=True),
@@ -204,36 +191,17 @@ class Post(Base):
     place = relationship("Place")
     image = relationship("ImageUpload")
     _category = relationship("Category")
-    _tags = relationship("Tag", secondary=post_tag, cascade="all, delete", passive_deletes=True)
     likes = relationship("User", secondary=post_like, cascade="all, delete", passive_deletes=True)
-    comments = relationship("Comment", back_populates="post")
 
-    tags = association_proxy("_tags", "name")
     image_url = association_proxy("image", "firebase_public_url")
     category = association_proxy("_category", "name")
 
     # Column property
     like_count = None
-    comment_count = None
 
     # Only want one row per (user, place) pair for all non-deleted posts
     user_place_uc = "_posts_user_place_uc"
     __table_args__ = (Index(user_place_uc, "user_id", "place_id", unique=True, postgresql_where=(~deleted)),)
-
-
-class Comment(Base):
-    __tablename__ = "comment"
-    id = Column(BigInteger, primary_key=True, nullable=False)
-    urlsafe_id = Column(UUID(as_uuid=True), unique=True, nullable=False, server_default=text("gen_random_uuid()"))
-    user_id = Column(BigInteger, ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
-    post_id = Column(BigInteger, ForeignKey("post.id", ondelete="CASCADE"), nullable=False)
-    content = Column(String, nullable=False)
-    deleted = Column(Boolean, nullable=False, server_default=expression.false())
-    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
-
-    user = relationship("User")
-    post = relationship("Post", back_populates="comments")
 
 
 # Reports
@@ -289,7 +257,3 @@ User.following_count = column_property(
 Post.like_count = column_property(
     select([func.count()]).select_from(post_like.join(User)).where(
         and_(Post.id == post_like.c.post_id, User.deleted == false())), deferred=True)
-
-Post.comment_count = column_property(
-    select([func.count()]).where(and_(Post.id == Comment.post_id, Comment.deleted == expression.false())),
-    deferred=True)

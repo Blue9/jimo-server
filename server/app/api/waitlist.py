@@ -19,7 +19,7 @@ def get_waitlist_status(firebase_user: FirebaseUser = Depends(get_firebase_user)
 @router.post("/", response_model=schemas.invite.UserWaitlistStatus)
 def join_waitlist(firebase_user: FirebaseUser = Depends(get_firebase_user), db: Session = Depends(get_db)):
     try:
-        users.join_waitlist(db, uid=firebase_user.uid)
+        users.join_waitlist(db, firebase_user)
         return schemas.invite.UserWaitlistStatus(invited=users.is_invited(db, firebase_user),
                                                  waitlisted=users.on_waitlist(db, firebase_user))
     except ValueError as e:

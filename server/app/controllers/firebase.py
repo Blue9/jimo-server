@@ -35,11 +35,6 @@ class FirebaseAdmin:
 
     def get_uid_from_token(self, id_token: str) -> Optional[str]:
         """Get the user's uid from the given Firebase id token."""
-        # TODO(gmekkat): remove in production
-        test_token = "test"
-        test_uid = "test"
-        if id_token == test_token:
-            return test_uid
         try:
             decoded_token = auth.verify_id_token(id_token, app=self._app, check_revoked=True)
             return decoded_token.get("uid")

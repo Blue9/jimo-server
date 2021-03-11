@@ -45,25 +45,6 @@ class Post(ORMPost):
     liked: bool
 
 
-# Not used for now
-class Comment(Base):
-    urlsafe_id: uuid.UUID = Field(alias="commentId")
-    user: PublicUser
-    post: str  # This is the post ID
-    content: str
-    created_at: datetime
-
-    @validator("created_at")
-    def validate_created_at(cls, created_at):
-        # Swift can't automatically decode w/ milliseconds
-        return created_at.replace(microsecond=0)
-
-    @root_validator(pre=True)
-    def get_post_id(cls, values):  # noqa
-        assert "post" in values, "post should be in values"
-        return dict(values, post=values["post"].urlsafe_id)
-
-
 # Request types
 class CreatePostRequest(Base):
     place: MaybeCreatePlaceRequest

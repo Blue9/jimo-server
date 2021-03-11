@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
@@ -49,30 +49,6 @@ def create_post(request: schemas.post.CreatePostRequest, firebase_user: Firebase
         raise HTTPException(400, detail=str(e))
 
 
-@router.get("/{post_id}", response_model=schemas.post.Post)
-def get_post(post_id: str, firebase_user: FirebaseUser = Depends(get_firebase_user), db: Session = Depends(get_db)):
-    """Get the given post.
-
-    Args:
-        post_id: The post id (maps to urlsafe_id in database).
-        firebase_user: Firebase user from auth header.
-        db: The database session object. This object is automatically injected by FastAPI.
-
-    Returns:
-        The post object.
-
-    Raises:
-        HTTPException: If the post could not be found or the called isn't authorized (404) or the caller isn't
-        authenticated (401). A 404 is thrown for authorization errors because the caller should not know of
-        the existence of the post.
-    """
-    user: models.User = utils.get_user_from_uid_or_raise(db, firebase_user.uid)
-    post = get_post_and_validate_or_raise(post_id, caller_uid=firebase_user.uid, db=db)
-    liked = user in post.likes
-    fields = schemas.post.ORMPost.from_orm(post).dict()
-    return schemas.post.Post(**fields, liked=liked)
-
-
 @router.delete("/{post_id}", response_model=schemas.post.DeletePostResponse)
 def delete_post(post_id: str, firebase_user: FirebaseUser = Depends(get_firebase_user), db: Session = Depends(get_db)):
     """Delete the given post.
@@ -97,27 +73,6 @@ def delete_post(post_id: str, firebase_user: FirebaseUser = Depends(get_firebase
         firebase_user.shared_firebase.make_image_private(post.image.firebase_blob_name)
         return schemas.post.DeletePostResponse(deleted=True)
     return schemas.post.DeletePostResponse(deleted=False)
-
-
-@router.get("/{post_id}/comments", response_model=List[schemas.post.Comment])
-def get_comments(post_id: str, firebase_user: FirebaseUser = Depends(get_firebase_user), db: Session = Depends(get_db)):
-    """Get the given post's comments.
-
-    Args:
-        post_id: The post id (maps to urlsafe_id in database).
-        firebase_user: Firebase user from auth header.
-        db: The database session object. This object is automatically injected by FastAPI.
-
-    Returns:
-        A list of comments.
-
-    Raises:
-        HTTPException: If the post could not be found or the caller isn't authorized (404) or the caller isn't
-        authenticated (401). A 404 is thrown for authorization errors because the caller should not know of
-        the existence of the post.
-    """
-    post = get_post_and_validate_or_raise(post_id, caller_uid=firebase_user.uid, db=db)
-    return post.comments
 
 
 @router.post("/{post_id}/likes", response_model=schemas.post.LikePostResponse)

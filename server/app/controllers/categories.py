@@ -4,6 +4,9 @@ from app.models import models
 
 
 def add_categories_to_db(db: Session):
+    if db.query(models.Category).count() > 0:
+        print("Already populated categories table, skipping...")
+        return
     db.add(models.Category(name="food"))
     db.add(models.Category(name="activity"))
     db.add(models.Category(name="attraction"))
