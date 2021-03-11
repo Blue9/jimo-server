@@ -13,12 +13,10 @@ from app.models import models
 router = APIRouter()
 
 
-def get_post_and_validate_or_raise(post_id: str, caller_uid: str, db: Session) -> models.Post:
-    post: models.Post = posts.get_post(db, post_id)
-    post_not_found = HTTPException(404, detail="Post not found")
+def get_post_and_validate_or_raise(post_id: str, db: Session) -> models.Post:
+    post: Optional[models.Post] = posts.get_post(db, post_id)
     if post is None:
-        raise post_not_found
-    utils.check_can_view_user_else_raise(user=post.user, caller_uid=caller_uid, custom_exception=post_not_found)
+        raise HTTPException(404, detail="Post not found")
     return post
 
 
@@ -92,7 +90,7 @@ def like_post(post_id: str, firebase_user: FirebaseUser = Depends(get_firebase_u
         authenticated (401). A 404 is thrown for authorization errors because the caller should not know of
         the existence of the post.
     """
-    post = get_post_and_validate_or_raise(post_id, caller_uid=firebase_user.uid, db=db)
+    post = get_post_and_validate_or_raise(post_id, db=db)
     user = utils.get_user_from_uid_or_raise(db, firebase_user.uid)
     posts.like_post(db, user, post)
     # Notify the user that their post was liked
@@ -118,7 +116,7 @@ def unlike_post(post_id: str, firebase_user: FirebaseUser = Depends(get_firebase
         authenticated (401). A 404 is thrown for authorization errors because the caller should not know of
         the existence of the post.
     """
-    post = get_post_and_validate_or_raise(post_id, caller_uid=firebase_user.uid, db=db)
+    post = get_post_and_validate_or_raise(post_id, db=db)
     user = utils.get_user_from_uid_or_raise(db, firebase_user.uid)
     posts.unlike_post(db, user, post)
     return {"likes": post.like_count}
@@ -129,7 +127,7 @@ def report_post(post_id: str, request: schemas.post.ReportPostRequest,
                 firebase_user: FirebaseUser = Depends(get_firebase_user),
                 db: Session = Depends(get_db)):
     """Report the given post."""
-    post = get_post_and_validate_or_raise(post_id, caller_uid=firebase_user.uid, db=db)
+    post = get_post_and_validate_or_raise(post_id, db=db)
     reported_by = utils.get_user_from_uid_or_raise(db, firebase_user.uid)
     success = posts.report_post(db, post, reported_by, details=request.details)
     # TODO: if successful, notify ourselves (e.g, email)

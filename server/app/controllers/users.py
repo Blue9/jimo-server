@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.sql.functions import concat
 
 from app import schemas, config
-from app.controllers import auth, images
+from app.controllers import images
 from app.controllers.firebase import FirebaseUser
 from app.models import models
 
@@ -178,7 +178,7 @@ def get_feed(db: Session, user: models.User, before_post_id: Optional[str] = Non
     before_post = None
     if before_post_id is not None:
         before_post = db.query(models.Post).filter(models.Post.urlsafe_id == before_post_id).first()
-        if before_post is None or not auth.user_can_view_post(user, before_post):
+        if before_post is None:
             return None
     following = get_following(user)
     following.append(user)

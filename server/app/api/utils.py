@@ -19,16 +19,6 @@ def validate_firebase_user(firebase_user: FirebaseUser, db: Session):
         raise HTTPException(403, detail="Not authorized")
 
 
-def check_can_view_user_else_raise(user: models.User, caller_uid: str = None,
-                                   custom_exception: HTTPException = None):
-    if user.uid == caller_uid:
-        return
-    if user.private_account:
-        authorized = any(u.uid == caller_uid for u in user.followers)
-        if not authorized:
-            raise HTTPException(403, "Not authorized") if custom_exception is None else custom_exception
-
-
 def get_user_or_raise(username: str, db: Session) -> models.User:
     user: models.User = users.get_user(db, username)
     validate_user(user)

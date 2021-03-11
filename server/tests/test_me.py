@@ -14,10 +14,9 @@ client = TestClient(app)
 def setup_module(module):
     init_db(engine)
     session = SessionLocal()
-    user = models.User(uid="uid", username="user", first_name="first", last_name="last", phone_number="+18005551234",
-                       private_account=False)
+    user = models.User(uid="uid", username="user", first_name="first", last_name="last", phone_number="+18005551234")
     deleted_user = models.User(uid="deleted_uid", username="deleted_user", first_name="first", last_name="last",
-                               phone_number="+18005551235", private_account=False, deleted=True)
+                               phone_number="+18005551235", deleted=True)
     session.add(user)
     session.add(deleted_user)
     session.commit()

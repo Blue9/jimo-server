@@ -153,7 +153,6 @@ def get_posts(username: str, firebase_user: FirebaseUser = Depends(get_firebase_
     # TODO(gmekkat): Paginate results
     user = users.get_user(db, username)
     utils.validate_user(user)
-    utils.check_can_view_user_else_raise(user=user, caller_uid=caller_user.uid)
     posts = []
     for post in users.get_posts(db, user):
         # ORMPostWithoutUser avoids querying post.user N times
