@@ -4,12 +4,19 @@ from fastapi import HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from app.controllers import users
+from app.controllers.firebase import FirebaseUser
 from app.models import models
 
 
 def validate_user(user: models.User):
     if user is None or user.deleted:
         raise HTTPException(404, detail="User not found")
+
+
+def validate_firebase_user(firebase_user: FirebaseUser, db: Session):
+    is_valid_user = db.query(models.User.id).filter(models.User.uid == firebase_user.uid).count() > 0
+    if not is_valid_user:
+        raise HTTPException(403, detail="Not authorized")
 
 
 def check_can_view_user_else_raise(user: models.User, caller_uid: str = None,

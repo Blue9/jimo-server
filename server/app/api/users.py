@@ -35,12 +35,12 @@ def create_user(request: schemas.user.CreateUserRequest, firebase_user: Firebase
 
 
 @router.get("/{username}", response_model=schemas.user.PublicUser)
-def get_user(username: str, _firebase_user: FirebaseUser = Depends(get_firebase_user), db: Session = Depends(get_db)):
+def get_user(username: str, firebase_user: FirebaseUser = Depends(get_firebase_user), db: Session = Depends(get_db)):
     """Get the given user's details.
 
     Args:
         username: The username string.
-        _firebase_user: Firebase user from auth header.
+        firebase_user: Firebase user from auth header.
         db: The database session object. This object is automatically injected by FastAPI.
 
     Returns:
@@ -49,6 +49,7 @@ def get_user(username: str, _firebase_user: FirebaseUser = Depends(get_firebase_
     Raises:
         HTTPException: If the user could not be found (404) or the caller isn't authenticated (401).
     """
+    utils.validate_firebase_user(firebase_user, db)
     user: models.User = utils.get_user_or_raise(username, db)
     return pydantic.parse_obj_as(schemas.user.PublicUser, user)
 
