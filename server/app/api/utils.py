@@ -1,10 +1,11 @@
 import imghdr
 
 from fastapi import HTTPException, UploadFile
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.controllers import users
-from app.controllers.firebase import FirebaseUser
+from app.controllers.firebase import FirebaseUser, FirebaseAdminProtocol
 from app.models import models
 
 
@@ -40,3 +41,27 @@ def check_valid_image(file: UploadFile):
         if file_size > 2 * 1024 * 1024:
             raise HTTPException(400, detail="Max file size is 2MB")
     file.file.seek(0)
+
+
+def upload_image(file: UploadFile, user: models.User, firebase_admin: FirebaseAdminProtocol, db: Session,
+                 override_used=False) -> models.ImageUpload:
+    check_valid_image(file)
+    # Set override_used to True if you plan to immediately use the image in a profile picture or post (as opposed to
+    # returning the image ID to the user).
+    image_upload: models.ImageUpload = models.ImageUpload(user_id=user.id, used=override_used)
+    try:
+        db.add(image_upload)
+        db.commit()
+    except IntegrityError:
+        # Right now this only happens in the case of a UUID collision which should be almost impossible
+        raise HTTPException(400, detail="Could not upload image")
+    response = firebase_admin.upload_image(user, image_id=image_upload.urlsafe_id, file_obj=file.file)
+    if response is None:
+        db.delete(image_upload)
+        db.commit()
+        raise HTTPException(500, detail="Failed to upload image")
+    blob_name, url = response
+    image_upload.firebase_blob_name = blob_name
+    image_upload.firebase_public_url = url
+    db.commit()
+    return image_upload

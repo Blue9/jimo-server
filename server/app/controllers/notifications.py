@@ -95,4 +95,4 @@ def get_notifications_items(db: Session, user: models.User,
         like_items.append(NotificationItem(type=ItemType.like, created_at=like.created_at,
                                            user=like.User, item_id=like.id,
                                            post=Post(**fields, liked=user in like.Post.likes)))
-    return sorted(follow_items + like_items, key=lambda i: i.created_at, reverse=True)[0:50]
+    return sorted(follow_items + like_items, key=lambda i: i.created_at, reverse=True)[:50]

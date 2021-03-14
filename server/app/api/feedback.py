@@ -11,7 +11,7 @@ from app.models import models
 router = APIRouter()
 
 
-@router.post("/", response_model=schemas.base.SimpleResponse)
+@router.post("", response_model=schemas.base.SimpleResponse)
 def submit_feedback(request: schemas.feedback.FeedbackRequest, firebase_user: FirebaseUser = Depends(get_firebase_user),
                     db: Session = Depends(get_db)):
     user: models.User = utils.get_user_from_uid_or_raise(db, uid=firebase_user.uid)

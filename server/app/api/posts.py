@@ -20,7 +20,7 @@ def get_post_and_validate_or_raise(post_id: str, db: Session) -> models.Post:
     return post
 
 
-@router.post("/", response_model=schemas.post.Post)
+@router.post("", response_model=schemas.post.Post)
 def create_post(request: schemas.post.CreatePostRequest, firebase_user: FirebaseUser = Depends(get_firebase_user),
                 db: Session = Depends(get_db)):
     """Create a new post.
@@ -68,7 +68,8 @@ def delete_post(post_id: str, firebase_user: FirebaseUser = Depends(get_firebase
         post.deleted = True
         db.commit()
         # TODO Run in background task
-        firebase_user.shared_firebase.make_image_private(post.image.firebase_blob_name)
+        if post.image:
+            firebase_user.shared_firebase.make_image_private(post.image.firebase_blob_name)
         return schemas.post.DeletePostResponse(deleted=True)
     return schemas.post.DeletePostResponse(deleted=False)
 
