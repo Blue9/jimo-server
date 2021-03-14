@@ -37,7 +37,7 @@ def upload_image(file: UploadFile = File(...),
     """Upload the given image to Firebase if allowed, returning the image id (used for posts + profile pictures)."""
     user: models.User = api.utils.get_user_from_uid_or_raise(db, firebase_user.uid)
     image_upload = utils.upload_image(file, user, firebase_user.shared_firebase, db)
-    return schemas.image.ImageUploadResponse(image_id=image_upload.urlsafe_id)
+    return schemas.image.ImageUploadResponse(image_id=image_upload.external_id)
 
 
 app.include_router(api.me.router, prefix="/me")

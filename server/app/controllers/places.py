@@ -43,7 +43,7 @@ def create_place(db: Session, request: schemas.place.MaybeCreatePlaceRequest) ->
         return place
     except IntegrityError as e:
         db.rollback()
-        if utils.is_unique_column_error(e, models.Place.urlsafe_id.key):
+        if utils.is_unique_column_error(e, models.Place.external_id.key):
             raise ValueError("UUID collision")
         # else the place exists
         return db.query(models.Place).filter(

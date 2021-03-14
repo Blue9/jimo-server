@@ -11,8 +11,8 @@ from app.models import models
 
 
 def get_post(db: Session, post_id: str):
-    """Return the post with the given urlsafe_id or None if no such post exists or the post is deleted."""
-    return db.query(models.Post).filter(and_(models.Post.urlsafe_id == post_id, models.Post.deleted == false())).first()
+    """Return the post with the given external_id or None if no such post exists or the post is deleted."""
+    return db.query(models.Post).filter(and_(models.Post.external_id == post_id, models.Post.deleted == false())).first()
 
 
 def already_posted(db: Session, user: models.User, place: models.Place):

@@ -11,7 +11,7 @@ from app.schemas.user import PublicUser
 
 # ORM types
 class ORMPostWithoutUser(Base):
-    urlsafe_id: uuid.UUID = Field(alias="postId")
+    external_id: uuid.UUID = Field(alias="postId")
     place: Place
     category: str
     content: str

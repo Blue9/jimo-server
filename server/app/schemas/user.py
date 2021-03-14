@@ -1,7 +1,7 @@
 import uuid
 from typing import Optional
 
-from pydantic import validator
+from pydantic import Field, validator
 
 from app.schemas import validators
 from app.schemas.base import Base, PhoneNumber
@@ -9,6 +9,7 @@ from app.schemas.base import Base, PhoneNumber
 
 # ORM types
 class PublicUser(Base):
+    external_id: uuid.UUID = Field(alias="userId")
     username: str
     first_name: str
     last_name: str

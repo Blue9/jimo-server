@@ -52,7 +52,7 @@ def delete_post(post_id: str, firebase_user: FirebaseUser = Depends(get_firebase
     """Delete the given post.
 
     Args:
-        post_id: The post id (maps to urlsafe_id in database).
+        post_id: The post id (maps to external_id in database).
         firebase_user: Firebase user from auth header.
         db: The database session object. This object is automatically injected by FastAPI.
 
@@ -79,7 +79,7 @@ def like_post(post_id: str, firebase_user: FirebaseUser = Depends(get_firebase_u
     """Like the given post if the user has not already liked the post.
 
     Args:
-        post_id: The post id (maps to urlsafe_id in database).
+        post_id: The post id (maps to external_id in database).
         firebase_user: Firebase user from auth header.
         db: The database session object. This object is automatically injected by FastAPI.
 
@@ -105,7 +105,7 @@ def unlike_post(post_id: str, firebase_user: FirebaseUser = Depends(get_firebase
     """Unlike the given post if the user has already liked the post.
 
     Args:
-        post_id: The post id (maps to urlsafe_id in database).
+        post_id: The post id (maps to external_id in database).
         firebase_user: Firebase user from auth header.
         db: The database session object. This object is automatically injected by FastAPI.
 

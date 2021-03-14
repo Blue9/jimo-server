@@ -19,6 +19,7 @@ class User(Base):
     __tablename__ = "user"
 
     id = Column(BigInteger, primary_key=True, nullable=False)  # Database id, used for relationships
+    external_id = Column(UUID(as_uuid=True), unique=True, nullable=False, server_default=text("gen_random_uuid()"))
     uid = Column(String, unique=True, nullable=False)  # Firebase id, maps to Firebase users
     username = Column(String(length=255), unique=True, nullable=False)
     first_name = Column(String(length=255), nullable=False)
@@ -104,7 +105,7 @@ class Place(Base):
     __tablename__ = "place"
 
     id = Column(BigInteger, primary_key=True, nullable=False)
-    urlsafe_id = Column(UUID(as_uuid=True), unique=True, nullable=False, server_default=text("gen_random_uuid()"))
+    external_id = Column(UUID(as_uuid=True), unique=True, nullable=False, server_default=text("gen_random_uuid()"))
     name = Column(String, nullable=False)
 
     # Latitude and longitude of the place
@@ -170,7 +171,7 @@ class Post(Base):
     __tablename__ = "post"
 
     id = Column(BigInteger, primary_key=True, nullable=False)
-    urlsafe_id = Column(UUID(as_uuid=True), unique=True, nullable=False, server_default=text("gen_random_uuid()"))
+    external_id = Column(UUID(as_uuid=True), unique=True, nullable=False, server_default=text("gen_random_uuid()"))
     user_id = Column(BigInteger, ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
     place_id = Column(BigInteger, ForeignKey("place.id"), nullable=False)
     category_id = Column(BigInteger, ForeignKey("category.id"), nullable=False)
@@ -221,7 +222,7 @@ class ImageUpload(Base):
     __tablename__ = "image_upload"
 
     id = Column(BigInteger, primary_key=True, nullable=False)
-    urlsafe_id = Column(UUID(as_uuid=True), unique=True, nullable=False, server_default=text("gen_random_uuid()"))
+    external_id = Column(UUID(as_uuid=True), unique=True, nullable=False, server_default=text("gen_random_uuid()"))
     user_id = Column(BigInteger, ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
     firebase_blob_name = Column(String, nullable=True)  # Set after creating the row in db
     firebase_public_url = Column(String, nullable=True)  # Set after creating the row in db

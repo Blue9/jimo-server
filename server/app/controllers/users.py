@@ -177,7 +177,7 @@ def get_feed(db: Session, user: models.User, before_post_id: Optional[str] = Non
     """Get the user's feed, returning None if the user is not authorized or if before_post_id is invalid."""
     before_post = None
     if before_post_id is not None:
-        before_post = db.query(models.Post).filter(models.Post.urlsafe_id == before_post_id).first()
+        before_post = db.query(models.Post).filter(models.Post.external_id == before_post_id).first()
         if before_post is None:
             return None
     following = get_following(user)

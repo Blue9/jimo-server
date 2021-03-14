@@ -36,7 +36,7 @@ class Region(Location):
 
 
 class Place(Base):
-    urlsafe_id: uuid.UUID = Field(alias="placeId")
+    external_id: uuid.UUID = Field(alias="placeId")
     name: str
     location: Location
 
