@@ -21,19 +21,22 @@ Variable | Value
 ---|---
 `DATABASE_URL` | Full database url (w/ credentials)
 `GOOGLE_APPLICATION_CREDENTIALS` | path to the service account JSON file
-`FIREBASE_API_KEY` | (Optional) Firebase API key (only required if you need to generate test tokens)
 
 4. (One-time setup) In `server/`, run `poetry run python init_db.py`. This will set up all the database tables. If you are using your own virtual environment you can also just run `python init_db.py`.
 5. In `server/`, run `poetry run python runserver.py`. This will start the server with hot reloading turned on. If you are using your own virtual environment you can also just run `python runserver.py`.
 
 
-## Running the frontend
+## Other commands
 
-1. Run `pod install` in `Jimo/`. You need to install [CocoaPods](https://cocoapods.org/) for this.
-2. Open the Xcode project (open the `.xcworkspace` file).
-3. Make sure the server is running.
-4. In APIClient.swift change `apiURL.host` to your local IP address the server is running on (this should probably be in a plist but this works for now)
-5. Run!
+Run the following commands in `server/`.
+
+Command | Action
+---|---
+`flake8 .` | Lint files
+`pytest` | Run tests
+`alembic revision --autogenerate -m <message>` | Generate database migration (run this after <br /> changing the db schema). **IMPORTANT**: Double <br /> check the generated file (in `alembic/versions/`) <br /> to make sure the migration is correct. Alembic <br /> can't always generate the right migrations.
+`alembic upgrade head` | Run database migrations.
+
 
 ## Backend overview
 

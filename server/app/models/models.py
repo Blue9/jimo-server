@@ -116,7 +116,7 @@ class Place(Base):
     longitude = Column(Float, nullable=False)
 
     # Computed column for postgis, don't manually modify; modify the above columns instead
-    location = Column(Geography(geometry_type="POINT", srid=4326),
+    location = Column(Geography(geometry_type="POINT", srid=4326, spatial_index=False),
                       Computed("ST_MakePoint(longitude, latitude)::geography"), nullable=False)
 
     # Only set in case estimated place data is incorrect
@@ -126,7 +126,8 @@ class Place(Base):
     updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     # Only want one row per (name, latitude, longitude)
-    __table_args__ = (UniqueConstraint("name", "latitude", "longitude", name="_place_name_location"),)
+    __table_args__ = (UniqueConstraint("name", "latitude", "longitude", name="_place_name_location"),
+                      Index("idx_place_location", location, postgresql_using="gist"))
 
 
 class PlaceData(Base):
@@ -149,16 +150,18 @@ class PlaceData(Base):
     additional_data = Column(JSONB, nullable=True)
 
     # Computed column for postgis, don't manually modify; modify the above columns instead
-    region_center = Column(Geography(geometry_type="POINT", srid=4326),
+    region_center = Column(Geography(geometry_type="POINT", srid=4326, spatial_index=False),
                            Computed("ST_MakePoint(region_center_long, region_center_lat)::geography"))
-    region = Column(Geography(geometry_type="POLYGON", srid=4326), Computed(
+    region = Column(Geography(geometry_type="POLYGON", srid=4326, spatial_index=False), Computed(
         "ST_Buffer(ST_MakePoint(region_center_long, region_center_lat)::geography, radius_meters, 100)"))
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     place = relationship("Place")
 
     # Only want one row per (user, place) pair
-    __table_args__ = (UniqueConstraint("user_id", "place_id", name="_place_data_user_place_uc"),)
+    __table_args__ = (UniqueConstraint("user_id", "place_id", name="_place_data_user_place_uc"),
+                      Index("idx_place_data_region", region, postgresql_using="gist"),
+                      Index("idx_place_data_region_center", region_center, postgresql_using="gist"))
 
 
 post_like = Table("post_like", Base.metadata,
@@ -179,7 +182,7 @@ class Post(Base):
     # If a custom location is selected for an existing place
     custom_latitude = Column(Float, nullable=True)
     custom_longitude = Column(Float, nullable=True)
-    custom_location = Column(Geography(geometry_type="POINT", srid=4326),
+    custom_location = Column(Geography(geometry_type="POINT", srid=4326, spatial_index=False),
                              Computed("ST_MakePoint(custom_longitude, custom_latitude)::geography"), nullable=True)
 
     content = Column(String, nullable=False)
@@ -202,7 +205,8 @@ class Post(Base):
 
     # Only want one row per (user, place) pair for all non-deleted posts
     user_place_uc = "_posts_user_place_uc"
-    __table_args__ = (Index(user_place_uc, "user_id", "place_id", unique=True, postgresql_where=(~deleted)),)
+    __table_args__ = (Index(user_place_uc, "user_id", "place_id", unique=True, postgresql_where=(~deleted)),
+                      Index("idx_post_custom_location", custom_location, postgresql_using="gist"))
 
 
 # Reports
