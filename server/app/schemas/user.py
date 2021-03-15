@@ -86,6 +86,22 @@ class UpdateProfileRequest(Base):
 class PhoneNumberList(Base):
     phone_numbers: list[PhoneNumber]
 
+    @validator("phone_numbers")
+    def validate_phone_number(cls, phone_numbers):
+        if len(phone_numbers) > 5000:
+            raise ValueError("Phone number list too long, max length is 5000")
+        return phone_numbers
+
+
+class UsernameList(Base):
+    usernames: list[str]
+
+    @validator("usernames")
+    def validate_usernames(cls, usernames):
+        if len(usernames) > 1000:
+            raise ValueError("Username list too long, max length is 1000")
+        return usernames
+
 
 # Response types
 class UserFieldErrors(Base):

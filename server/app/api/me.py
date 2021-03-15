@@ -1,6 +1,7 @@
 from typing import Optional, List
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from sqlalchemy import false, true
 from sqlalchemy.orm import Session
 
 from app import schemas
@@ -166,12 +167,9 @@ def get_discover_feed(firebase_user: FirebaseUser = Depends(get_firebase_user), 
 
 @router.get("/suggested", response_model=List[schemas.user.PublicUser])
 def get_suggested_users(firebase_user: FirebaseUser = Depends(get_firebase_user), db: Session = Depends(get_db)):
-    """Get the list of featured jimo accounts."""
+    """Get the list of suggested jimo accounts."""
     _ = utils.get_user_from_uid_or_raise(db, firebase_user.uid)
-    # TODO: move to table
-    featured_usernames = ["food", "jimo", "chicago", "nyc"]
-    featured_users = [users.get_user(db, username) for username in featured_usernames]
-    return list(filter(lambda u: u is not None, featured_users))
+    return db.query(models.User).filter(models.User.is_featured == true(), models.User.deleted == false()).all()
 
 
 @router.post("/contacts", response_model=List[schemas.user.PublicUser])
@@ -184,3 +182,18 @@ def get_existing_users(request: schemas.user.PhoneNumberList, firebase_user: Fir
     else:
         phone_numbers = request.phone_numbers
     return users.get_users_by_phone_numbers(db, phone_numbers)
+
+
+@router.post("/following", response_model=schemas.base.SimpleResponse)
+def follow_many(request: schemas.user.UsernameList, firebase_user: FirebaseUser = Depends(get_firebase_user),
+                db: Session = Depends(get_db)):
+    """Follow the given users."""
+    user = utils.get_user_from_uid_or_raise(db, firebase_user.uid)
+    username_list = request.usernames
+    to_follow = db \
+        .query(models.User) \
+        .filter(models.User.username.in_(username_list), models.User.deleted == false()) \
+        .all()
+    user.following.extend(to_follow)
+    db.commit()
+    return schemas.base.SimpleResponse(success=True)

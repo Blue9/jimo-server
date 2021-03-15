@@ -29,6 +29,7 @@ class User(Base):
                                 nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+    is_featured = Column(Boolean, nullable=False, server_default=false())
     deleted = Column(Boolean, nullable=False, server_default=expression.false())
     username_lower = Column(String(length=255), Computed("LOWER(username)"), unique=True, nullable=False)
 

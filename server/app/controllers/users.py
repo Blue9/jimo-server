@@ -28,10 +28,12 @@ def get_user(db: Session, username: str) -> Optional[models.User]:
         and_(models.User.username_lower == username.lower(), models.User.deleted == false())).first()
 
 
-def get_users_by_phone_numbers(db: Session, phone_numbers: list[str]) -> list[models.User]:
-    """Return the list of users with the given phone numbers."""
-    return db.query(models.User).filter(
-        and_(models.User.phone_number.in_(phone_numbers), models.User.deleted == false())).all()
+def get_users_by_phone_numbers(db: Session, phone_numbers: list[str], limit=1000) -> list[models.User]:
+    """Return up to `limit` users with the given phone numbers."""
+    return db.query(models.User) \
+        .filter(models.User.phone_number.in_(phone_numbers), models.User.deleted == false()) \
+        .limit(limit) \
+        .all()
 
 
 def get_user_by_uid(db: Session, uid: str) -> Optional[models.User]:
