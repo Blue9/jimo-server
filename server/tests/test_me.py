@@ -57,6 +57,8 @@ def test_me_user_exists():
     response = client.get("/me")
     assert response.status_code == 200
     user = response.json()
+    assert "userId" in user
+    user.pop("userId")
     assert user == {
         "uid": "uid",
         "username": "user",
