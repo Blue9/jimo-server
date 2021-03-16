@@ -62,22 +62,22 @@ def notify_follow_if_enabled(db: Session, user: models.User, followed_by: models
             print(e)
 
 
-def get_notifications_items(db: Session, user: models.User,
-                            token: Optional[PaginationToken] = None) -> list[NotificationItem]:
+def get_notification_feed(db: Session, user: models.User,
+                          token: Optional[PaginationToken] = None) -> list[NotificationItem]:
     follow_query = db.query(models.follow, models.User).filter(
-                                  models.follow.c.to_user_id == user.id,
-                                  models.User.id == models.follow.c.from_user_id,
-                                  models.User.deleted == false())
+        models.follow.c.to_user_id == user.id,
+        models.User.id == models.follow.c.from_user_id,
+        models.User.deleted == false())
     if token is not None and token.follow_id is not None:
         follow_query = follow_query.filter(models.follow.c.id < token.follow_id)
 
     like_query = db.query(models.post_like, models.Post, models.User).filter(
-            models.post_like.c.post_id == models.Post.id,
-            models.Post.user == user,
-            models.Post.deleted == false(),
-            models.User.id == models.post_like.c.user_id,
-            models.User.id != user.id,
-            models.User.deleted == false())
+        models.post_like.c.post_id == models.Post.id,
+        models.Post.user == user,
+        models.Post.deleted == false(),
+        models.User.id == models.post_like.c.user_id,
+        models.User.id != user.id,
+        models.User.deleted == false())
     if token is not None and token.like_id is not None:
         like_query = like_query.filter(models.post_like.c.id < token.like_id)
 

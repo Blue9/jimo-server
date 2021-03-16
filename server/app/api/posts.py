@@ -1,6 +1,6 @@
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Depends
 from sqlalchemy.orm import Session
 
 from app import schemas
@@ -48,11 +48,17 @@ def create_post(request: schemas.post.CreatePostRequest, firebase_user: Firebase
 
 
 @router.delete("/{post_id}", response_model=schemas.post.DeletePostResponse)
-def delete_post(post_id: str, firebase_user: FirebaseUser = Depends(get_firebase_user), db: Session = Depends(get_db)):
+def delete_post(
+        post_id: str,
+        background_tasks: BackgroundTasks,
+        firebase_user: FirebaseUser = Depends(get_firebase_user),
+        db: Session = Depends(get_db),
+):
     """Delete the given post.
 
     Args:
         post_id: The post id (maps to external_id in database).
+        background_tasks: BackgroundTasks object.
         firebase_user: Firebase user from auth header.
         db: The database session object. This object is automatically injected by FastAPI.
 
@@ -67,19 +73,24 @@ def delete_post(post_id: str, firebase_user: FirebaseUser = Depends(get_firebase
     if post is not None and post.user == user:
         post.deleted = True
         db.commit()
-        # TODO Run in background task
         if post.image:
-            firebase_user.shared_firebase.make_image_private(post.image.firebase_blob_name)
+            background_tasks.add_task(firebase_user.shared_firebase.make_image_private, post.image.firebase_blob_name)
         return schemas.post.DeletePostResponse(deleted=True)
     return schemas.post.DeletePostResponse(deleted=False)
 
 
 @router.post("/{post_id}/likes", response_model=schemas.post.LikePostResponse)
-def like_post(post_id: str, firebase_user: FirebaseUser = Depends(get_firebase_user), db: Session = Depends(get_db)):
+def like_post(
+        post_id: str,
+        background_tasks: BackgroundTasks,
+        firebase_user: FirebaseUser = Depends(get_firebase_user),
+        db: Session = Depends(get_db)
+):
     """Like the given post if the user has not already liked the post.
 
     Args:
         post_id: The post id (maps to external_id in database).
+        background_tasks: BackgroundTasks object.
         firebase_user: Firebase user from auth header.
         db: The database session object. This object is automatically injected by FastAPI.
 
@@ -95,8 +106,7 @@ def like_post(post_id: str, firebase_user: FirebaseUser = Depends(get_firebase_u
     user = utils.get_user_from_uid_or_raise(db, firebase_user.uid)
     posts.like_post(db, user, post)
     # Notify the user that their post was liked
-    # TODO move to background task
-    notifications.notify_post_liked_if_enabled(db, post, liked_by=user)
+    background_tasks.add_task(notifications.notify_post_liked_if_enabled, db, post, liked_by=user)
     return {"likes": post.like_count}
 
 

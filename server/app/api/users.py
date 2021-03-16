@@ -1,12 +1,12 @@
 from typing import Optional, List
 
 import pydantic
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app import schemas
 from app.api import utils
-from app.controllers import users
+from app.controllers import users, notifications
 from app.controllers.firebase import FirebaseUser, get_firebase_user
 from app.db.database import get_db
 from app.models import models
@@ -108,11 +108,17 @@ def get_follow_status(username: str, firebase_user: FirebaseUser = Depends(get_f
 
 
 @router.post("/{username}/follow", response_model=schemas.user.FollowUserResponse)
-def follow_user(username: str, firebase_user: FirebaseUser = Depends(get_firebase_user), db: Session = Depends(get_db)):
+def follow_user(
+        username: str,
+        background_tasks: BackgroundTasks,
+        firebase_user: FirebaseUser = Depends(get_firebase_user),
+        db: Session = Depends(get_db)
+):
     """Follow a user.
 
     Args:
         username: The username string to follow.
+        background_tasks: BackgroundTasks object.
         firebase_user: Firebase user from auth header.
         db: The database session object. This object is automatically injected by FastAPI.
 
@@ -128,7 +134,9 @@ def follow_user(username: str, firebase_user: FirebaseUser = Depends(get_firebas
     if to_user.uid == firebase_user.uid:
         raise HTTPException(400, "Cannot follow yourself")
     from_user = utils.get_user_from_uid_or_raise(db, firebase_user.uid)
-    return users.follow_user(db, from_user, to_user)
+    follow_response = users.follow_user(db, from_user, to_user)
+    background_tasks.add_task(notifications.notify_follow_if_enabled, db, to_user, followed_by=from_user)
+    return follow_response
 
 
 @router.post("/{username}/unfollow", response_model=schemas.user.FollowUserResponse)
