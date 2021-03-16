@@ -57,7 +57,7 @@ def on_waitlist(db: Session, firebase_user: FirebaseUser) -> bool:
 
 def invite_user(db: Session, user: models.User, phone_number: str) -> schemas.invite.UserInviteStatus:
     num_used_invites = db.query(models.Invite).filter(models.Invite.invited_by == user.id).count()
-    if num_used_invites >= config.invites_per_user:
+    if num_used_invites >= config.INVITES_PER_USER:
         return schemas.invite.UserInviteStatus(invited=False, message="Reached invite limit.")
     # Possible race condition if this gets called multiple times for the same user at the same time
     # Rate limiting the endpoint based on the auth header should take care of it, plus the worst case is that someone
