@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import List, Optional
 from enum import Enum
 from datetime import datetime
 
@@ -15,12 +15,6 @@ class ItemType(Enum):
     comment = "comment"
 
 
-# TODO: Implement pagination
-class PaginationToken(Base):
-    follow_id: Optional[str]
-    like_id: Optional[str]
-
-
 class NotificationItem(Base):
     type: ItemType
     created_at: datetime
@@ -32,3 +26,13 @@ class NotificationItem(Base):
     def validate_created_at(cls, created_at):
         # Needed so Swift can automatically decode
         return created_at.replace(microsecond=0)
+
+
+class PaginationToken(Base):
+    follow_id: Optional[str]
+    like_id: Optional[str]
+
+
+class NotificationFeedResponse(Base):
+    notifications: list[NotificationItem]
+    token: PaginationToken
