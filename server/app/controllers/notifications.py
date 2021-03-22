@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from firebase_admin import messaging
 
 from app.models import models
-from app.schemas.notifications import NotificationItem, PaginationToken, ItemType
+from app.schemas.notifications import NotificationItem, ItemType, PaginationToken
 from app.schemas.post import ORMPost, Post
 
 
@@ -62,14 +62,14 @@ def notify_follow_if_enabled(db: Session, user: models.User, followed_by: models
             print(e)
 
 
-def get_notification_feed(db: Session, user: models.User,
-                          token: Optional[PaginationToken] = None) -> list[NotificationItem]:
+def get_notification_feed(db: Session, user: models.User, follow_id: Optional[str] = None,
+                          like_id: Optional[str] = None) -> list[NotificationItem]:
     follow_query = db.query(models.follow, models.User).filter(
         models.follow.c.to_user_id == user.id,
         models.User.id == models.follow.c.from_user_id,
         models.User.deleted == false())
-    if token is not None and token.follow_id is not None:
-        follow_query = follow_query.filter(models.follow.c.id < token.follow_id)
+    if follow_id is not None and follow_id.isdigit():
+        follow_query = follow_query.filter(models.follow.c.id < follow_id)
 
     like_query = db.query(models.post_like, models.Post, models.User).filter(
         models.post_like.c.post_id == models.Post.id,
@@ -78,11 +78,11 @@ def get_notification_feed(db: Session, user: models.User,
         models.User.id == models.post_like.c.user_id,
         models.User.id != user.id,
         models.User.deleted == false())
-    if token is not None and token.like_id is not None:
-        like_query = like_query.filter(models.post_like.c.id < token.like_id)
+    if like_id is not None and like_id.isdigit():
+        like_query = like_query.filter(models.post_like.c.id < like_id)
 
-    follow_results = follow_query.order_by(models.follow.c.created_at.desc()).limit(50).all()
-    like_results = like_query.order_by(models.post_like.c.created_at.desc()).limit(50).all()
+    follow_results = follow_query.order_by(models.follow.c.id.desc()).limit(50).all()
+    like_results = like_query.order_by(models.post_like.c.id.desc()).limit(50).all()
 
     follow_items = []
     like_items = []
@@ -95,4 +95,10 @@ def get_notification_feed(db: Session, user: models.User,
         like_items.append(NotificationItem(type=ItemType.like, created_at=like.created_at,
                                            user=like.User, item_id=like.id,
                                            post=Post(**fields, liked=user in like.Post.likes)))
-    return sorted(follow_items + like_items, key=lambda i: i.created_at, reverse=True)[:50]
+    return sorted(follow_items + like_items, key=lambda i: (i.created_at, i.item_id), reverse=True)[:50]
+
+
+def get_token(feed: list[NotificationItem], last_follow: Optional[str], last_like: Optional[str]) -> PaginationToken:
+    follow_id = min([v.item_id for _, v in enumerate(feed) if v.type == ItemType.follow], default=last_follow)
+    like_id = min([v.item_id for _, v in enumerate(feed) if v.type == ItemType.like], default=last_like)
+    return PaginationToken(follow_id=follow_id, like_id=like_id)
