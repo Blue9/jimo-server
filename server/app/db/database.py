@@ -1,3 +1,5 @@
+from contextlib import contextmanager
+
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
@@ -14,6 +16,11 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+@contextmanager
+def get_session():
+    return get_db()
 
 
 Base = declarative_base()

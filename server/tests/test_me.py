@@ -2,7 +2,7 @@ from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from app.controllers.firebase import FirebaseUser, get_firebase_user
-from app.db.database import engine, SessionLocal
+from app.db.database import engine, get_session
 from app.main import app
 from app.models import models
 from tests.mock_firebase import MockFirebaseAdmin
@@ -11,23 +11,23 @@ from tests.utils import init_db, reset_db
 client = TestClient(app)
 
 
-def setup_module(module):
+def setup_module():
     init_db(engine)
-    session = SessionLocal()
-    user = models.User(uid="uid", username="user", first_name="first", last_name="last", phone_number="+18005551234")
-    deleted_user = models.User(uid="deleted_uid", username="deleted_user", first_name="first", last_name="last",
-                               phone_number="+18005551235", deleted=True)
-    session.add(user)
-    session.add(deleted_user)
-    session.commit()
-    user_prefs = models.UserPrefs(user_id=user.id, post_notifications=False, follow_notifications=True,
-                                  post_liked_notifications=True)
-    session.add(user_prefs)
-    session.commit()
-    session.close()
+    with get_session() as session:
+        user = models.User(uid="uid", username="user", first_name="first", last_name="last",
+                           phone_number="+18005551234")
+        deleted_user = models.User(uid="deleted_uid", username="deleted_user", first_name="first", last_name="last",
+                                   phone_number="+18005551235", deleted=True)
+        session.add(user)
+        session.add(deleted_user)
+        session.commit()
+        user_prefs = models.UserPrefs(user_id=user.id, post_notifications=False, follow_notifications=True,
+                                      post_liked_notifications=True)
+        session.add(user_prefs)
+        session.commit()
 
 
-def teardown_module(module):
+def teardown_module():
     reset_db(engine)
 
 

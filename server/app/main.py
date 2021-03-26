@@ -2,16 +2,35 @@ from fastapi import FastAPI, Depends, UploadFile, File
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from sqlalchemy.orm import Session
+from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
-from app import schemas, api
+from app import schemas, api, config
 from app.api import utils
 from app.controllers.firebase import FirebaseUser, get_firebase_user
 from app.db.database import get_db
 from app.models import models
 
-app = FastAPI()
+
+def get_app() -> FastAPI:
+    if config.ENABLE_DOCS:
+        _app = FastAPI()
+    else:
+        _app = FastAPI(openapi_url=None)
+    if config.ALLOW_ORIGIN:
+        origins = [config.ALLOW_ORIGIN]
+        _app.add_middleware(
+            CORSMiddleware,
+            allow_origins=origins,
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
+    return _app
+
+
+app = get_app()
 
 
 @app.exception_handler(RequestValidationError)
@@ -47,3 +66,4 @@ app.include_router(api.posts.router, prefix="/posts")
 app.include_router(api.search.router, prefix="/search")
 app.include_router(api.waitlist.router, prefix="/waitlist")
 app.include_router(api.feedback.router, prefix="/feedback")
+app.include_router(api.admin.router, prefix="/admin")

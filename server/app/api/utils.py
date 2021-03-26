@@ -1,6 +1,8 @@
 import imghdr
+from typing import Optional
 
 from fastapi import HTTPException, UploadFile
+from sqlalchemy import false
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -15,7 +17,9 @@ def validate_user(user: models.User):
 
 
 def validate_firebase_user(firebase_user: FirebaseUser, db: Session):
-    is_valid_user = db.query(models.User.id).filter(models.User.uid == firebase_user.uid).count() > 0
+    is_valid_user = db.query(models.User.id) \
+                        .filter(models.User.uid == firebase_user.uid, models.User.deleted == false()) \
+                        .count() > 0
     if not is_valid_user:
         raise HTTPException(403, detail="Not authorized")
 
@@ -27,8 +31,9 @@ def get_user_or_raise(username: str, db: Session) -> models.User:
 
 
 def get_user_from_uid_or_raise(db: Session, uid: str) -> models.User:
-    user: models.User = users.get_user_by_uid(db, uid)
-    validate_user(user)
+    user: Optional[models.User] = users.get_user_by_uid(db, uid)
+    if user is None or user.deleted:
+        raise HTTPException(403)
     return user
 
 

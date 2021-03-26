@@ -36,51 +36,20 @@ class CreateUserRequest(Base):
     first_name: str
     last_name: str
 
-    @validator("username")
-    def validate_username(cls, username: str):
-        username = username.strip()
-        if not validators.is_valid_username(username):
-            raise ValueError("Username must be 3-20 characters and alphanumeric")
-        return username
-
-    @validator("first_name")
-    def validate_first_name(cls, first_name: str):
-        first_name = first_name.strip()
-        if not validators.is_valid_name(first_name):
-            raise ValueError("First name must be 1-100 characters")
-        return first_name
-
-    @validator("last_name")
-    def validate_last_name(cls, last_name: str):
-        last_name = last_name.strip()
-        if not validators.is_valid_name(last_name):
-            raise ValueError("Last name must be 1-100 characters")
-        return last_name
+    _validate_username = validator("username", allow_reuse=True)(validators.validate_username)
+    _validate_first_name = validator("first_name", allow_reuse=True)(validators.validate_name)
+    _validate_last_name = validator("last_name", allow_reuse=True)(validators.validate_name)
 
 
 class UpdateProfileRequest(Base):
-    profile_picture_id: Optional[uuid.UUID]
-    username: Optional[str]
-    first_name: Optional[str]
-    last_name: Optional[str]
+    profile_picture_id: Optional[uuid.UUID] = None
+    username: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
 
-    @validator("username")
-    def validate_username(cls, username):
-        if username is None:
-            return
-        return CreateUserRequest.validate_username(username)
-
-    @validator("first_name")
-    def validate_first_name(cls, first_name):
-        if first_name is None:
-            return
-        return CreateUserRequest.validate_first_name(first_name)
-
-    @validator("last_name")
-    def validate_last_name(cls, last_name):
-        if last_name is None:
-            return
-        return CreateUserRequest.validate_last_name(last_name)
+    _validate_username = validator("username", allow_reuse=True)(validators.validate_username)
+    _validate_first_name = validator("first_name", allow_reuse=True)(validators.validate_name)
+    _validate_last_name = validator("last_name", allow_reuse=True)(validators.validate_name)
 
 
 class PhoneNumberList(Base):

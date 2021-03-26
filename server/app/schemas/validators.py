@@ -1,16 +1,24 @@
 import string
+from typing import Optional
 
 
-def is_valid_username(username: str) -> bool:
+def validate_username(username: Optional[str]) -> str:
+    if username is None:
+        raise ValueError("Username missing")
+    username = username.strip()
     if len(username) < 3 or len(username) > 20:
-        return False
+        raise ValueError("Username must be 3-20 characters")
     if any(c in username for c in string.whitespace):
-        return False
+        raise ValueError("Username can only contain letters, numbers, and underscores")
     if not username.replace("_", "").isalnum():
-        return False
-    return True
+        raise ValueError("Username can only contain letters, numbers, and underscores")
+    return username
 
 
-def is_valid_name(name: str) -> bool:
+def validate_name(name: Optional[str]) -> str:
+    if name is None:
+        raise ValueError("Name missing")
     name = name.strip()
-    return 1 <= len(name) <= 100
+    if len(name) < 1 or len(name) > 100:
+        raise ValueError("Name must be 1-100 characters")
+    return name

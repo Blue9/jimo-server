@@ -30,6 +30,7 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
     is_featured = Column(Boolean, nullable=False, server_default=false())
+    is_admin = Column(Boolean, nullable=False, server_default=expression.false())
     deleted = Column(Boolean, nullable=False, server_default=expression.false())
     username_lower = Column(String(length=255), Computed("LOWER(username)"), unique=True, nullable=False)
 
@@ -219,6 +220,9 @@ class PostReport(Base):
     details = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
+    post = relationship("Post")
+    reported_by = relationship("User")
+
     # Can only report a post once
     __table_args__ = (UniqueConstraint("post_id", "reported_by_user_id", name="_report_post_user_uc"),)
 
@@ -242,6 +246,8 @@ class Feedback(Base):
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     contents = Column(String, nullable=False)
     follow_up = Column(Boolean, nullable=False, server_default=expression.false())
+
+    user = relationship("User")
 
 
 # Column properties

@@ -1,5 +1,5 @@
 import datetime
-from typing import Optional
+from typing import Optional, Tuple
 
 from sqlalchemy import false, or_, and_
 from sqlalchemy.exc import IntegrityError
@@ -57,7 +57,7 @@ def on_waitlist(db: Session, firebase_user: FirebaseUser) -> bool:
 
 def invite_user(db: Session, user: models.User, phone_number: str) -> schemas.invite.UserInviteStatus:
     num_used_invites = db.query(models.Invite).filter(models.Invite.invited_by == user.id).count()
-    if num_used_invites >= config.INVITES_PER_USER:
+    if num_used_invites >= config.INVITES_PER_USER and not user.is_admin:
         return schemas.invite.UserInviteStatus(invited=False, message="Reached invite limit.")
     # Possible race condition if this gets called multiple times for the same user at the same time
     # Rate limiting the endpoint based on the auth header should take care of it, plus the worst case is that someone
@@ -93,8 +93,22 @@ def create_user(db: Session, firebase_user: FirebaseUser, request: schemas.user.
     if not is_invited(db, firebase_user):
         return schemas.user.CreateUserResponse(created=None,
                                                error=schemas.user.UserFieldErrors(uid="You aren't invited yet."))
-    new_user = models.User(uid=firebase_user.uid, username=request.username, first_name=request.first_name,
-                           last_name=request.last_name, phone_number=phone_number)
+    created, error = create_user_ignore_invite_status(db, firebase_user.uid, request.username, request.first_name,
+                                                      request.last_name, phone_number)
+    return schemas.user.CreateUserResponse(created=created, error=error)
+
+
+def create_user_ignore_invite_status(
+        db: Session,
+        uid: str,
+        username: str,
+        first_name: str,
+        last_name: str,
+        phone_number: Optional[str] = None
+) -> Tuple[Optional[models.User], Optional[schemas.user.UserFieldErrors]]:
+    """Create a user ignoring the invite limit."""
+    new_user = models.User(uid=uid, username=username, first_name=first_name,
+                           last_name=last_name, phone_number=phone_number)
     db.add(new_user)
     try:
         db.commit()
@@ -103,21 +117,20 @@ def create_user(db: Session, firebase_user: FirebaseUser, request: schemas.user.
                                  post_liked_notifications=True)
         db.add(prefs)
         db.commit()
-        return schemas.user.CreateUserResponse(created=new_user, error=None)
+        return new_user, None
     except IntegrityError as e:
         db.rollback()
         # A user with the same uid or username exists
-        if uid_exists(db, firebase_user.uid):
+        if uid_exists(db, uid):
             error = schemas.user.UserFieldErrors(uid="User exists.")
-            return schemas.user.CreateUserResponse(created=None, error=error)
-        elif username_taken(db, request.username):
+            return None, error
+        elif username_taken(db, username):
             error = schemas.user.UserFieldErrors(username="Username taken.")
-            return schemas.user.CreateUserResponse(created=None, error=error)
+            return None, error
         else:
             # Unknown error
             print(e)
-            return schemas.user.CreateUserResponse(created=None,
-                                                   error=schemas.user.UserFieldErrors(other="Unknown error."))
+            return None, schemas.user.UserFieldErrors(other="Unknown error.")
 
 
 def update_user(db: Session, user: models.User,

@@ -22,5 +22,8 @@ class MockFirebaseAdmin:
     def make_image_private(self, blob_name: str):
         pass
 
+    def make_image_public(self, blob_name: str):
+        pass
+
     def delete_image(self, blob_name: str):
         pass

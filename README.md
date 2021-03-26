@@ -20,7 +20,11 @@
 Variable | Value
 ---|---
 `DATABASE_URL` | Full database url (w/ credentials)
-`GOOGLE_APPLICATION_CREDENTIALS` | path to the service account JSON file
+`GOOGLE_APPLICATION_CREDENTIALS` | Path to the service account JSON file
+`ALLOW_ORIGIN` | (Optional) Allow requests from the given host
+`ADMIN_USER` | (Optional) Base64 encoding of a JSON string of the default admin user (should conform to CreateUserRequest). If this is set and `INIT_DB` is true, the server will attempt to create the given admin user in the database.
+`ENABLE_DOCS` | (Optional) If set to 1, enable the `/docs`, `/redoc`, and `/openapi.json` endpoints. Disabled by default.
+`INIT_DB` | (Optional) If set to 1, initialize the db and run migrations on server startup.
 
 4. (One-time setup) In `server/`, run `poetry run python init_db.py`. This will set up all the database tables. If you are using your own virtual environment you can also just run `python init_db.py`.
 5. In `server/`, run `poetry run python runserver.py`. This will start the server with hot reloading turned on. If you are using your own virtual environment you can also just run `python runserver.py`.

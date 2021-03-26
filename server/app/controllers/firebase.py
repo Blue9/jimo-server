@@ -24,6 +24,8 @@ class FirebaseAdminProtocol(Protocol):
 
     def make_image_private(self, blob_name: str): ...
 
+    def make_image_public(self, blob_name: str): ...
+
     def delete_image(self, blob_name: str): ...
 
 
@@ -81,6 +83,13 @@ class FirebaseAdmin:
         blob = bucket.get_blob(blob_name)
         if blob:
             blob.make_private()
+
+    def make_image_public(self, blob_name: str):
+        """Make the image public. Used when restoring deleted posts."""
+        bucket = storage.bucket(app=self._app)
+        blob = bucket.get_blob(blob_name)
+        if blob:
+            blob.make_public()
 
     def delete_image(self, blob_name: str):
         """Delete the given image."""

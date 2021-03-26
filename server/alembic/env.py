@@ -81,6 +81,7 @@ def run_migrations_online():
         )
 
         with context.begin_transaction():
+            connection.execute("SELECT pg_advisory_xact_lock(10000);")
             context.run_migrations()
 
 
