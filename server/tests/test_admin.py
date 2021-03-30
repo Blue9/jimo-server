@@ -1,10 +1,9 @@
 import uuid
 from contextlib import contextmanager
-from typing import Optional
 from unittest import mock
 
 import pytest
-from fastapi import HTTPException, Header
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from app import api

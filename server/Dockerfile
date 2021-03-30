@@ -5,7 +5,7 @@ RUN mkdir /app
 # App files
 COPY /app /app
 COPY runserver.py /
-COPY init_db.py /
+COPY migrate.py /
 
 # Poetry files
 COPY pyproject.toml /

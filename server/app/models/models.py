@@ -121,7 +121,7 @@ class Place(Base):
                       Computed("ST_MakePoint(longitude, latitude)::geography"), nullable=False)
 
     # Only set in case estimated place data is incorrect
-    verified_place_data = Column(BigInteger, ForeignKey("place.id"), nullable=True)
+    verified_place_data = Column(BigInteger, ForeignKey("place_data.id"), nullable=True)
 
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
@@ -139,7 +139,7 @@ class PlaceData(Base):
 
     id = Column(BigInteger, primary_key=True, nullable=False)
     user_id = Column(BigInteger, ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
-    place_id = Column(BigInteger, ForeignKey("place.id"), nullable=False)
+    place_id = Column(BigInteger, ForeignKey("place.id", ondelete="CASCADE"), nullable=False)
 
     # Region that describes the boundary of the place
     # Used to deduplicate places
@@ -157,7 +157,7 @@ class PlaceData(Base):
         "ST_Buffer(ST_MakePoint(region_center_long, region_center_lat)::geography, radius_meters, 100)"))
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
-    place = relationship("Place")
+    place = relationship("Place", primaryjoin=lambda: PlaceData.place_id == Place.id)
 
     # Only want one row per (user, place) pair
     __table_args__ = (UniqueConstraint("user_id", "place_id", name="_place_data_user_place_uc"),
