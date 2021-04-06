@@ -1,23 +1,48 @@
-FROM python:3.9
+FROM python:3.9.3-slim as base
 
-RUN mkdir /app
+ENV PYTHONUNBUFFERED=1
 
-# App files
+# Build stage - build server as wheel
+FROM base as builder
+
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1 \
+    POETRY_VERSION=1.1.4
+
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    gcc \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN pip install "poetry==$POETRY_VERSION"
+RUN python -m venv /venv
+
 COPY /app /app
-COPY runserver.py /
-COPY migrate.py /
-
-# Poetry files
 COPY pyproject.toml /
 COPY poetry.lock /
 
-# Database migration files
+RUN poetry export -f requirements.txt | /venv/bin/pip install -r /dev/stdin
+RUN poetry build && /venv/bin/pip install dist/*.whl
+
+# Run stage - copy venv and run
+FROM base as final
+
+COPY --from=builder /venv /venv
+ENV PATH="/venv/bin:$PATH"
+RUN apt-get update && apt-get install -y libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY /alembic /alembic
 COPY alembic.ini /
+COPY migrate.py /
 
-RUN pip3 install poetry
-RUN poetry config virtualenvs.create false
-RUN poetry install --no-dev
-
-EXPOSE 80
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "80"]
+# Reasoning for options here:
+# https://cloud.google.com/run/docs/quickstarts/build-and-deploy/python#containerizing
+CMD exec gunicorn \
+    --bind :$PORT \
+    --workers 1 \
+    --timeout 0 \
+    -k uvicorn.workers.UvicornWorker \
+    --access-logfile - \
+    app.main:app

@@ -254,17 +254,17 @@ class Feedback(Base):
 
 # Users
 other_user = aliased(User)
-User.post_count = column_property(select([func.count()]).where(and_(Post.user_id == User.id, Post.deleted == false())),
-                                  deferred=True)
+User.post_count = column_property(
+    select([func.count()]).where(and_(Post.user_id == User.id, Post.deleted == false())).scalar_subquery(),
+    deferred=True)
 User.follower_count = column_property(
     select([func.count()]).select_from(follow.join(other_user, follow.c.from_user_id == other_user.id)).where(
-        and_(follow.c.to_user_id == User.id, other_user.deleted == false())), deferred=True)
+        and_(follow.c.to_user_id == User.id, other_user.deleted == false())).scalar_subquery(), deferred=True)
 
 User.following_count = column_property(
     select([func.count()]).select_from(follow.join(other_user, follow.c.to_user_id == other_user.id)).where(
-        and_(follow.c.from_user_id == User.id, other_user.deleted == false())), deferred=True)
+        and_(follow.c.from_user_id == User.id, other_user.deleted == false())).scalar_subquery(), deferred=True)
 
 # Posts
-Post.like_count = column_property(
-    select([func.count()]).select_from(post_like.join(User)).where(
-        and_(Post.id == post_like.c.post_id, User.deleted == false())), deferred=True)
+Post.like_count = column_property(select([func.count()]).select_from(post_like.join(User)).where(
+    and_(Post.id == post_like.c.post_id, User.deleted == false())).scalar_subquery(), deferred=True)
