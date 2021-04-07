@@ -1,19 +1,20 @@
+import io
+from typing import Optional
+
 from alembic import command
 from alembic.config import Config
 
 from app import config
-from app.controllers import users
-from app.db.database import get_session
+from app.controllers import users, categories
+from app.db.database import get_session, engine
+from app.models import models
 
 
-def run_migrations():
-    print("Running db migrations")
-    alembic_cfg = Config("alembic.ini")
-    command.upgrade(alembic_cfg, "head")
-    print("Ran db migrations")
-    with get_session() as session:
-        if config.ADMIN_USER is not None:
-            user = config.ADMIN_USER
+def main():
+    run_migrations()
+    if config.ADMIN_USER is not None:
+        user = config.ADMIN_USER
+        with get_session() as session:
             created, error = users.create_user_ignore_invite_status(
                 session, user.uid, user.username, user.first_name, user.last_name)
             if created:
@@ -22,5 +23,38 @@ def run_migrations():
                 print("Created admin user with uid", user.uid)
 
 
+def init_db():
+    models.Base.metadata.create_all(bind=engine)
+    with get_session() as session:
+        categories.add_categories_to_db(session)
+
+
+def run_migrations():
+    print("Running db migrations")
+    alembic_cfg = Config("alembic.ini")
+    current_revision = get_current_revision()
+    if current_revision is None:
+        # If alembic_version table doesn't exist, init db and stamp it with the most recent revision
+        print("Creating tables and stamping version")
+        init_db()
+        command.stamp(alembic_cfg, "head")
+    else:
+        print("Migrating")
+        command.upgrade(alembic_cfg, "head")
+    print("Ran db migrations")
+
+
+def get_current_revision() -> Optional[str]:
+    output_buffer = io.StringIO()
+    alembic_cfg = Config("alembic.ini", stdout=output_buffer)
+    command.current(alembic_cfg)
+    output = output_buffer.getvalue()
+    if output:
+        return output
+    else:
+        # If current revision doesn't exist, output is an empty string, so we return None here
+        return None
+
+
 if __name__ == "__main__":
-    run_migrations()
+    main()

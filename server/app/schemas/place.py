@@ -61,16 +61,27 @@ class MaybeCreatePlaceRequest(Base):
         return name
 
 
-class RectangularRegion(Base):
+# Not used for now
+class MapSearchRegion(Base):
     center_lat: float
     center_long: float
-    span_lat: float
-    span_long: float
+    radius: float
 
-    @root_validator(pre=True)
+    @root_validator(pre=False)
     def get_region(cls, values):
         assert -90 <= values.get("center_lat") <= 90
         assert -180 <= values.get("center_long") <= 180
-        assert 0 <= values.get("span_lat") <= 180
-        assert 0 <= values.get("span_long") <= 360
+        assert values.get("radius") > 0
         return values
+
+
+# Response types
+class MapPinIcon(Base):
+    category: Optional[str]
+    icon_url: Optional[str]
+    num_mutual_posts: int
+
+
+class MapPin(Base):
+    place: Place
+    icon: MapPinIcon

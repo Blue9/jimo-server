@@ -32,7 +32,7 @@ class FirebaseAdminProtocol(Protocol):
 class FirebaseAdmin:
     def __init__(self):
         self._app = firebase_admin.initialize_app(options={
-            "storageBucket": "goodplaces-app.appspot.com"
+            "storageBucket": "goodplaces-app-testing"
         })
 
     def get_uid_from_token(self, id_token: str) -> Optional[str]:

@@ -1,4 +1,7 @@
-from sqlalchemy import func, asc, and_, false, select
+import uuid
+from typing import Optional
+
+from sqlalchemy import func, asc, and_, false, exists
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -102,20 +105,72 @@ def get_place_or_create(db: Session, user: models.User, request: schemas.place.M
     return place
 
 
-def get_map(db: Session, user: models.User) -> list[schemas.post.Post]:
-    """Get the user's map view, returning up to the 1000 most recent posts."""
+def get_map(db: Session, user: models.User, limit: int) -> list[schemas.place.MapPin]:
+    """Get the user's map view, returning up to the `limit` most recently posted places."""
     following_ids = [u.id for u in get_following(user)] + [user.id]
-    posts = db.query(models.Post, select([func.count() > 0])
-                     .where(and_(models.post_like.c.post_id == models.Post.id,
-                                 models.post_like.c.user_id == user.id))
-                     .label("post_liked")) \
+    response = db.query(models.Place.external_id.label("place_external_id"),
+                        models.Place.latitude.label("place_latitude"),
+                        models.Place.longitude.label("place_longitude"),
+                        models.Place.name.label("place_name"),
+                        models.Category.name.label("category"),
+                        models.ImageUpload.firebase_public_url,
+                        func.count(models.Post.id).over(partition_by=models.Place.id).label("num_mutual_posts")) \
+        .select_from(models.Post) \
+        .filter(models.Post.user_id.in_(following_ids), models.Post.deleted == false()) \
+        .join(models.Place, models.Post.place_id == models.Place.id) \
+        .join(models.Category, models.Post.category_id == models.Category.id) \
+        .join(models.User, models.Post.user_id == models.User.id) \
+        .join(models.ImageUpload, models.User.profile_picture_id == models.ImageUpload.id, isouter=True) \
+        .order_by(models.Place.id, models.Post.created_at.desc()) \
+        .distinct(models.Place.id) \
+        .limit(limit) \
+        .all()
+    places = []
+    for row in response:
+        location = schemas.place.Location(latitude=row.place_latitude, longitude=row.place_longitude)
+        place = schemas.place.Place(external_id=row.place_external_id, name=row.place_name, location=location)
+        icon = schemas.place.MapPinIcon(category=row.category, icon_url=row.firebase_public_url,
+                                        num_mutual_posts=row.num_mutual_posts)
+        places.append(schemas.place.MapPin(place=place, icon=icon))
+    return places
+
+
+def get_place_icon(db: Session, user: models.User, place_id: uuid.UUID) -> schemas.place.MapPinIcon:
+    following_ids = [u.id for u in get_following(user)] + [user.id]
+    icon_details = db.query(func.count().over().label("num_mutual_posts"),
+                            models.Category.name.label("category"),
+                            models.ImageUpload.firebase_public_url.label("icon_url")) \
+        .select_from(models.Post) \
+        .join(models.Place, models.Post.place_id == models.Place.id) \
+        .join(models.Category) \
+        .join(models.User) \
+        .join(models.ImageUpload, models.User.profile_picture_id == models.ImageUpload.id, isouter=True) \
+        .filter(models.Place.external_id == place_id) \
         .filter(models.Post.user_id.in_(following_ids), models.Post.deleted == false()) \
         .order_by(models.Post.created_at.desc()) \
-        .limit(1000) \
-        .all()
+        .first()
+    if icon_details is None:
+        return schemas.place.MapPinIcon(num_mutual_posts=0)
+    else:
+        return schemas.place.MapPinIcon(category=icon_details.category, icon_url=icon_details.icon_url,
+                                        num_mutual_posts=icon_details.num_mutual_posts)
 
-    all_posts = []
-    for post, is_post_liked in posts:
+
+def get_mutual_posts(db: Session, user: models.User, place_id: uuid.UUID,
+                     limit: int) -> Optional[list[schemas.post.Post]]:
+    following_ids = [u.id for u in get_following(user)] + [user.id]
+    result = db.query(models.Post, exists()
+                      .where(and_(models.post_like.c.post_id == models.Post.id,
+                                  models.post_like.c.user_id == user.id))
+                      .label("post_liked")) \
+        .join(models.Place) \
+        .filter(models.Place.external_id == place_id) \
+        .filter(models.Post.user_id.in_(following_ids), models.Post.deleted == false()) \
+        .order_by(models.Post.created_at.desc()) \
+        .limit(limit) \
+        .all()
+    posts = []
+    for post, is_post_liked in result:
         fields = schemas.post.ORMPost.from_orm(post).dict()
-        all_posts.append(schemas.post.Post(**fields, liked=is_post_liked))
-    return all_posts
+        posts.append(schemas.post.Post(**fields, liked=is_post_liked))
+    return posts

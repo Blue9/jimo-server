@@ -137,12 +137,11 @@ def get_feed(before: Optional[str] = None, firebase_user: FirebaseUser = Depends
     return posts
 
 
-@router.get("/map", response_model=list[schemas.post.Post])
-def get_map(firebase_user: FirebaseUser = Depends(get_firebase_user),
-            db: Session = Depends(get_db)) -> list[schemas.post.Post]:
+@router.get("/map", response_model=list[schemas.place.MapPin])
+def get_map(firebase_user: FirebaseUser = Depends(get_firebase_user), db: Session = Depends(get_db)):
     user: models.User = utils.get_user_from_uid_or_raise(db, firebase_user.uid)
     utils.validate_user(user)
-    return places.get_map(db, user)
+    return places.get_map(db, user, limit=1000)
 
 
 @router.get("/discover", response_model=List[schemas.post.Post])
