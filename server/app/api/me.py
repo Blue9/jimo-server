@@ -2,7 +2,8 @@ from typing import Optional, List
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy import false, true
-from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import aliased, Session
 
 from app import schemas
 from app.api import utils
@@ -140,7 +141,6 @@ def get_feed(before: Optional[str] = None, firebase_user: FirebaseUser = Depends
 @router.get("/map", response_model=list[schemas.place.MapPin])
 def get_map(firebase_user: FirebaseUser = Depends(get_firebase_user), db: Session = Depends(get_db)):
     user: models.User = utils.get_user_from_uid_or_raise(db, firebase_user.uid)
-    utils.validate_user(user)
     return places.get_map(db, user, limit=1000)
 
 
@@ -156,7 +156,7 @@ def get_discover_feed(firebase_user: FirebaseUser = Depends(get_firebase_user), 
         The discover feed for the given user as a list of Post objects in reverse chronological order.
     """
     user = utils.get_user_from_uid_or_raise(db, firebase_user.uid)
-    discover_feed = users.get_discover_feed(db)
+    discover_feed = users.get_discover_feed(db, user=user)
     posts = []
     for post in discover_feed:
         fields = schemas.post.ORMPost.from_orm(post).dict()
@@ -167,8 +167,16 @@ def get_discover_feed(firebase_user: FirebaseUser = Depends(get_firebase_user), 
 @router.get("/suggested", response_model=List[schemas.user.PublicUser])
 def get_suggested_users(firebase_user: FirebaseUser = Depends(get_firebase_user), db: Session = Depends(get_db)):
     """Get the list of suggested jimo accounts."""
-    _ = utils.get_user_from_uid_or_raise(db, firebase_user.uid)
-    return db.query(models.User).filter(models.User.is_featured == true(), models.User.deleted == false()).all()
+    user = utils.get_user_from_uid_or_raise(db, firebase_user.uid)
+    RelationToCurrent = aliased(models.UserRelation)
+    return db.query(models.User) \
+        .join(RelationToCurrent,
+              (RelationToCurrent.to_user_id == user.id) & (RelationToCurrent.from_user_id == models.User.id),
+              isouter=True) \
+        .filter(models.User.is_featured == true(),
+                models.User.deleted == false(),
+                RelationToCurrent.relation.is_distinct_from(models.UserRelationType.blocked)) \
+        .all()
 
 
 @router.post("/contacts", response_model=List[schemas.user.PublicUser])
@@ -180,7 +188,7 @@ def get_existing_users(request: schemas.user.PhoneNumberList, firebase_user: Fir
         phone_numbers = [number for number in request.phone_numbers if number != user.phone_number]
     else:
         phone_numbers = request.phone_numbers
-    return users.get_users_by_phone_numbers(db, phone_numbers)
+    return users.get_users_by_phone_numbers(db, user, phone_numbers)
 
 
 @router.post("/following", response_model=schemas.base.SimpleResponse)
@@ -188,11 +196,30 @@ def follow_many(request: schemas.user.UsernameList, firebase_user: FirebaseUser 
                 db: Session = Depends(get_db)):
     """Follow the given users."""
     user = utils.get_user_from_uid_or_raise(db, firebase_user.uid)
-    username_list = request.usernames
-    to_follow = db \
-        .query(models.User) \
-        .filter(models.User.username.in_(username_list), models.User.deleted == false()) \
+    username_list = [username.lower() for username in request.usernames if username.lower() != user.username_lower]
+    # Users to follow = all the existing users in the list that do not block us and that we do not follow or block
+    RelationToCurrent = aliased(models.UserRelation)
+    RelationFromCurrent = aliased(models.UserRelation)
+    users_to_follow = db \
+        .query(models.User.id) \
+        .filter(models.User.username_lower.in_(username_list), models.User.deleted == false()) \
+        .join(RelationToCurrent,
+              (RelationToCurrent.to_user_id == user.id) & (RelationToCurrent.from_user_id == models.User.id),
+              isouter=True) \
+        .join(RelationFromCurrent,
+              (RelationFromCurrent.from_user_id == user.id) & (RelationFromCurrent.to_user_id == models.User.id),
+              isouter=True) \
+        .filter(RelationFromCurrent.relation.is_(None),
+                RelationToCurrent.relation.is_distinct_from(models.UserRelationType.blocked)) \
         .all()
-    user.following.extend(to_follow)
-    db.commit()
+    for to_follow in users_to_follow:
+        db.add(models.UserRelation(
+            from_user_id=user.id,
+            to_user_id=to_follow.id,
+            relation=models.UserRelationType.following
+        ))
+    try:
+        db.commit()
+    except IntegrityError:
+        raise HTTPException(400)
     return schemas.base.SimpleResponse(success=True)

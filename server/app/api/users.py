@@ -49,8 +49,9 @@ def get_user(username: str, firebase_user: FirebaseUser = Depends(get_firebase_u
     Raises:
         HTTPException: If the user could not be found (404) or the caller isn't authenticated (401).
     """
-    utils.validate_firebase_user(firebase_user, db)
-    user: models.User = utils.get_user_or_raise(username, db)
+    caller_user = utils.get_user_from_uid_or_raise(db, firebase_user.uid)
+    user: Optional[models.User] = users.get_user(db, username)
+    utils.validate_user(db, caller_user=caller_user, user=user)
     return pydantic.parse_obj_as(schemas.user.PublicUser, user)
 
 
@@ -73,8 +74,10 @@ def get_posts(username: str, firebase_user: FirebaseUser = Depends(get_firebase_
     """
     caller_user = utils.get_user_from_uid_or_raise(db, firebase_user.uid)
     # TODO(gmekkat): Paginate results
-    user = users.get_user(db, username)
-    utils.validate_user(user)
+    user: Optional[models.User] = users.get_user(db, username)
+    utils.validate_user(db, caller_user=caller_user, user=user)
+    if users.is_blocked(db, blocked_by_user=caller_user, blocked_user=user):
+        raise HTTPException(403)
     posts = []
     for post in users.get_posts(db, user):
         # ORMPostWithoutUser avoids querying post.user N times
@@ -95,16 +98,33 @@ def get_follow_status(username: str, firebase_user: FirebaseUser = Depends(get_f
 
     Returns:
         A boolean where true indicated the user is followed and false indicates the user is not followed.
-        TODO: Eventually when we add private users we can add another status for pending.
 
     Raises:
         HTTPException: If the user could not be found (404), the caller isn't authenticated (401),
         or the caller is trying check status of themself (400).
     """
-    to_user = users.get_user(db, username)
-    utils.validate_user(to_user)
     from_user = utils.get_user_from_uid_or_raise(db, firebase_user.uid)
-    return schemas.user.FollowUserResponse(followed=(to_user in from_user.following))
+    to_user = users.get_user(db, username)
+    utils.validate_user(db, caller_user=from_user, user=to_user)
+    relation: Optional[models.UserRelationType] = db.query(models.UserRelation.relation) \
+        .filter(models.UserRelation.from_user_id == from_user.id,
+                models.UserRelation.to_user_id == to_user.id) \
+        .scalar()
+    return {"followed": relation == models.UserRelationType.following}
+
+
+@router.get("/{username}/followStatusV2", response_model=schemas.user.RelationToUser)
+def get_follow_status_v2(username: str, firebase_user: FirebaseUser = Depends(get_firebase_user),
+                         db: Session = Depends(get_db)):
+    """Get the relationship to the given user."""
+    from_user = utils.get_user_from_uid_or_raise(db, firebase_user.uid)
+    to_user = users.get_user(db, username)
+    utils.validate_user(db, caller_user=from_user, user=to_user)
+    relation: Optional[models.UserRelationType] = db.query(models.UserRelation.relation) \
+        .filter(models.UserRelation.from_user_id == from_user.id,
+                models.UserRelation.to_user_id == to_user.id) \
+        .scalar()
+    return schemas.user.RelationToUser(relation=relation.value if relation else None)
 
 
 @router.post("/{username}/follow", response_model=schemas.user.FollowUserResponse)
@@ -129,14 +149,17 @@ def follow_user(
         HTTPException: If the user could not be found (404), the caller isn't authenticated (401), the user is already
         followed (400), or the caller is trying to follow themself (400).
     """
-    to_user = users.get_user(db, username)
-    utils.validate_user(to_user)
-    if to_user.uid == firebase_user.uid:
-        raise HTTPException(400, "Cannot follow yourself")
     from_user = utils.get_user_from_uid_or_raise(db, firebase_user.uid)
-    follow_response = users.follow_user(db, from_user, to_user)
-    background_tasks.add_task(notifications.notify_follow_if_enabled, db, to_user, followed_by=from_user)
-    return follow_response
+    to_user = users.get_user(db, username)
+    if to_user == from_user:
+        raise HTTPException(400, "Cannot follow yourself")
+    utils.validate_user(db, caller_user=from_user, user=to_user)
+    try:
+        follow_response = users.follow_user(db, from_user, to_user)
+        background_tasks.add_task(notifications.notify_follow_if_enabled, db, to_user, followed_by=from_user)
+        return follow_response
+    except ValueError as e:
+        raise HTTPException(400, detail=str(e))
 
 
 @router.post("/{username}/unfollow", response_model=schemas.user.FollowUserResponse)
@@ -156,9 +179,41 @@ def unfollow_user(username: str, firebase_user: FirebaseUser = Depends(get_fireb
         HTTPException: If the user could not be found (404), the caller isn't authenticated (401), the user is not
         already followed (400), or the caller is trying to unfollow themself (400).
     """
-    to_user = users.get_user(db, username)
-    utils.validate_user(to_user)
-    if to_user.uid == firebase_user.uid:
-        raise HTTPException(400, "Cannot follow yourself")
     from_user = utils.get_user_from_uid_or_raise(db, firebase_user.uid)
-    return users.unfollow_user(db, from_user, to_user)
+    to_user = users.get_user(db, username)
+    if to_user == from_user:
+        raise HTTPException(400, "Cannot follow yourself")
+    utils.validate_user(db, caller_user=from_user, user=to_user)
+    try:
+        return users.unfollow_user(db, from_user, to_user)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.post("/{username}/block", response_model=schemas.base.SimpleResponse)
+def block_user(username: str, firebase_user: FirebaseUser = Depends(get_firebase_user), db: Session = Depends(get_db)):
+    """Block the given user."""
+    from_user = utils.get_user_from_uid_or_raise(db, firebase_user.uid)
+    to_block = users.get_user(db, username)
+    if from_user == to_block:
+        raise HTTPException(400, detail="Cannot block yourself")
+    utils.validate_user(db, from_user, to_block)
+    try:
+        return users.block_user(db, from_user, to_block)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.post("/{username}/unblock", response_model=schemas.base.SimpleResponse)
+def unblock_user(username: str, firebase_user: FirebaseUser = Depends(get_firebase_user),
+                 db: Session = Depends(get_db)):
+    """Unblock the given user."""
+    from_user = utils.get_user_from_uid_or_raise(db, firebase_user.uid)
+    to_user = users.get_user(db, username)
+    if from_user == to_user:
+        raise HTTPException(400, detail="Cannot block yourself")
+    utils.validate_user(db, from_user, to_user)
+    try:
+        return users.unblock_user(db, from_user, to_user)
+    except ValueError as e:
+        raise HTTPException(400, str(e))

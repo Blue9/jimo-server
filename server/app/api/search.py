@@ -15,5 +15,5 @@ router = APIRouter()
 @router.get("/users", response_model=List[schemas.user.PublicUser])
 def search_users(q: str, firebase_user: FirebaseUser = Depends(get_firebase_user), db: Session = Depends(get_db)):
     """Search for users with the given query."""
-    utils.validate_firebase_user(firebase_user, db)
-    return users.search_users(db, q)
+    user = utils.get_user_from_uid_or_raise(db, firebase_user.uid)
+    return users.search_users(db, caller_user=user, query=q)

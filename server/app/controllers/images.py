@@ -16,7 +16,17 @@ def get_image_with_lock_else_throw(db: Session, user: models.User, external_id: 
 
 
 def maybe_get_image_with_lock(db: Session, user: models.User, external_id: uuid.UUID) -> Optional[models.ImageUpload]:
-    """Note: This locks the image row. Make sure to unlock by calling db.commit()/db.rollback()."""
+    """
+    Note: This locks the image row. Make sure to unlock by calling db.commit()/db.rollback().
+
+    More info on "for update" at: https://www.postgresql.org/docs/current/sql-select.html
+
+    Relevant: "[R]ows that satisfied the query conditions as of the query snapshot will be locked, although they will
+    not be returned if they were updated after the snapshot and no longer satisfy the query conditions."
+
+    This means that if this function returns a row, used will be false and remain false until we change it or release
+    the lock.
+    """
     return db.query(models.ImageUpload).filter(models.ImageUpload.user_id == user.id,
                                                models.ImageUpload.external_id == external_id,
                                                models.ImageUpload.firebase_public_url.isnot(None),

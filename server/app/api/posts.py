@@ -1,7 +1,8 @@
 from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Depends
-from sqlalchemy.orm import Session
+from sqlalchemy import false
+from sqlalchemy.orm import aliased, Session
 
 from app import schemas
 from app.api import utils
@@ -13,8 +14,28 @@ from app.models import models
 router = APIRouter()
 
 
-def get_post_and_validate_or_raise(post_id: str, db: Session) -> models.Post:
-    post: Optional[models.Post] = posts.get_post(db, post_id)
+def get_post_and_validate_or_raise(db: Session, caller_user: models.User, post_id: str) -> models.Post:
+    """
+    Check that the post exists and the given user is authorized to view it.
+
+    Note: if the user is not authorized (the author blocked the caller user or has been blocked by the caller user),
+    a 404 will be returned because they shouldn't even know that the post exists.
+    """
+    RelationFromCaller = aliased(models.UserRelation)
+    RelationToCaller = aliased(models.UserRelation)
+    post: Optional[models.Post] = db.query(models.Post) \
+        .join(models.User) \
+        .join(RelationToCaller,
+              (RelationToCaller.from_user_id == models.User.id) & (RelationToCaller.to_user_id == caller_user.id),
+              isouter=True) \
+        .join(RelationFromCaller,
+              (RelationFromCaller.from_user_id == caller_user.id) & (RelationFromCaller.to_user_id == models.User.id),
+              isouter=True) \
+        .filter(models.Post.external_id == post_id,
+                models.Post.deleted == false(),
+                RelationToCaller.relation.is_distinct_from(models.UserRelationType.blocked),
+                RelationFromCaller.relation.is_distinct_from(models.UserRelationType.blocked)) \
+        .first()
     if post is None:
         raise HTTPException(404, detail="Post not found")
     return post
@@ -49,10 +70,10 @@ def create_post(request: schemas.post.CreatePostRequest, firebase_user: Firebase
 
 @router.delete("/{post_id}", response_model=schemas.post.DeletePostResponse)
 def delete_post(
-        post_id: str,
-        background_tasks: BackgroundTasks,
-        firebase_user: FirebaseUser = Depends(get_firebase_user),
-        db: Session = Depends(get_db),
+    post_id: str,
+    background_tasks: BackgroundTasks,
+    firebase_user: FirebaseUser = Depends(get_firebase_user),
+    db: Session = Depends(get_db),
 ):
     """Delete the given post.
 
@@ -81,10 +102,10 @@ def delete_post(
 
 @router.post("/{post_id}/likes", response_model=schemas.post.LikePostResponse)
 def like_post(
-        post_id: str,
-        background_tasks: BackgroundTasks,
-        firebase_user: FirebaseUser = Depends(get_firebase_user),
-        db: Session = Depends(get_db)
+    post_id: str,
+    background_tasks: BackgroundTasks,
+    firebase_user: FirebaseUser = Depends(get_firebase_user),
+    db: Session = Depends(get_db)
 ):
     """Like the given post if the user has not already liked the post.
 
@@ -102,8 +123,8 @@ def like_post(
         authenticated (401). A 404 is thrown for authorization errors because the caller should not know of
         the existence of the post.
     """
-    post = get_post_and_validate_or_raise(post_id, db=db)
     user = utils.get_user_from_uid_or_raise(db, firebase_user.uid)
+    post = get_post_and_validate_or_raise(db, caller_user=user, post_id=post_id)
     posts.like_post(db, user, post)
     # Notify the user that their post was liked
     background_tasks.add_task(notifications.notify_post_liked_if_enabled, db, post, liked_by=user)
@@ -127,8 +148,8 @@ def unlike_post(post_id: str, firebase_user: FirebaseUser = Depends(get_firebase
         authenticated (401). A 404 is thrown for authorization errors because the caller should not know of
         the existence of the post.
     """
-    post = get_post_and_validate_or_raise(post_id, db=db)
     user = utils.get_user_from_uid_or_raise(db, firebase_user.uid)
+    post = get_post_and_validate_or_raise(db, caller_user=user, post_id=post_id)
     posts.unlike_post(db, user, post)
     return {"likes": post.like_count}
 
@@ -138,8 +159,8 @@ def report_post(post_id: str, request: schemas.post.ReportPostRequest,
                 firebase_user: FirebaseUser = Depends(get_firebase_user),
                 db: Session = Depends(get_db)):
     """Report the given post."""
-    post = get_post_and_validate_or_raise(post_id, db=db)
     reported_by = utils.get_user_from_uid_or_raise(db, firebase_user.uid)
+    post = get_post_and_validate_or_raise(db, caller_user=reported_by, post_id=post_id)
     success = posts.report_post(db, post, reported_by, details=request.details)
     # TODO: if successful, notify ourselves (e.g, email)
     return schemas.base.SimpleResponse(success=success)

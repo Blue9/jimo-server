@@ -107,7 +107,7 @@ def get_place_or_create(db: Session, user: models.User, request: schemas.place.M
 
 def get_map(db: Session, user: models.User, limit: int) -> list[schemas.place.MapPin]:
     """Get the user's map view, returning up to the `limit` most recently posted places."""
-    following_ids = [u.id for u in get_following(user)] + [user.id]
+    following_ids = [u.id for u in get_following(db, user)] + [user.id]
     response = db.query(models.Place.external_id.label("place_external_id"),
                         models.Place.latitude.label("place_latitude"),
                         models.Place.longitude.label("place_longitude"),
@@ -136,7 +136,7 @@ def get_map(db: Session, user: models.User, limit: int) -> list[schemas.place.Ma
 
 
 def get_place_icon(db: Session, user: models.User, place_id: uuid.UUID) -> schemas.place.MapPinIcon:
-    following_ids = [u.id for u in get_following(user)] + [user.id]
+    following_ids = [u.id for u in get_following(db, user)] + [user.id]
     icon_details = db.query(func.count().over().label("num_mutual_posts"),
                             models.Category.name.label("category"),
                             models.ImageUpload.firebase_public_url.label("icon_url")) \
@@ -158,7 +158,7 @@ def get_place_icon(db: Session, user: models.User, place_id: uuid.UUID) -> schem
 
 def get_mutual_posts(db: Session, user: models.User, place_id: uuid.UUID,
                      limit: int) -> Optional[list[schemas.post.Post]]:
-    following_ids = [u.id for u in get_following(user)] + [user.id]
+    following_ids = [u.id for u in get_following(db, user)] + [user.id]
     result = db.query(models.Post, exists()
                       .where(and_(models.post_like.c.post_id == models.Post.id,
                                   models.post_like.c.user_id == user.id))

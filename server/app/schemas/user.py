@@ -1,4 +1,5 @@
 import uuid
+from enum import Enum
 from typing import Optional
 
 from pydantic import Field, validator
@@ -92,8 +93,17 @@ class UpdateProfileResponse(Base):
 
 
 class FollowUserResponse(Base):
-    followed: bool
+    followed: bool  # legacy, used for backwards compatibility
     followers: Optional[int]
+
+
+class UserRelation(Enum):
+    following = "following"
+    blocked = "blocked"
+
+
+class RelationToUser(Base):
+    relation: Optional[UserRelation]
 
 
 class NotificationTokenRequest(Base):

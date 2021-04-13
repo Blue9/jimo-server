@@ -1,5 +1,7 @@
-from sqlalchemy import Column, BigInteger, String, DateTime, Boolean, ForeignKey, Table, select, func, and_, Float, \
-    Computed, UniqueConstraint, Index, false, text
+import enum
+
+from sqlalchemy import Column, BigInteger, Enum, String, DateTime, Boolean, ForeignKey, Table, select, func, and_, \
+    Float, Computed, UniqueConstraint, Index, false, text
 from geoalchemy2 import Geography
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.ext.associationproxy import association_proxy
@@ -8,11 +10,21 @@ from sqlalchemy.sql import expression
 
 from app.db.database import Base
 
-follow = Table("follow", Base.metadata,
-               Column("id", BigInteger, primary_key=True, nullable=False),
-               Column("from_user_id", BigInteger, ForeignKey("user.id", ondelete="CASCADE")),
-               Column("to_user_id", BigInteger, ForeignKey("user.id", ondelete="CASCADE")),
-               Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()))
+
+class UserRelationType(enum.Enum):
+    following = "following"
+    blocked = "blocked"
+
+
+class UserRelation(Base):
+    __tablename__ = "follow"
+    id = Column(BigInteger, primary_key=True, nullable=False)
+    from_user_id = Column(BigInteger, ForeignKey("user.id", ondelete="CASCADE"))
+    to_user_id = Column(BigInteger, ForeignKey("user.id", ondelete="CASCADE"))
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    relation = Column(Enum(UserRelationType), nullable=False, server_default="following")
+
+    __table_args__ = (UniqueConstraint("from_user_id", "to_user_id", name="_from_user_to_user_uc"),)
 
 
 class User(Base):
@@ -38,14 +50,6 @@ class User(Base):
                                passive_deletes=True)
 
     posts: list["Post"] = relationship("Post", back_populates="user", cascade="all, delete", passive_deletes=True)
-
-    following: list["User"] = relationship("User",
-                                           secondary=follow,
-                                           primaryjoin=id == follow.c.from_user_id,
-                                           secondaryjoin=id == follow.c.to_user_id,
-                                           cascade="all, delete",
-                                           backref="followers")
-    followers: list["User"] = None  # Computed with backref above
 
     profile_picture = relationship("ImageUpload", primaryjoin=lambda: User.profile_picture_id == ImageUpload.id)
     profile_picture_url = association_proxy("profile_picture", "firebase_public_url")
@@ -258,12 +262,16 @@ User.post_count = column_property(
     select([func.count()]).where(and_(Post.user_id == User.id, Post.deleted == false())).scalar_subquery(),
     deferred=True)
 User.follower_count = column_property(
-    select([func.count()]).select_from(follow.join(other_user, follow.c.from_user_id == other_user.id)).where(
-        and_(follow.c.to_user_id == User.id, other_user.deleted == false())).scalar_subquery(), deferred=True)
+    select([func.count()]).select_from(UserRelation).join(other_user, UserRelation.from_user_id == other_user.id).where(
+        and_(UserRelation.to_user_id == User.id,
+             UserRelation.relation == UserRelationType.following,
+             other_user.deleted == false())).scalar_subquery(), deferred=True)
 
 User.following_count = column_property(
-    select([func.count()]).select_from(follow.join(other_user, follow.c.to_user_id == other_user.id)).where(
-        and_(follow.c.from_user_id == User.id, other_user.deleted == false())).scalar_subquery(), deferred=True)
+    select([func.count()]).select_from(UserRelation).join(other_user, UserRelation.to_user_id == other_user.id).where(
+        and_(UserRelation.from_user_id == User.id,
+             UserRelation.relation == UserRelationType.following,
+             other_user.deleted == false())).scalar_subquery(), deferred=True)
 
 # Posts
 Post.like_count = column_property(select([func.count()]).select_from(post_like.join(User)).where(

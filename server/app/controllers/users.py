@@ -1,9 +1,9 @@
 import datetime
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Callable
 
-from sqlalchemy import false, or_, and_
+from sqlalchemy import false, or_, and_, select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import aliased, Session
 from sqlalchemy.sql.functions import concat
 
 from app import schemas, config
@@ -24,21 +24,36 @@ def uid_exists(db: Session, uid: str) -> bool:
 
 def get_user(db: Session, username: str) -> Optional[models.User]:
     """Return the user with the given username or None if no such user exists or the user is deleted."""
-    return db.query(models.User).filter(
-        and_(models.User.username_lower == username.lower(), models.User.deleted == false())).first()
+    return db.query(models.User) \
+        .filter(and_(models.User.username_lower == username.lower(), models.User.deleted == false())) \
+        .first()
 
 
-def get_users_by_phone_numbers(db: Session, phone_numbers: list[str], limit=1000) -> list[models.User]:
+def get_users_by_phone_numbers(
+    db: Session,
+    user: models.User,
+    phone_numbers: list[str],
+    limit=1000
+) -> list[models.User]:
     """Return up to `limit` users with the given phone numbers."""
     return db.query(models.User) \
         .filter(models.User.phone_number.in_(phone_numbers), models.User.deleted == false()) \
+        .join(models.UserRelation,
+              (models.UserRelation.from_user_id == models.User.id) & (models.UserRelation.to_user_id == user.id),
+              isouter=True) \
+        .filter(models.UserRelation.relation.is_distinct_from(models.UserRelationType.blocked)) \
         .limit(limit) \
         .all()
 
 
-def get_user_by_uid(db: Session, uid: str) -> Optional[models.User]:
+def get_user_by_uid(db: Session, uid: str, lock: bool = False) -> Optional[models.User]:
     """Return the user with the given uid or None if no such user exists or the user is deleted."""
-    return db.query(models.User).filter(and_(models.User.uid == uid, models.User.deleted == false())).first()
+    query = db.query(models.User) \
+        .filter(and_(models.User.uid == uid, models.User.deleted == false()))
+    if lock:
+        return query.with_for_update().first()
+    else:
+        return query.first()
 
 
 def is_invited(db: Session, firebase_user: FirebaseUser) -> bool:
@@ -46,6 +61,15 @@ def is_invited(db: Session, firebase_user: FirebaseUser) -> bool:
     if phone_number is None:
         return False
     return db.query(models.Invite).filter(models.Invite.phone_number == phone_number).count() > 0
+
+
+def is_blocked(db: Session, blocked_by_user: models.User, blocked_user: models.User) -> bool:
+    query = db.query(models.UserRelation) \
+        .filter(models.UserRelation.from_user_id == blocked_by_user.id,
+                models.UserRelation.to_user_id == blocked_user.id,
+                models.UserRelation.relation == models.UserRelationType.blocked) \
+        .exists()
+    return db.query(query).scalar()
 
 
 def on_waitlist(db: Session, firebase_user: FirebaseUser) -> bool:
@@ -99,12 +123,12 @@ def create_user(db: Session, firebase_user: FirebaseUser, request: schemas.user.
 
 
 def create_user_ignore_invite_status(
-        db: Session,
-        uid: str,
-        username: str,
-        first_name: str,
-        last_name: str,
-        phone_number: Optional[str] = None
+    db: Session,
+    uid: str,
+    username: str,
+    first_name: str,
+    last_name: str,
+    phone_number: Optional[str] = None
 ) -> Tuple[Optional[models.User], Optional[schemas.user.UserFieldErrors]]:
     """Create a user ignoring the invite limit."""
     new_user = models.User(uid=uid, username=username, first_name=first_name,
@@ -183,9 +207,14 @@ def get_posts(db: Session, user: models.User) -> list[models.Post]:
         models.Post.created_at.desc()).all()
 
 
-def get_following(user: models.User) -> list[models.User]:
+def get_following(db: Session, user: models.User) -> list[models.User]:
     """Return the list of active users the given user is following."""
-    return [u for u in user.following if not u.deleted]
+    return db.query(models.User) \
+        .join(models.UserRelation, models.UserRelation.to_user_id == models.User.id) \
+        .filter(models.UserRelation.from_user_id == user.id,
+                models.UserRelation.relation == models.UserRelationType.following,
+                models.User.deleted == false()) \
+        .all()
 
 
 def get_feed(db: Session, user: models.User, before_post_id: Optional[str] = None) -> Optional[list[models.Post]]:
@@ -195,7 +224,7 @@ def get_feed(db: Session, user: models.User, before_post_id: Optional[str] = Non
         before_post = db.query(models.Post).filter(models.Post.external_id == before_post_id).first()
         if before_post is None:
             return None
-    following = get_following(user)
+    following = get_following(db, user)
     following.append(user)
     following_ids = [u.id for u in following]
     query = db.query(models.Post).filter(models.Post.user_id.in_(following_ids), models.Post.deleted == false())
@@ -204,38 +233,152 @@ def get_feed(db: Session, user: models.User, before_post_id: Optional[str] = Non
     return query.order_by(models.Post.created_at.desc()).limit(50).all()
 
 
-def get_discover_feed(db: Session) -> list[models.Post]:
+def get_discover_feed(db: Session, user: models.User) -> list[models.Post]:
     """Get the user's discover feed."""
     one_week_ago = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(weeks=1)
     # TODO also filter by Post.user_id != user.id, for now it's easier to test without
+    RelationToCaller = aliased(models.UserRelation)
+    RelationFromCaller = aliased(models.UserRelation)
     return db.query(models.Post) \
-        .filter(models.Post.image_url.isnot(None), models.Post.created_at > one_week_ago,
+        .join(models.User) \
+        .join(RelationToCaller,
+              (RelationToCaller.to_user_id == user.id) & (RelationToCaller.from_user_id == models.User.id),
+              isouter=True) \
+        .join(RelationFromCaller,
+              (RelationFromCaller.from_user_id == user.id) & (RelationFromCaller.to_user_id == models.User.id),
+              isouter=True) \
+        .filter(RelationToCaller.relation.is_distinct_from(models.UserRelationType.blocked),
+                RelationFromCaller.relation.is_distinct_from(models.UserRelationType.blocked),
+                models.Post.image_url.isnot(None),
+                models.Post.created_at > one_week_ago,
                 models.Post.deleted == false()) \
         .order_by(models.Post.like_count.desc()) \
-        .limit(100) \
+        .limit(500) \
         .all()
 
 
-def follow_user(db: Session, from_user: models.User, to_user: models.User) -> schemas.user.FollowUserResponse:
-    from_user.following.append(to_user)
+def _try_add_relation(
+    db: Session,
+    from_user: models.User,
+    to_user: models.User,
+    relation: models.UserRelationType,
+    before_commit: Callable = None
+) -> Optional[models.UserRelationType]:
+    """Try to add the relation, returning the existing relation if one already existed."""
+    existing_relation: Optional[models.UserRelation] = db.query(models.UserRelation) \
+        .filter(models.UserRelation.from_user_id == from_user.id,
+                models.UserRelation.to_user_id == to_user.id) \
+        .first()
+    if existing_relation:
+        return existing_relation.relation
+    # else:
+    relation = models.UserRelation(from_user_id=from_user.id, to_user_id=to_user.id, relation=relation)
+    db.add(relation)
+    try:
+        if before_commit:
+            before_commit()
+        db.commit()
+        return None
+    except IntegrityError:
+        db.rollback()
+        # Most likely we inserted in another request between querying and inserting
+        raise ValueError("Could not complete request")
+
+
+def _remove_relation(
+    db: Session,
+    from_user: models.User,
+    to_user: models.User, relation: models.UserRelationType
+) -> bool:
+    """Try to remove the relation, returning true if the relation was deleted and false if it didn't exist."""
+    existing_relation = db.query(models.UserRelation) \
+        .filter(models.UserRelation.from_user_id == from_user.id,
+                models.UserRelation.to_user_id == to_user.id,
+                models.UserRelation.relation == relation) \
+        .delete()
     db.commit()
-    return schemas.user.FollowUserResponse(followed=True, followers=len(to_user.followers))
+    return existing_relation > 0
+
+
+def follow_user(db: Session, from_user: models.User, to_user: models.User) -> schemas.user.FollowUserResponse:
+    existing = _try_add_relation(db, from_user, to_user, models.UserRelationType.following)
+    if existing == models.UserRelationType.following:
+        raise ValueError("Already following user")
+    elif existing == models.UserRelationType.blocked:
+        raise ValueError("Cannot follow someone you blocked")
+    else:
+        return schemas.user.FollowUserResponse(followed=True, followers=to_user.follower_count)
 
 
 def unfollow_user(db: Session, from_user: models.User, to_user: models.User) -> schemas.user.FollowUserResponse:
-    unfollow = models.follow.delete().where(
-        and_(models.follow.c.from_user_id == from_user.id, models.follow.c.to_user_id == to_user.id))
-    db.execute(unfollow)
-    db.commit()
-    return schemas.user.FollowUserResponse(followed=False, followers=len(to_user.followers))
+    unfollowed = _remove_relation(db, from_user, to_user, models.UserRelationType.following)
+    if unfollowed:
+        return schemas.user.FollowUserResponse(followed=False, followers=to_user.follower_count)
+    else:
+        raise ValueError("Not following user")
 
 
-def search_users(db: Session, query: str) -> list[models.User]:
+def block_user(db: Session, from_user: models.User, to_user: models.User) -> schemas.base.SimpleResponse:
+    """
+    Have from_user block to_user.
+
+    Requires that from_user does not already follow or block to_user.
+    If from_user (A) blocks to_user (B), make B unfollow A, and remove their likes from each other's posts.
+    """
+
+    # TODO: race condition 1: If A and B try to block each other at the same time, they could both go through
+    #  and they will be unable to unblock each other.
+    # TODO: race condition 2: If B follows A after this transaction starts the follow will go through.
+    # TODO: race condition 3: If A/B likes B/A's post after this transaction starts, the inner select stmt won't detect
+    #  it, so that like will remain un-deleted.
+    def before_commit():
+        db.query(models.UserRelation) \
+            .filter(models.UserRelation.from_user_id == to_user.id,
+                    models.UserRelation.to_user_id == from_user.id,
+                    models.UserRelation.relation == models.UserRelationType.following) \
+            .delete()
+        db.query(models.post_like) \
+            .filter(models.post_like.c.user_id == to_user.id,
+                    models.post_like.c.post_id.in_(
+                        select([models.Post.id]).where(models.Post.user_id == from_user.id))) \
+            .delete()
+        db.query(models.post_like) \
+            .filter(models.post_like.c.user_id == from_user.id,
+                    models.post_like.c.post_id.in_(
+                        select([models.Post.id]).where(models.Post.user_id == to_user.id))) \
+            .delete()
+
+    existing = _try_add_relation(db, from_user, to_user, models.UserRelationType.blocked, before_commit=before_commit)
+    if existing == models.UserRelationType.following:
+        raise ValueError("Cannot block someone you follow")
+    elif existing == models.UserRelationType.blocked:
+        raise ValueError("Already blocked")
+    else:  # existing is None
+        return schemas.base.SimpleResponse(success=True)
+
+
+def unblock_user(db: Session, from_user: models.User, to_user: models.User) -> schemas.base.SimpleResponse:
+    unblocked = _remove_relation(db, from_user, to_user, models.UserRelationType.blocked)
+    if unblocked:
+        return schemas.base.SimpleResponse(success=True)
+    else:
+        raise ValueError("Not blocked")
+
+
+def search_users(db: Session, caller_user: models.User, query: str) -> list[models.User]:
     if len(query) < 3:
         # Only search if the query is >= 3 chars
         return []
     # First search usernames
     # TODO this is inefficient, we should move to a real search engine
-    return db.query(models.User).filter(models.User.deleted == false()).filter(
-        or_(models.User.username.ilike(f"{query}%"),
-            concat(models.User.first_name, " ", models.User.last_name).ilike(f"{query}%"))).limit(50).all()
+    RelationToCaller = aliased(models.UserRelation)
+    return db.query(models.User) \
+        .join(RelationToCaller,
+              (RelationToCaller.from_user_id == models.User.id) & (RelationToCaller.to_user_id == caller_user.id),
+              isouter=True) \
+        .filter(RelationToCaller.relation.is_distinct_from(models.UserRelationType.blocked),
+                models.User.deleted == false()) \
+        .filter(or_(models.User.username.ilike(f"{query}%"),
+                    concat(models.User.first_name, " ", models.User.last_name).ilike(f"{query}%"))) \
+        .limit(50) \
+        .all()

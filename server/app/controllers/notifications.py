@@ -64,12 +64,13 @@ def notify_follow_if_enabled(db: Session, user: models.User, followed_by: models
 
 def get_notification_feed(db: Session, user: models.User, follow_id: Optional[str] = None,
                           like_id: Optional[str] = None) -> list[NotificationItem]:
-    follow_query = db.query(models.follow, models.User).filter(
-        models.follow.c.to_user_id == user.id,
-        models.User.id == models.follow.c.from_user_id,
+    follow_query = db.query(models.UserRelation, models.User).filter(
+        models.UserRelation.to_user_id == user.id,
+        models.User.id == models.UserRelation.from_user_id,
+        models.UserRelation.relation == models.UserRelationType.following,
         models.User.deleted == false())
     if follow_id is not None and follow_id.isdigit():
-        follow_query = follow_query.filter(models.follow.c.id < follow_id)
+        follow_query = follow_query.filter(models.UserRelation.id < follow_id)
 
     like_query = db.query(models.post_like, models.Post, models.User).filter(
         models.post_like.c.post_id == models.Post.id,
@@ -81,15 +82,15 @@ def get_notification_feed(db: Session, user: models.User, follow_id: Optional[st
     if like_id is not None and like_id.isdigit():
         like_query = like_query.filter(models.post_like.c.id < like_id)
 
-    follow_results = follow_query.order_by(models.follow.c.id.desc()).limit(50).all()
+    follow_results = follow_query.order_by(models.UserRelation.id.desc()).limit(50).all()
     like_results = like_query.order_by(models.post_like.c.id.desc()).limit(50).all()
 
     follow_items = []
     like_items = []
 
     for f in follow_results:
-        follow_items.append(NotificationItem(type=ItemType.follow, created_at=f.created_at,
-                                             user=f.User, item_id=f.id))
+        follow_items.append(NotificationItem(type=ItemType.follow, created_at=f.UserRelation.created_at,
+                                             user=f.User, item_id=f.UserRelation.id))
     for like in like_results:
         fields = ORMPost.from_orm(like.Post).dict()
         like_items.append(NotificationItem(type=ItemType.like, created_at=like.created_at,

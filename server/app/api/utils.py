@@ -11,8 +11,8 @@ from app.controllers.firebase import FirebaseUser, FirebaseAdminProtocol
 from app.models import models
 
 
-def validate_user(user: models.User):
-    if user is None or user.deleted:
+def validate_user(db: Session, caller_user: models.User, user: Optional[models.User]):
+    if user is None or user.deleted or users.is_blocked(db, blocked_by_user=user, blocked_user=caller_user):
         raise HTTPException(404, detail="User not found")
 
 
@@ -24,14 +24,8 @@ def validate_firebase_user(firebase_user: FirebaseUser, db: Session):
         raise HTTPException(403, detail="Not authorized")
 
 
-def get_user_or_raise(username: str, db: Session) -> models.User:
-    user: models.User = users.get_user(db, username)
-    validate_user(user)
-    return user
-
-
-def get_user_from_uid_or_raise(db: Session, uid: str) -> models.User:
-    user: Optional[models.User] = users.get_user_by_uid(db, uid)
+def get_user_from_uid_or_raise(db: Session, uid: str, lock=False) -> models.User:
+    user: Optional[models.User] = users.get_user_by_uid(db, uid, lock=lock)
     if user is None or user.deleted:
         raise HTTPException(403)
     return user
