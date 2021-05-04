@@ -54,7 +54,7 @@ def upload_image(file: UploadFile, user: models.User, firebase_admin: FirebaseAd
     except IntegrityError:
         # Right now this only happens in the case of a UUID collision which should be almost impossible
         raise HTTPException(400, detail="Could not upload image")
-    response = firebase_admin.upload_image(user, image_id=image_upload.external_id, file_obj=file.file)
+    response = firebase_admin.upload_image(user, image_id=image_upload.id, file_obj=file.file)
     if response is None:
         db.delete(image_upload)
         db.commit()

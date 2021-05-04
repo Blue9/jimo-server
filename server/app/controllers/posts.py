@@ -11,9 +11,8 @@ from app.models import models
 
 
 def get_post(db: Session, post_id: str):
-    """Return the post with the given external_id or None if no such post exists or the post is deleted."""
-    return db.query(models.Post).filter(
-        and_(models.Post.external_id == post_id, models.Post.deleted == false())).first()
+    """Return the post with the given id or None if no such post exists or the post is deleted."""
+    return db.query(models.Post).filter(models.Post.id == post_id, models.Post.deleted == false()).first()
 
 
 def already_posted(db: Session, user: models.User, place: models.Place):
@@ -25,15 +24,19 @@ def already_posted(db: Session, user: models.User, place: models.Place):
 def like_post(db: Session, user: models.User, post: models.Post):
     """Like the given post."""
     # TODO(gmekkat) make sure this is fine
-    post.likes.append(user)
-    db.commit()
+    post_like = models.PostLike(user_id=user.id, post_id=post.id)
+    db.add(post_like)
+    try:
+        db.commit()
+    except IntegrityError:
+        # Ignore error when trying to like a post twice
+        db.rollback()
+        return
 
 
 def unlike_post(db: Session, user: models.User, post: models.Post):
     """Unlike the given post."""
-    unlike = models.post_like.delete().where(
-        and_(models.post_like.c.user_id == user.id, models.post_like.c.post_id == post.id))
-    db.execute(unlike)
+    db.query(models.PostLike).filter(models.PostLike.user_id == user.id, models.PostLike.post_id == post.id).delete()
     db.commit()
 
 
@@ -46,7 +49,7 @@ def create_post(db: Session, user: models.User, request: schemas.post.CreatePost
     image = get_image_with_lock_else_throw(db, user, request.image_id) if request.image_id is not None else None
     custom_latitude = request.custom_location.latitude if request.custom_location else None
     custom_longitude = request.custom_location.longitude if request.custom_location else None
-    post = models.Post(user_id=user.id, place_id=place.id, category_id=category.id, custom_latitude=custom_latitude,
+    post = models.Post(user_id=user.id, place_id=place.id, category=category, custom_latitude=custom_latitude,
                        custom_longitude=custom_longitude, content=request.content, image_id=image.id if image else None)
     try:
         if image:

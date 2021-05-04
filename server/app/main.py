@@ -4,7 +4,7 @@ from fastapi.exceptions import RequestValidationError
 from sqlalchemy.orm import Session
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, Response
 
 from app import schemas, api, config
 from app.api import utils
@@ -33,6 +33,20 @@ def get_app() -> FastAPI:
 app = get_app()
 
 
+@app.middleware("http")
+async def db_session_middleware(request: Request, call_next):
+    response = Response("Internal server error", status_code=500)
+    request.state.db = None
+    try:
+        response = await call_next(request)
+    except Exception as e:
+        print(f"Exception when handling request {request.url}", e)
+    finally:
+        if request.state.db is not None:
+            request.state.db.close()
+    return response
+
+
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(_request: Request, exc: RequestValidationError):
     errors = dict()
@@ -56,7 +70,7 @@ def upload_image(file: UploadFile = File(...),
     """Upload the given image to Firebase if allowed, returning the image id (used for posts + profile pictures)."""
     user: models.User = api.utils.get_user_from_uid_or_raise(db, firebase_user.uid)
     image_upload = utils.upload_image(file, user, firebase_user.shared_firebase, db)
-    return schemas.image.ImageUploadResponse(image_id=image_upload.external_id)
+    return schemas.image.ImageUploadResponse(image_id=image_upload.id)
 
 
 app.include_router(api.me.router, prefix="/me")

@@ -10,6 +10,7 @@ from firebase_admin.auth import InvalidIdTokenError, ExpiredIdTokenError, Revoke
 from firebase_admin.exceptions import FirebaseError
 from google.cloud.exceptions import GoogleCloudError
 
+from app import config
 from app.models import models
 
 
@@ -32,13 +33,13 @@ class FirebaseAdminProtocol(Protocol):
 class FirebaseAdmin:
     def __init__(self):
         self._app = firebase_admin.initialize_app(options={
-            "storageBucket": "goodplaces-app-testing"
+            "storageBucket": config.STORAGE_BUCKET
         })
 
     def get_uid_from_token(self, id_token: str) -> Optional[str]:
         """Get the user's uid from the given Firebase id token."""
         try:
-            decoded_token = auth.verify_id_token(id_token, app=self._app, check_revoked=True)
+            decoded_token = auth.verify_id_token(id_token, app=self._app)
             return decoded_token.get("uid")
         except (ValueError, InvalidIdTokenError, ExpiredIdTokenError, RevokedIdTokenError, CertificateFetchError):
             return None

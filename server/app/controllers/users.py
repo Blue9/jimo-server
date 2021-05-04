@@ -1,4 +1,5 @@
 import datetime
+import uuid
 from typing import Optional, Tuple, Callable
 
 from sqlalchemy import false, or_, and_, select
@@ -7,7 +8,7 @@ from sqlalchemy.orm import aliased, Session
 from sqlalchemy.sql.functions import concat
 
 from app import schemas, config
-from app.controllers import images
+from app.controllers import images, utils
 from app.controllers.firebase import FirebaseUser
 from app.models import models
 
@@ -201,10 +202,19 @@ def update_preferences(db: Session, user: models.User, request: models.UserPrefs
                             post_notifications=prefs.post_notifications)
 
 
-def get_posts(db: Session, user: models.User) -> list[models.Post]:
+def get_posts(db: Session, caller_user: models.User, user: models.User) -> list[schemas.post.Post]:
     """Get the user's posts that aren't deleted."""
-    return db.query(models.Post).filter(and_(models.Post.user_id == user.id, models.Post.deleted == false())).order_by(
-        models.Post.created_at.desc()).all()
+    rows = db.query(models.Post, utils.is_post_liked_query(caller_user)) \
+        .options(utils.eager_load_post_except_user_options()) \
+        .filter(models.Post.user_id == user.id, models.Post.deleted == false()) \
+        .order_by(models.Post.created_at.desc()) \
+        .all()
+    user_posts = []
+    for post, is_post_liked in rows:
+        # ORMPostWithoutUser avoids querying post.user; we already know the user
+        fields = schemas.post.ORMPostWithoutUser.from_orm(post).dict()
+        user_posts.append(schemas.post.Post(**fields, user=user, liked=is_post_liked))
+    return user_posts
 
 
 def get_following(db: Session, user: models.User) -> list[models.User]:
@@ -217,20 +227,25 @@ def get_following(db: Session, user: models.User) -> list[models.User]:
         .all()
 
 
-def get_feed(db: Session, user: models.User, before_post_id: Optional[str] = None) -> Optional[list[models.Post]]:
+def get_feed(db: Session, user: models.User, before_post_id: Optional[uuid.UUID] = None) -> list[schemas.post.Post]:
     """Get the user's feed, returning None if the user is not authorized or if before_post_id is invalid."""
-    before_post = None
-    if before_post_id is not None:
-        before_post = db.query(models.Post).filter(models.Post.external_id == before_post_id).first()
-        if before_post is None:
-            return None
-    following = get_following(db, user)
-    following.append(user)
-    following_ids = [u.id for u in following]
-    query = db.query(models.Post).filter(models.Post.user_id.in_(following_ids), models.Post.deleted == false())
-    if before_post is not None:
-        query = query.filter(models.Post.id < before_post.id)
-    return query.order_by(models.Post.created_at.desc()).limit(50).all()
+    query = _get_feed_query(db, user)
+    if before_post_id:
+        query = query.filter(models.Post.id < before_post_id)
+    rows = query.order_by(models.Post.id.desc()).limit(50).all()
+    return utils.rows_to_posts(rows)
+
+
+def _get_feed_query(db: Session, user: models.User):
+    user_is_following_post_author = db.query(models.UserRelation.to_user_id) \
+        .filter(models.UserRelation.to_user_id == models.Post.user_id,
+                models.UserRelation.from_user_id == user.id,
+                models.UserRelation.relation == models.UserRelationType.following) \
+        .exists()
+    return db.query(models.Post, utils.is_post_liked_query(user)) \
+        .options(utils.eager_load_post_options()) \
+        .filter(or_(models.Post.user_id == user.id, user_is_following_post_author), models.Post.deleted == false()) \
+        .order_by(models.Post.id.desc())
 
 
 def get_discover_feed(db: Session, user: models.User) -> list[models.Post]:
@@ -239,7 +254,8 @@ def get_discover_feed(db: Session, user: models.User) -> list[models.Post]:
     # TODO also filter by Post.user_id != user.id, for now it's easier to test without
     RelationToCaller = aliased(models.UserRelation)
     RelationFromCaller = aliased(models.UserRelation)
-    return db.query(models.Post) \
+    rows = db.query(models.Post, utils.is_post_liked_query(user)) \
+        .options(utils.eager_load_post_options()) \
         .join(models.User) \
         .join(RelationToCaller,
               (RelationToCaller.to_user_id == user.id) & (RelationToCaller.from_user_id == models.User.id),
@@ -255,6 +271,7 @@ def get_discover_feed(db: Session, user: models.User) -> list[models.Post]:
         .order_by(models.Post.like_count.desc()) \
         .limit(500) \
         .all()
+    return utils.rows_to_posts(rows)
 
 
 def _try_add_relation(
@@ -337,16 +354,18 @@ def block_user(db: Session, from_user: models.User, to_user: models.User) -> sch
                     models.UserRelation.to_user_id == from_user.id,
                     models.UserRelation.relation == models.UserRelationType.following) \
             .delete()
-        db.query(models.post_like) \
-            .filter(models.post_like.c.user_id == to_user.id,
-                    models.post_like.c.post_id.in_(
+        # Delete to_user's likes of from_user's posts
+        db.query(models.PostLike) \
+            .filter(models.PostLike.user_id == to_user.id,
+                    models.PostLike.post_id.in_(
                         select([models.Post.id]).where(models.Post.user_id == from_user.id))) \
-            .delete()
-        db.query(models.post_like) \
-            .filter(models.post_like.c.user_id == from_user.id,
-                    models.post_like.c.post_id.in_(
+            .delete(synchronize_session=False)
+        # Delete from_user's likes of to_user's posts
+        db.query(models.PostLike) \
+            .filter(models.PostLike.user_id == from_user.id,
+                    models.PostLike.post_id.in_(
                         select([models.Post.id]).where(models.Post.user_id == to_user.id))) \
-            .delete()
+            .delete(synchronize_session=False)
 
     existing = _try_add_relation(db, from_user, to_user, models.UserRelationType.blocked, before_commit=before_commit)
     if existing == models.UserRelationType.following:

@@ -1,3 +1,4 @@
+import uuid
 from typing import Optional, List
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
@@ -113,13 +114,16 @@ def upload_profile_picture(file: UploadFile = File(...),
     return user
 
 
-@router.get("/feed", response_model=List[schemas.post.Post])
-def get_feed(before: Optional[str] = None, firebase_user: FirebaseUser = Depends(get_firebase_user),
-             db: Session = Depends(get_db)):
+@router.get("/feed", response_model=schemas.post.Feed)
+def get_feed(
+    cursor: Optional[uuid.UUID] = None,
+    firebase_user: FirebaseUser = Depends(get_firebase_user),
+    db: Session = Depends(get_db)
+):
     """Get the feed for the current user.
 
     Args:
-        before: Get all posts before this one. Returns a 404 if the post could not be found.
+        cursor: Get all posts before this one. Returns a 404 if the post could not be found.
         firebase_user: Firebase user from auth header.
         db: The database session object. This object is automatically injected by FastAPI.
 
@@ -128,14 +132,9 @@ def get_feed(before: Optional[str] = None, firebase_user: FirebaseUser = Depends
         at most 50 posts and can be paginated using the optional before param.
     """
     user = utils.get_user_from_uid_or_raise(db, firebase_user.uid)
-    feed = users.get_feed(db, user, before)
-    if feed is None:
-        raise HTTPException(404, "Failed to load more posts")
-    posts = []
-    for post in feed:
-        fields = schemas.post.ORMPost.from_orm(post).dict()
-        posts.append(schemas.post.Post(**fields, liked=user in post.likes))
-    return posts
+    feed = users.get_feed(db, user, cursor)
+    next_cursor: Optional[uuid.UUID] = min(post.id for post in feed) if len(feed) >= 50 else None
+    return schemas.post.Feed(posts=feed, cursor=next_cursor)
 
 
 @router.get("/map", response_model=list[schemas.place.MapPin])
@@ -156,12 +155,7 @@ def get_discover_feed(firebase_user: FirebaseUser = Depends(get_firebase_user), 
         The discover feed for the given user as a list of Post objects in reverse chronological order.
     """
     user = utils.get_user_from_uid_or_raise(db, firebase_user.uid)
-    discover_feed = users.get_discover_feed(db, user=user)
-    posts = []
-    for post in discover_feed:
-        fields = schemas.post.ORMPost.from_orm(post).dict()
-        posts.append(schemas.post.Post(**fields, liked=user in post.likes))
-    return posts
+    return users.get_discover_feed(db, user=user)
 
 
 @router.get("/suggested", response_model=List[schemas.user.PublicUser])

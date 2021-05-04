@@ -11,7 +11,7 @@ from app.schemas.user import PublicUser
 
 # ORM types
 class ORMPostWithoutUser(Base):
-    external_id: uuid.UUID = Field(alias="postId")
+    id: uuid.UUID = Field(alias="postId")
     place: Place
     category: str
     content: str
@@ -73,6 +73,11 @@ class ReportPostRequest(Base):
 
 
 # Response types
+class Feed(Base):
+    posts: list[Post]
+    cursor: Optional[uuid.UUID]
+
+
 class LikePostResponse(Base):
     likes: int
 

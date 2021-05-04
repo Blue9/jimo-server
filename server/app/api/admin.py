@@ -62,7 +62,7 @@ def create_user(request: schemas.admin.CreateUserRequest, db: Session = Depends(
 @router.get("/users/{username}", response_model=schemas.admin.User)
 def get_user(username: str, db: Session = Depends(get_db), _admin: models.User = Depends(get_admin_or_raise)):
     """Get the given user."""
-    user = db.query(models.User).filter(models.User.username == username).first()
+    user = db.query(models.User).filter(models.User.username_lower == username.lower()).first()
     if user is None:
         raise HTTPException(404)
     return user
@@ -72,7 +72,9 @@ def get_user(username: str, db: Session = Depends(get_db), _admin: models.User =
 def update_user(username: str, request: schemas.admin.UpdateUserRequest, db: Session = Depends(get_db),
                 admin: models.User = Depends(get_admin_or_raise)):
     """Update the given user."""
-    to_update: Optional[models.User] = db.query(models.User).filter(models.User.username == username).first()
+    to_update: Optional[models.User] = db.query(models.User) \
+        .filter(models.User.username_lower == username.lower()) \
+        .first()
     if not to_update:
         raise HTTPException(404)
     if request.username:
@@ -139,7 +141,7 @@ def get_all_posts(page: Page = Depends(get_page), db: Session = Depends(get_db),
 @router.get("/posts/{post_id}", response_model=schemas.admin.Post)
 def get_post(post_id: str, db: Session = Depends(get_db), _admin: models.User = Depends(get_admin_or_raise)):
     post = db.query(models.Post) \
-        .filter(models.Post.external_id == post_id) \
+        .filter(models.Post.id == post_id) \
         .first()
     if post is None:
         raise HTTPException(404)
@@ -150,7 +152,7 @@ def get_post(post_id: str, db: Session = Depends(get_db), _admin: models.User = 
 def update_post(post_id: str, request: schemas.admin.UpdatePostRequest,
                 firebase_user: FirebaseUser = Depends(get_firebase_user), db: Session = Depends(get_db),
                 _admin: models.User = Depends(get_admin_or_raise)):
-    post: Optional[models.Post] = db.query(models.Post).filter(models.Post.external_id == post_id).first()
+    post: Optional[models.Post] = db.query(models.Post).filter(models.Post.id == post_id).first()
     if post is None:
         raise HTTPException(404)
     if request.content:

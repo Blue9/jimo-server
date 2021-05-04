@@ -52,7 +52,7 @@ def setup_module():
         session.add(place)
         session.commit()
 
-        new_post = models.Post(external_id=INITIAL_POST_ID, user_id=regular_user.id, place_id=place.id, category_id=1,
+        new_post = models.Post(id=INITIAL_POST_ID, user_id=regular_user.id, place_id=place.id, category="food",
                                content="test")
         session.add(new_post)
         session.commit()

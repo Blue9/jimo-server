@@ -1,6 +1,6 @@
 from typing import Optional
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy import false
 from sqlalchemy.orm import aliased, Session
 
@@ -31,7 +31,7 @@ def get_post_and_validate_or_raise(db: Session, caller_user: models.User, post_i
         .join(RelationFromCaller,
               (RelationFromCaller.from_user_id == caller_user.id) & (RelationFromCaller.to_user_id == models.User.id),
               isouter=True) \
-        .filter(models.Post.external_id == post_id,
+        .filter(models.Post.id == post_id,
                 models.Post.deleted == false(),
                 RelationToCaller.relation.is_distinct_from(models.UserRelationType.blocked),
                 RelationFromCaller.relation.is_distinct_from(models.UserRelationType.blocked)) \
@@ -61,8 +61,7 @@ def create_post(request: schemas.post.CreatePostRequest, firebase_user: Firebase
     try:
         post = posts.create_post(db, user, request)
         fields = schemas.post.ORMPost.from_orm(post).dict()
-        liked = user in post.likes
-        return schemas.post.Post(**fields, liked=liked)
+        return schemas.post.Post(**fields, liked=False)
     except ValueError as e:
         print(e)
         raise HTTPException(400, detail=str(e))
@@ -71,15 +70,13 @@ def create_post(request: schemas.post.CreatePostRequest, firebase_user: Firebase
 @router.delete("/{post_id}", response_model=schemas.post.DeletePostResponse)
 def delete_post(
     post_id: str,
-    background_tasks: BackgroundTasks,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
     db: Session = Depends(get_db),
 ):
     """Delete the given post.
 
     Args:
-        post_id: The post id (maps to external_id in database).
-        background_tasks: BackgroundTasks object.
+        post_id: The post id.
         firebase_user: Firebase user from auth header.
         db: The database session object. This object is automatically injected by FastAPI.
 
@@ -95,7 +92,7 @@ def delete_post(
         post.deleted = True
         db.commit()
         if post.image:
-            background_tasks.add_task(firebase_user.shared_firebase.make_image_private, post.image.firebase_blob_name)
+            firebase_user.shared_firebase.make_image_private(post.image.firebase_blob_name)
         return schemas.post.DeletePostResponse(deleted=True)
     return schemas.post.DeletePostResponse(deleted=False)
 
@@ -103,15 +100,13 @@ def delete_post(
 @router.post("/{post_id}/likes", response_model=schemas.post.LikePostResponse)
 def like_post(
     post_id: str,
-    background_tasks: BackgroundTasks,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
     db: Session = Depends(get_db)
 ):
     """Like the given post if the user has not already liked the post.
 
     Args:
-        post_id: The post id (maps to external_id in database).
-        background_tasks: BackgroundTasks object.
+        post_id: The post id.
         firebase_user: Firebase user from auth header.
         db: The database session object. This object is automatically injected by FastAPI.
 
@@ -127,7 +122,7 @@ def like_post(
     post = get_post_and_validate_or_raise(db, caller_user=user, post_id=post_id)
     posts.like_post(db, user, post)
     # Notify the user that their post was liked
-    background_tasks.add_task(notifications.notify_post_liked_if_enabled, db, post, liked_by=user)
+    notifications.notify_post_liked_if_enabled(db, post, liked_by=user)
     return {"likes": post.like_count}
 
 
@@ -136,7 +131,7 @@ def unlike_post(post_id: str, firebase_user: FirebaseUser = Depends(get_firebase
     """Unlike the given post if the user has already liked the post.
 
     Args:
-        post_id: The post id (maps to external_id in database).
+        post_id: The post id.
         firebase_user: Firebase user from auth header.
         db: The database session object. This object is automatically injected by FastAPI.
 

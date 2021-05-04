@@ -1,7 +1,7 @@
 import enum
 
-from sqlalchemy import Column, BigInteger, Enum, String, DateTime, Boolean, ForeignKey, Table, select, func, and_, \
-    Float, Computed, UniqueConstraint, Index, false, text
+from sqlalchemy import Column, Enum, DateTime, Boolean, ForeignKey, Text, select, func, and_, Float, Computed, \
+    UniqueConstraint, Index, false
 from geoalchemy2 import Geography
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.ext.associationproxy import association_proxy
@@ -9,6 +9,7 @@ from sqlalchemy.orm import relationship, column_property, aliased
 from sqlalchemy.sql import expression
 
 from app.db.database import Base
+from app.models.defaults import gen_ulid
 
 
 class UserRelationType(enum.Enum):
@@ -18,11 +19,12 @@ class UserRelationType(enum.Enum):
 
 class UserRelation(Base):
     __tablename__ = "follow"
-    id = Column(BigInteger, primary_key=True, nullable=False)
-    from_user_id = Column(BigInteger, ForeignKey("user.id", ondelete="CASCADE"))
-    to_user_id = Column(BigInteger, ForeignKey("user.id", ondelete="CASCADE"))
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=gen_ulid)
+    from_user_id = Column(UUID(as_uuid=True), ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
+    to_user_id = Column(UUID(as_uuid=True), ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
+    relation = Column(Enum(UserRelationType), nullable=False)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
-    relation = Column(Enum(UserRelationType), nullable=False, server_default="following")
 
     __table_args__ = (UniqueConstraint("from_user_id", "to_user_id", name="_from_user_to_user_uc"),)
 
@@ -30,21 +32,19 @@ class UserRelation(Base):
 class User(Base):
     __tablename__ = "user"
 
-    id = Column(BigInteger, primary_key=True, nullable=False)  # Database id, used for relationships
-    external_id = Column(UUID(as_uuid=True), unique=True, nullable=False, server_default=text("gen_random_uuid()"))
-    uid = Column(String, unique=True, nullable=False)  # Firebase id, maps to Firebase users
-    username = Column(String(length=255), unique=True, nullable=False)
-    first_name = Column(String(length=255), nullable=False)
-    last_name = Column(String(length=255), nullable=False)
-    phone_number = Column(String(length=255), unique=True, nullable=True)
-    profile_picture_id = Column(BigInteger, ForeignKey("image_upload.id"), unique=True,
-                                nullable=True)
-    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+    id = Column(UUID(as_uuid=True), primary_key=True, default=gen_ulid)
+    uid = Column(Text, unique=True, nullable=False)  # Firebase id, maps to Firebase users
+    username = Column(Text, unique=True, nullable=False)
+    first_name = Column(Text, nullable=False)
+    last_name = Column(Text, nullable=False)
+    phone_number = Column(Text, unique=True, nullable=True)
+    profile_picture_id = Column(UUID(as_uuid=True), ForeignKey("image_upload.id"), unique=True, nullable=True)
     is_featured = Column(Boolean, nullable=False, server_default=false())
     is_admin = Column(Boolean, nullable=False, server_default=expression.false())
     deleted = Column(Boolean, nullable=False, server_default=expression.false())
-    username_lower = Column(String(length=255), Computed("LOWER(username)"), unique=True, nullable=False)
+    username_lower = Column(Text, Computed("LOWER(username)"), unique=True, nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
 
     preferences = relationship("UserPrefs", uselist=False, back_populates="user", cascade="all, delete",
                                passive_deletes=True)
@@ -63,26 +63,27 @@ class User(Base):
 class Waitlist(Base):
     __tablename__ = "waitlist"
 
-    id = Column(BigInteger, primary_key=True, nullable=False)
-    phone_number = Column(String, unique=True, nullable=False)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=gen_ulid)
+    phone_number = Column(Text, unique=True, nullable=False)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
 
 class Invite(Base):
     __tablename__ = "invite"
 
-    id = Column(BigInteger, primary_key=True, nullable=False)
-    phone_number = Column(String, unique=True, nullable=False)
-    invited_by = Column(BigInteger, ForeignKey("user.id", ondelete="CASCADE"), nullable=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=gen_ulid)
+    phone_number = Column(Text, unique=True, nullable=False)
+    invited_by = Column(UUID(as_uuid=True), ForeignKey("user.id", ondelete="CASCADE"), nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
 
 class FCMToken(Base):
     __tablename__ = "fcm_token"
 
-    id = Column(BigInteger, primary_key=True, nullable=False)
-    user_id = Column(BigInteger, ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
-    token = Column(String, nullable=False)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=gen_ulid)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
+    token = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     __table_args__ = (UniqueConstraint("user_id", "token", name="_user_token"),)
 
@@ -90,8 +91,8 @@ class FCMToken(Base):
 class UserPrefs(Base):
     __tablename__ = "preferences"
 
-    id = Column(BigInteger, primary_key=True, nullable=False)
-    user_id = Column(BigInteger, ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=gen_ulid)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
     post_notifications = Column(Boolean, nullable=False)
     follow_notifications = Column(Boolean, nullable=False)
     post_liked_notifications = Column(Boolean, nullable=False)
@@ -103,16 +104,14 @@ class UserPrefs(Base):
 class Category(Base):
     __tablename__ = "category"
 
-    id = Column(BigInteger, primary_key=True, nullable=False)
-    name = Column(String, unique=True, nullable=False)
+    name = Column(Text, primary_key=True)
 
 
 class Place(Base):
     __tablename__ = "place"
 
-    id = Column(BigInteger, primary_key=True, nullable=False)
-    external_id = Column(UUID(as_uuid=True), unique=True, nullable=False, server_default=text("gen_random_uuid()"))
-    name = Column(String, nullable=False)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=gen_ulid)
+    name = Column(Text, nullable=False)
 
     # Latitude and longitude of the place
     # This might be the entrance of the place, the most visited location, etc.
@@ -125,7 +124,7 @@ class Place(Base):
                       Computed("ST_MakePoint(longitude, latitude)::geography"), nullable=False)
 
     # Only set in case estimated place data is incorrect
-    verified_place_data = Column(BigInteger, ForeignKey("place_data.id"), nullable=True)
+    verified_place_data = Column(UUID(as_uuid=True), ForeignKey("place_data.id"), nullable=True)
 
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
@@ -141,9 +140,9 @@ class PlaceData(Base):
     """
     __tablename__ = "place_data"
 
-    id = Column(BigInteger, primary_key=True, nullable=False)
-    user_id = Column(BigInteger, ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
-    place_id = Column(BigInteger, ForeignKey("place.id", ondelete="CASCADE"), nullable=False)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=gen_ulid)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
+    place_id = Column(UUID(as_uuid=True), ForeignKey("place.id", ondelete="CASCADE"), nullable=False)
 
     # Region that describes the boundary of the place
     # Used to deduplicate places
@@ -169,29 +168,33 @@ class PlaceData(Base):
                       Index("idx_place_data_region_center", region_center, postgresql_using="gist"))
 
 
-post_like = Table("post_like", Base.metadata,
-                  Column("id", BigInteger, primary_key=True, nullable=False),
-                  Column("user_id", BigInteger, ForeignKey("user.id", ondelete="CASCADE"), nullable=False),
-                  Column("post_id", BigInteger, ForeignKey("post.id", ondelete="CASCADE"), nullable=False),
-                  Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()))
+class PostLike(Base):
+    __tablename__ = "post_like"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=gen_ulid)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
+    post_id = Column(UUID(as_uuid=True), ForeignKey("post.id", ondelete="CASCADE"), nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    # Only want one row per (user, post) pair
+    __table_args__ = (UniqueConstraint("user_id", "post_id", name="_post_like_user_post_uc"),)
 
 
 class Post(Base):
     __tablename__ = "post"
 
-    id = Column(BigInteger, primary_key=True, nullable=False)
-    external_id = Column(UUID(as_uuid=True), unique=True, nullable=False, server_default=text("gen_random_uuid()"))
-    user_id = Column(BigInteger, ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
-    place_id = Column(BigInteger, ForeignKey("place.id"), nullable=False)
-    category_id = Column(BigInteger, ForeignKey("category.id"), nullable=False)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=gen_ulid)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
+    place_id = Column(UUID(as_uuid=True), ForeignKey("place.id"), nullable=False)
+    category = Column(Text, ForeignKey("category.name"), nullable=False)
     # If a custom location is selected for an existing place
     custom_latitude = Column(Float, nullable=True)
     custom_longitude = Column(Float, nullable=True)
     custom_location = Column(Geography(geometry_type="POINT", srid=4326, spatial_index=False),
                              Computed("ST_MakePoint(custom_longitude, custom_latitude)::geography"), nullable=True)
 
-    content = Column(String, nullable=False)
-    image_id = Column(BigInteger, ForeignKey("image_upload.id"), unique=True, nullable=True)
+    content = Column(Text, nullable=False)
+    image_id = Column(UUID(as_uuid=True), ForeignKey("image_upload.id"), unique=True, nullable=True)
     deleted = Column(Boolean, nullable=False, server_default=expression.false())
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
@@ -199,11 +202,8 @@ class Post(Base):
     user = relationship("User")
     place = relationship("Place")
     image = relationship("ImageUpload")
-    _category = relationship("Category")
-    likes = relationship("User", secondary=post_like, cascade="all, delete", passive_deletes=True)
 
     image_url = association_proxy("image", "firebase_public_url")
-    category = association_proxy("_category", "name")
 
     # Column property
     like_count = None
@@ -218,10 +218,10 @@ class Post(Base):
 
 class PostReport(Base):
     __tablename__ = "post_report"
-    id = Column(BigInteger, primary_key=True, nullable=False)
-    post_id = Column(BigInteger, ForeignKey("post.id", ondelete="CASCADE"), nullable=False)
-    reported_by_user_id = Column(BigInteger, ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
-    details = Column(String, nullable=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=gen_ulid)
+    post_id = Column(UUID(as_uuid=True), ForeignKey("post.id", ondelete="CASCADE"), nullable=False)
+    reported_by_user_id = Column(UUID(as_uuid=True), ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
+    details = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     post = relationship("Post")
@@ -234,22 +234,21 @@ class PostReport(Base):
 class ImageUpload(Base):
     __tablename__ = "image_upload"
 
-    id = Column(BigInteger, primary_key=True, nullable=False)
-    external_id = Column(UUID(as_uuid=True), unique=True, nullable=False, server_default=text("gen_random_uuid()"))
-    user_id = Column(BigInteger, ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
-    firebase_blob_name = Column(String, nullable=True)  # Set after creating the row in db
-    firebase_public_url = Column(String, nullable=True)  # Set after creating the row in db
+    id = Column(UUID(as_uuid=True), primary_key=True, default=gen_ulid)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
+    firebase_blob_name = Column(Text, nullable=True)  # Set after creating the row in db
+    firebase_public_url = Column(Text, nullable=True)  # Set after creating the row in db
     used = Column(Boolean, nullable=False, server_default=false())  # Prevent using the same image in different places
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
 
 class Feedback(Base):
     __tablename__ = "feedback"
-    id = Column(BigInteger, primary_key=True, nullable=False)
-    user_id = Column(BigInteger, ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
-    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
-    contents = Column(String, nullable=False)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=gen_ulid)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
+    contents = Column(Text, nullable=False)
     follow_up = Column(Boolean, nullable=False, server_default=expression.false())
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     user = relationship("User")
 
@@ -258,9 +257,12 @@ class Feedback(Base):
 
 # Users
 other_user = aliased(User)
+post_alias = aliased(Post)
+
 User.post_count = column_property(
-    select([func.count()]).where(and_(Post.user_id == User.id, Post.deleted == false())).scalar_subquery(),
+    select([func.count()]).where(and_(post_alias.user_id == User.id, post_alias.deleted == false())).scalar_subquery(),
     deferred=True)
+
 User.follower_count = column_property(
     select([func.count()]).select_from(UserRelation).join(other_user, UserRelation.from_user_id == other_user.id).where(
         and_(UserRelation.to_user_id == User.id,
@@ -274,5 +276,5 @@ User.following_count = column_property(
              other_user.deleted == false())).scalar_subquery(), deferred=True)
 
 # Posts
-Post.like_count = column_property(select([func.count()]).select_from(post_like.join(User)).where(
-    and_(Post.id == post_like.c.post_id, User.deleted == false())).scalar_subquery(), deferred=True)
+Post.like_count = column_property(select([func.count()]).select_from(PostLike).join(User).where(
+    and_(Post.id == PostLike.post_id, User.deleted == false())).scalar_subquery(), deferred=True)

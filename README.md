@@ -24,6 +24,7 @@ Variable | Value
 `ALLOW_ORIGIN` | (Optional) Allow requests from the given host. Can be set to `*`.
 `ADMIN_USER` | (Optional) Base64 encoding of a JSON string of the default admin user (should conform to CreateUserRequest). If this is set then when initializing the db, attempt to create the given admin user in the database.
 `ENABLE_DOCS` | (Optional) If set to 1, enable the `/docs`, `/redoc`, and `/openapi.json` endpoints. Disabled by default.
+`STORAGE_BUCKET` | The Firebase storage bucket to save images to. Defaults to `goodplaces-app.appspot.com`.
 
 4. (One-time setup) In `server/`, run `poetry run python init_db.py`. This will set up all the database tables. If you are using your own virtual environment you can also just run `python init_db.py`.
 5. In `server/`, run `poetry run python runserver.py`. This will start the server with hot reloading turned on. If you are using your own virtual environment you can also just run `python runserver.py`.

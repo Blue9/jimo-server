@@ -17,7 +17,7 @@ from app.schemas.post import ORMPost
 
 # Base types
 class User(Base):
-    external_id: uuid.UUID = Field(alias="userId")
+    id: uuid.UUID = Field(alias="userId")
     uid: str
     username: str
     first_name: str
@@ -31,7 +31,7 @@ class User(Base):
 
 
 class Post(Base):
-    external_id: uuid.UUID = Field(alias="postId")
+    id: uuid.UUID = Field(alias="postId")
     user: User
     place: Place
     category: str
@@ -54,7 +54,7 @@ class Invite(Base):
 
 
 class Report(Base):
-    id: int
+    id: uuid.UUID
     post: ORMPost
     reported_by: User
     details: str
@@ -62,7 +62,7 @@ class Report(Base):
 
 
 class Feedback(Base):
-    id: int
+    id: uuid.UUID
     user: User
     contents: str
     follow_up: bool

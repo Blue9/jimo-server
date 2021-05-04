@@ -15,9 +15,9 @@ def add_categories_to_db(db: Session):
     db.commit()
 
 
-def get_category_or_raise(db: Session, category_name: str) -> models.Category:
+def get_category_or_raise(db: Session, category_name: str) -> str:
     """Get the category object for the given category name."""
     category = db.query(models.Category).filter(models.Category.name == category_name).first()
     if category is None:
         raise ValueError("Invalid category")
-    return category
+    return category.name

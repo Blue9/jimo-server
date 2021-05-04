@@ -1,14 +1,15 @@
+import uuid
 from typing import Optional
 
-from firebase_admin.exceptions import FirebaseError
-from sqlalchemy import and_, false
+from firebase_admin.exceptions import FirebaseError, InvalidArgumentError
+from sqlalchemy import and_, exists, false
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import aliased, Session
 
 from firebase_admin import messaging
 
 from app.models import models
-from app.schemas.notifications import NotificationItem, ItemType, PaginationToken
+from app.schemas.notifications import NotificationItem, ItemType
 from app.schemas.post import ORMPost, Post
 
 
@@ -41,9 +42,11 @@ def notify_post_liked_if_enabled(db: Session, post: models.Post, liked_by: model
         message = messaging.Message(notification=messaging.Notification(body=body), token=fcm_token.token)
         try:
             messaging.send(message)
-            print("Sent message")
+        except InvalidArgumentError:
+            db.delete(fcm_token)
+            db.commit()
         except (FirebaseError, ValueError) as e:
-            print(e)
+            print("Exception when notifying post liked", e)
 
 
 def notify_follow_if_enabled(db: Session, user: models.User, followed_by: models.User):
@@ -57,33 +60,47 @@ def notify_follow_if_enabled(db: Session, user: models.User, followed_by: models
         message = messaging.Message(notification=messaging.Notification(body=body), token=fcm_token.token)
         try:
             messaging.send(message)
-            print("Sent message")
+        except InvalidArgumentError:
+            db.delete(fcm_token)
+            db.commit()
         except (FirebaseError, ValueError) as e:
-            print(e)
+            print("Exception when notifying new follower", e)
 
 
-def get_notification_feed(db: Session, user: models.User, follow_id: Optional[str] = None,
-                          like_id: Optional[str] = None) -> list[NotificationItem]:
+def get_notification_feed(
+    db: Session,
+    user: models.User,
+    cursor: Optional[uuid.UUID] = None,
+    limit: int = 50
+) -> list[NotificationItem]:
     follow_query = db.query(models.UserRelation, models.User).filter(
         models.UserRelation.to_user_id == user.id,
         models.User.id == models.UserRelation.from_user_id,
         models.UserRelation.relation == models.UserRelationType.following,
         models.User.deleted == false())
-    if follow_id is not None and follow_id.isdigit():
-        follow_query = follow_query.filter(models.UserRelation.id < follow_id)
+    if cursor is not None:
+        follow_query = follow_query.filter(models.UserRelation.id < cursor)
 
-    like_query = db.query(models.post_like, models.Post, models.User).filter(
-        models.post_like.c.post_id == models.Post.id,
+    post_like_alias = aliased(models.PostLike)
+    like_query = db.query(
+        models.PostLike,
+        models.Post,
+        models.User,
+        exists().where(and_(post_like_alias.post_id == models.Post.id,
+                            post_like_alias.user_id == user.id)).label("post_liked")
+    ).filter(
+        models.PostLike.post_id == models.Post.id,
         models.Post.user == user,
         models.Post.deleted == false(),
-        models.User.id == models.post_like.c.user_id,
+        models.User.id == models.PostLike.user_id,
         models.User.id != user.id,
-        models.User.deleted == false())
-    if like_id is not None and like_id.isdigit():
-        like_query = like_query.filter(models.post_like.c.id < like_id)
+        models.User.deleted == false()
+    )
+    if cursor is not None:
+        like_query = like_query.filter(models.PostLike.id < cursor)
 
-    follow_results = follow_query.order_by(models.UserRelation.id.desc()).limit(50).all()
-    like_results = like_query.order_by(models.post_like.c.id.desc()).limit(50).all()
+    follow_results = follow_query.order_by(models.UserRelation.id.desc()).limit(limit).all()
+    like_results = like_query.order_by(models.PostLike.id.desc()).limit(limit).all()
 
     follow_items = []
     like_items = []
@@ -93,13 +110,13 @@ def get_notification_feed(db: Session, user: models.User, follow_id: Optional[st
                                              user=f.User, item_id=f.UserRelation.id))
     for like in like_results:
         fields = ORMPost.from_orm(like.Post).dict()
-        like_items.append(NotificationItem(type=ItemType.like, created_at=like.created_at,
-                                           user=like.User, item_id=like.id,
-                                           post=Post(**fields, liked=user in like.Post.likes)))
-    return sorted(follow_items + like_items, key=lambda i: (i.created_at, i.item_id), reverse=True)[:50]
+        like_items.append(NotificationItem(type=ItemType.like, created_at=like.PostLike.created_at,
+                                           user=like.User, item_id=like.PostLike.id,
+                                           post=Post(**fields, liked=like.post_liked)))
+    return sorted(follow_items + like_items, key=lambda i: i.item_id, reverse=True)[:limit]
 
 
-def get_token(feed: list[NotificationItem], last_follow: Optional[str], last_like: Optional[str]) -> PaginationToken:
-    follow_id = min([v.item_id for _, v in enumerate(feed) if v.type == ItemType.follow], default=last_follow)
-    like_id = min([v.item_id for _, v in enumerate(feed) if v.type == ItemType.like], default=last_like)
-    return PaginationToken(follow_id=follow_id, like_id=like_id)
+def get_token(feed: list[NotificationItem], page_size: int) -> Optional[uuid.UUID]:
+    if len(feed) < page_size:
+        return None
+    return min(item.item_id for item in feed)

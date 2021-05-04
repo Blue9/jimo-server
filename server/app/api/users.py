@@ -1,7 +1,7 @@
 from typing import Optional, List
 
 import pydantic
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app import schemas
@@ -78,12 +78,7 @@ def get_posts(username: str, firebase_user: FirebaseUser = Depends(get_firebase_
     utils.validate_user(db, caller_user=caller_user, user=user)
     if users.is_blocked(db, blocked_by_user=caller_user, blocked_user=user):
         raise HTTPException(403)
-    posts = []
-    for post in users.get_posts(db, user):
-        # ORMPostWithoutUser avoids querying post.user N times
-        fields = schemas.post.ORMPostWithoutUser.from_orm(post).dict()
-        posts.append(schemas.post.Post(**fields, user=user, liked=caller_user in post.likes))
-    return posts
+    return users.get_posts(db, caller_user, user)
 
 
 @router.get("/{username}/followStatus", response_model=schemas.user.FollowUserResponse)
@@ -130,7 +125,6 @@ def get_follow_status_v2(username: str, firebase_user: FirebaseUser = Depends(ge
 @router.post("/{username}/follow", response_model=schemas.user.FollowUserResponse)
 def follow_user(
         username: str,
-        background_tasks: BackgroundTasks,
         firebase_user: FirebaseUser = Depends(get_firebase_user),
         db: Session = Depends(get_db)
 ):
@@ -156,7 +150,7 @@ def follow_user(
     utils.validate_user(db, caller_user=from_user, user=to_user)
     try:
         follow_response = users.follow_user(db, from_user, to_user)
-        background_tasks.add_task(notifications.notify_follow_if_enabled, db, to_user, followed_by=from_user)
+        notifications.notify_follow_if_enabled(db, to_user, followed_by=from_user)
         return follow_response
     except ValueError as e:
         raise HTTPException(400, detail=str(e))

@@ -17,6 +17,7 @@ cffi = "^1.14.5"
 grpcio = "^1.36.1"
 python-multipart = "^0.0.5"
 alembic = "^1.5.8"
+ulid-py = "^1.1.0"
 
 [tool.poetry.dev-dependencies]
 flake8 = "^3.9.0"

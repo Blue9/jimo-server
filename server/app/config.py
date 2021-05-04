@@ -15,6 +15,9 @@ ALLOW_ORIGIN: Optional[str] = os.environ.get("ALLOW_ORIGIN")
 # If true, enable docs and openapi.json endpoints
 ENABLE_DOCS: bool = os.environ.get("ENABLE_DOCS") == "1"
 
+# Firebase storage bucket for user images
+STORAGE_BUCKET: str = os.environ.get("STORAGE_BUCKET", "goodplaces-app.appspot.com")
+
 # If ADMIN_USER is set, then when initializing and migrating the db we create a new user with the given information.
 # ADMIN_USER is a base64-encoded JSON string and should include keys "uid", "username", "firstName", and "lastName"
 _admin_user: Optional[str] = os.environ.get("ADMIN_USER")

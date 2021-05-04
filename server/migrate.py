@@ -24,6 +24,8 @@ def main():
 
 
 def init_db():
+    with engine.connect() as connection:
+        connection.execute("""CREATE EXTENSION IF NOT EXISTS postgis""")
     models.Base.metadata.create_all(bind=engine)
     with get_session() as session:
         categories.add_categories_to_db(session)

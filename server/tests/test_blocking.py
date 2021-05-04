@@ -30,17 +30,17 @@ def setup_module():
         session.commit()
 
         user_a_post = models.Post(
-            external_id=USER_A_POST_ID,
+            id=USER_A_POST_ID,
             user_id=user_a.id,
             place_id=place.id,
-            category_id=1,
+            category="food",
             content=""
         )
         user_b_post = models.Post(
-            external_id=USER_B_POST_ID,
+            id=USER_B_POST_ID,
             user_id=user_b.id,
             place_id=place.id,
-            category_id=1,
+            category="food",
             content=""
         )
         session.add(user_a_post)

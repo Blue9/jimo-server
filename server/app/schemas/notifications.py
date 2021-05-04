@@ -1,3 +1,4 @@
+import uuid
 from typing import Optional
 from enum import Enum
 from datetime import datetime
@@ -19,7 +20,7 @@ class NotificationItem(Base):
     type: ItemType
     created_at: datetime
     user: PublicUser
-    item_id: str
+    item_id: uuid.UUID
     post: Optional[Post]
 
     @validator("created_at")
@@ -28,11 +29,6 @@ class NotificationItem(Base):
         return created_at.replace(microsecond=0)
 
 
-class PaginationToken(Base):
-    follow_id: Optional[str]
-    like_id: Optional[str]
-
-
 class NotificationFeedResponse(Base):
     notifications: list[NotificationItem]
-    token: PaginationToken
+    cursor: Optional[uuid.UUID]
