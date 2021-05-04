@@ -81,35 +81,8 @@ def get_posts(username: str, firebase_user: FirebaseUser = Depends(get_firebase_
     return users.get_posts(db, caller_user, user)
 
 
-@router.get("/{username}/followStatus", response_model=schemas.user.FollowUserResponse)
-def get_follow_status(username: str, firebase_user: FirebaseUser = Depends(get_firebase_user),
-                      db: Session = Depends(get_db)):
-    """Get follow status.
-
-    Args:
-        username: The username string to check follow status.
-        firebase_user: Firebase user from auth header.
-        db: The database session object. This object is automatically injected by FastAPI.
-
-    Returns:
-        A boolean where true indicated the user is followed and false indicates the user is not followed.
-
-    Raises:
-        HTTPException: If the user could not be found (404), the caller isn't authenticated (401),
-        or the caller is trying check status of themself (400).
-    """
-    from_user = utils.get_user_from_uid_or_raise(db, firebase_user.uid)
-    to_user = users.get_user(db, username)
-    utils.validate_user(db, caller_user=from_user, user=to_user)
-    relation: Optional[models.UserRelationType] = db.query(models.UserRelation.relation) \
-        .filter(models.UserRelation.from_user_id == from_user.id,
-                models.UserRelation.to_user_id == to_user.id) \
-        .scalar()
-    return {"followed": relation == models.UserRelationType.following}
-
-
-@router.get("/{username}/followStatusV2", response_model=schemas.user.RelationToUser)
-def get_follow_status_v2(username: str, firebase_user: FirebaseUser = Depends(get_firebase_user),
+@router.get("/{username}/relation", response_model=schemas.user.RelationToUser)
+def get_relation(username: str, firebase_user: FirebaseUser = Depends(get_firebase_user),
                          db: Session = Depends(get_db)):
     """Get the relationship to the given user."""
     from_user = utils.get_user_from_uid_or_raise(db, firebase_user.uid)
