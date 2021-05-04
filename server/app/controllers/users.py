@@ -202,13 +202,20 @@ def update_preferences(db: Session, user: models.User, request: models.UserPrefs
                             post_notifications=prefs.post_notifications)
 
 
-def get_posts(db: Session, caller_user: models.User, user: models.User) -> list[schemas.post.Post]:
+def get_posts(
+    db: Session,
+    caller_user: models.User,
+    user: models.User,
+    cursor: Optional[uuid.UUID],
+    limit: int
+) -> list[schemas.post.Post]:
     """Get the user's posts that aren't deleted."""
-    rows = db.query(models.Post, utils.is_post_liked_query(caller_user)) \
+    user_posts_query = db.query(models.Post, utils.is_post_liked_query(caller_user)) \
         .options(utils.eager_load_post_except_user_options()) \
-        .filter(models.Post.user_id == user.id, models.Post.deleted == false()) \
-        .order_by(models.Post.created_at.desc()) \
-        .all()
+        .filter(models.Post.user_id == user.id, models.Post.deleted == false())
+    if cursor:
+        user_posts_query = user_posts_query.filter(models.Post.id < cursor)
+    rows = user_posts_query.order_by(models.Post.id.desc()).limit(limit).all()
     user_posts = []
     for post, is_post_liked in rows:
         # ORMPostWithoutUser avoids querying post.user; we already know the user

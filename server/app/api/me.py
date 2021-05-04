@@ -123,7 +123,7 @@ def get_feed(
     """Get the feed for the current user.
 
     Args:
-        cursor: Get all posts before this one. Returns a 404 if the post could not be found.
+        cursor: Get all posts before this one.
         firebase_user: Firebase user from auth header.
         db: The database session object. This object is automatically injected by FastAPI.
 

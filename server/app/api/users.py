@@ -1,4 +1,5 @@
-from typing import Optional, List
+import uuid
+from typing import Optional
 
 import pydantic
 from fastapi import APIRouter, Depends, HTTPException
@@ -55,35 +56,41 @@ def get_user(username: str, firebase_user: FirebaseUser = Depends(get_firebase_u
     return pydantic.parse_obj_as(schemas.user.PublicUser, user)
 
 
-@router.get("/{username}/posts", response_model=List[schemas.post.Post])
-def get_posts(username: str, firebase_user: FirebaseUser = Depends(get_firebase_user), db: Session = Depends(get_db)):
+@router.get("/{username}/posts", response_model=schemas.post.Feed)
+def get_posts(
+    username: str,
+    cursor: Optional[uuid.UUID] = None,
+    firebase_user: FirebaseUser = Depends(get_firebase_user),
+    db: Session = Depends(get_db)
+):
     """Get the posts of the given user.
 
     Args:
+        cursor: Get all posts before this one.
         username: The username string.
         firebase_user: Firebase user from auth header.
         db: The database session object. This object is automatically injected by FastAPI.
 
     Returns:
-        The posts of the given user as a list of Post objects. This endpoint does not currently
-        paginate the response.
+        The posts of the given user as a list of Post objects.
 
     Raises:
-        HTTPException: If the user could not be found (404), the caller isn't authenticated (401), or the user's
-        privacy settings block the caller from viewing their posts (e.g. private account) (403).
+        HTTPException: If the user could not be found (404) or the caller isn't authenticated (401).
     """
+    page_size = 50
     caller_user = utils.get_user_from_uid_or_raise(db, firebase_user.uid)
-    # TODO(gmekkat): Paginate results
     user: Optional[models.User] = users.get_user(db, username)
     utils.validate_user(db, caller_user=caller_user, user=user)
     if users.is_blocked(db, blocked_by_user=caller_user, blocked_user=user):
         raise HTTPException(403)
-    return users.get_posts(db, caller_user, user)
+    posts = users.get_posts(db, caller_user, user, cursor=cursor, limit=page_size)
+    next_cursor: Optional[uuid.UUID] = min(post.id for post in posts) if len(posts) >= page_size else None
+    return schemas.post.Feed(posts=posts, cursor=next_cursor)
 
 
 @router.get("/{username}/relation", response_model=schemas.user.RelationToUser)
 def get_relation(username: str, firebase_user: FirebaseUser = Depends(get_firebase_user),
-                         db: Session = Depends(get_db)):
+                 db: Session = Depends(get_db)):
     """Get the relationship to the given user."""
     from_user = utils.get_user_from_uid_or_raise(db, firebase_user.uid)
     to_user = users.get_user(db, username)
@@ -97,9 +104,9 @@ def get_relation(username: str, firebase_user: FirebaseUser = Depends(get_fireba
 
 @router.post("/{username}/follow", response_model=schemas.user.FollowUserResponse)
 def follow_user(
-        username: str,
-        firebase_user: FirebaseUser = Depends(get_firebase_user),
-        db: Session = Depends(get_db)
+    username: str,
+    firebase_user: FirebaseUser = Depends(get_firebase_user),
+    db: Session = Depends(get_db)
 ):
     """Follow a user.
 
