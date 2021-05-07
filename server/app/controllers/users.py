@@ -395,13 +395,15 @@ def search_users(db: Session, caller_user: models.User, query: str) -> list[mode
     # First search usernames
     # TODO this is inefficient, we should move to a real search engine
     RelationToCaller = aliased(models.UserRelation)
-    return db.query(models.User) \
+    db_query = db.query(models.User) \
         .join(RelationToCaller,
               (RelationToCaller.from_user_id == models.User.id) & (RelationToCaller.to_user_id == caller_user.id),
               isouter=True) \
         .filter(RelationToCaller.relation.is_distinct_from(models.UserRelationType.blocked),
-                models.User.deleted == false()) \
+                models.User.deleted == false(),
+                models.User.is_admin == false()) \
         .filter(or_(models.User.username.ilike(f"{query}%"),
-                    concat(models.User.first_name, " ", models.User.last_name).ilike(f"{query}%"))) \
-        .limit(50) \
-        .all()
+                    concat(models.User.first_name, " ", models.User.last_name).ilike(f"{query}%")))
+    if len(query) == 0:
+        db_query = db_query.order_by(models.User.follower_count.desc())
+    return db_query.limit(50).all()
