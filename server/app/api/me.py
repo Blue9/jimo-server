@@ -8,7 +8,7 @@ from sqlalchemy.orm import aliased, Session
 
 from app import schemas
 from app.api import utils
-from app.controllers import users, places
+from app.controllers import users, places, notifications
 from app.controllers.firebase import FirebaseUser, get_firebase_user
 from app.db.database import get_db
 from app.models import models
@@ -195,7 +195,7 @@ def follow_many(request: schemas.user.UsernameList, firebase_user: FirebaseUser 
     RelationToCurrent = aliased(models.UserRelation)
     RelationFromCurrent = aliased(models.UserRelation)
     users_to_follow = db \
-        .query(models.User.id) \
+        .query(models.User) \
         .filter(models.User.username_lower.in_(username_list), models.User.deleted == false()) \
         .join(RelationToCurrent,
               (RelationToCurrent.to_user_id == user.id) & (RelationToCurrent.from_user_id == models.User.id),
@@ -216,4 +216,7 @@ def follow_many(request: schemas.user.UsernameList, firebase_user: FirebaseUser 
         db.commit()
     except IntegrityError:
         raise HTTPException(400)
+    # Note: This makes N+1 queries, one for each followed user and one for the current user, we can optimize this later
+    for followed in users_to_follow:
+        notifications.notify_follow_if_enabled(db, followed, followed_by=user)
     return schemas.base.SimpleResponse(success=True)

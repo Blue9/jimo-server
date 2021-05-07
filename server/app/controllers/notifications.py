@@ -63,8 +63,15 @@ def notify_follow_if_enabled(db: Session, user: models.User, followed_by: models
         except InvalidArgumentError:
             db.delete(fcm_token)
             db.commit()
-        except (FirebaseError, ValueError) as e:
-            print("Exception when notifying new follower", e)
+        except FirebaseError as e:
+            if e.code == "NOT_FOUND":
+                # Token is no longer registered
+                db.delete(fcm_token)
+                db.commit()
+            else:
+                print(f"Exception when notifying new follower {e.__dict__}")
+        except ValueError as e:
+            print(f"Exception when notifying new follower {e.__dict__}")
 
 
 def get_notification_feed(
