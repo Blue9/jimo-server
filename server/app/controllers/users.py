@@ -395,6 +395,7 @@ def search_users(db: Session, caller_user: models.User, query: str) -> list[mode
     # First search usernames
     # TODO this is inefficient, we should move to a real search engine
     RelationToCaller = aliased(models.UserRelation)
+    query = query.replace("\\", "\\\\").replace("_", "\\_").replace("%", "\\%")
     db_query = db.query(models.User) \
         .join(RelationToCaller,
               (RelationToCaller.from_user_id == models.User.id) & (RelationToCaller.to_user_id == caller_user.id),
