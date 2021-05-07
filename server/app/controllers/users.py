@@ -392,9 +392,6 @@ def unblock_user(db: Session, from_user: models.User, to_user: models.User) -> s
 
 
 def search_users(db: Session, caller_user: models.User, query: str) -> list[models.User]:
-    if len(query) < 3:
-        # Only search if the query is >= 3 chars
-        return []
     # First search usernames
     # TODO this is inefficient, we should move to a real search engine
     RelationToCaller = aliased(models.UserRelation)
