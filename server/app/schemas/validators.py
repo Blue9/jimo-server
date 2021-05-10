@@ -10,7 +10,7 @@ def validate_username(username: Optional[str]) -> str:
         raise ValueError("Username must be 3-20 characters")
     if any(c in username for c in string.whitespace):
         raise ValueError("Username can only contain letters, numbers, and underscores")
-    if not username.replace("_", "").isalnum():
+    if not username.replace("_", "").isalnum() or not username.isascii():
         raise ValueError("Username can only contain letters, numbers, and underscores")
     return username
 
