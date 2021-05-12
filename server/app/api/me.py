@@ -2,6 +2,8 @@ import uuid
 from typing import Optional, List
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse
 from sqlalchemy import false, true
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import aliased, Session
@@ -155,7 +157,7 @@ def get_discover_feed(firebase_user: FirebaseUser = Depends(get_firebase_user), 
         The discover feed for the given user as a list of Post objects in reverse chronological order.
     """
     user = utils.get_user_from_uid_or_raise(db, firebase_user.uid)
-    return users.get_discover_feed(db, user=user)
+    return JSONResponse(content=jsonable_encoder(users.get_discover_feed(db, user=user)))
 
 
 @router.get("/suggested", response_model=List[schemas.user.PublicUser])

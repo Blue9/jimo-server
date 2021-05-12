@@ -27,12 +27,12 @@ def rows_to_posts(rows: list[tuple[models.Post, bool]]) -> list[schemas.post.Pos
 def eager_load_post_options():
     """Return the options to eagerly load a post's attributes."""
     return (
-        joinedload(models.Post.user),
-        joinedload(models.Post.user).joinedload(models.User.profile_picture),
-        joinedload(models.Post.user).undefer(models.User.post_count),
-        joinedload(models.Post.user).undefer(models.User.following_count),
-        joinedload(models.Post.user).undefer(models.User.follower_count),
-        joinedload(models.Post.place),
+        joinedload(models.Post.user, innerjoin=True),
+        joinedload(models.Post.user, innerjoin=True).joinedload(models.User.profile_picture),
+        joinedload(models.Post.user, innerjoin=True).undefer(models.User.post_count),
+        joinedload(models.Post.user, innerjoin=True).undefer(models.User.following_count),
+        joinedload(models.Post.user, innerjoin=True).undefer(models.User.follower_count),
+        joinedload(models.Post.place, innerjoin=True),
         joinedload(models.Post.image),
         undefer(models.Post.like_count)
     )
@@ -40,7 +40,7 @@ def eager_load_post_options():
 
 def eager_load_post_except_user_options():
     """Return the options to eagerly load a post's attributes except the user attributes."""
-    return (joinedload(models.Post.place),
+    return (joinedload(models.Post.place, innerjoin=True),
             joinedload(models.Post.image),
             undefer(models.Post.like_count))
 

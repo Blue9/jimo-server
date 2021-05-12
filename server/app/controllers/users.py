@@ -2,7 +2,7 @@ import datetime
 import uuid
 from typing import Optional, Tuple, Callable
 
-from sqlalchemy import false, or_, and_, select
+from sqlalchemy import false, or_, and_, select, union_all
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import aliased, Session
 from sqlalchemy.sql.functions import concat
@@ -255,28 +255,26 @@ def _get_feed_query(db: Session, user: models.User):
         .order_by(models.Post.id.desc())
 
 
-def get_discover_feed(db: Session, user: models.User) -> list[models.Post]:
+def get_discover_feed(db: Session, user: models.User) -> list[schemas.post.Post]:
     """Get the user's discover feed."""
     one_week_ago = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(weeks=1)
     # TODO also filter by Post.user_id != user.id, for now it's easier to test without
-    RelationToCaller = aliased(models.UserRelation)
-    RelationFromCaller = aliased(models.UserRelation)
+    blocked_subquery = union_all(
+        select(models.UserRelation.from_user_id).select_from(models.UserRelation).where(
+            models.UserRelation.to_user_id == user.id,
+            models.UserRelation.relation == models.UserRelationType.blocked),
+        select(models.UserRelation.to_user_id).select_from(models.UserRelation).where(
+            models.UserRelation.from_user_id == user.id,
+            models.UserRelation.relation == models.UserRelationType.blocked)
+    )
     rows = db.query(models.Post, utils.is_post_liked_query(user)) \
         .options(utils.eager_load_post_options()) \
-        .join(models.User) \
-        .join(RelationToCaller,
-              (RelationToCaller.to_user_id == user.id) & (RelationToCaller.from_user_id == models.User.id),
-              isouter=True) \
-        .join(RelationFromCaller,
-              (RelationFromCaller.from_user_id == user.id) & (RelationFromCaller.to_user_id == models.User.id),
-              isouter=True) \
-        .filter(RelationToCaller.relation.is_distinct_from(models.UserRelationType.blocked),
-                RelationFromCaller.relation.is_distinct_from(models.UserRelationType.blocked),
-                models.Post.image_url.isnot(None),
+        .filter(models.Post.user_id.notin_(blocked_subquery),
+                models.Post.image_id.isnot(None),
                 models.Post.created_at > one_week_ago,
                 models.Post.deleted == false()) \
         .order_by(models.Post.like_count.desc()) \
-        .limit(500) \
+        .limit(300) \
         .all()
     return utils.rows_to_posts(rows)
 

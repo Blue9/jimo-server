@@ -26,7 +26,9 @@ class UserRelation(Base):
     relation = Column(Enum(UserRelationType), nullable=False)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
-    __table_args__ = (UniqueConstraint("from_user_id", "to_user_id", name="_from_user_to_user_uc"),)
+    __table_args__ = (UniqueConstraint("from_user_id", "to_user_id", name="_from_user_to_user_uc"),
+                      Index("user_relation_to_user_id_relation_idx", to_user_id, relation),
+                      Index("user_relation_from_user_id_relation_idx", from_user_id, relation))
 
 
 class User(Base):
@@ -177,7 +179,8 @@ class PostLike(Base):
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     # Only want one row per (user, post) pair
-    __table_args__ = (UniqueConstraint("user_id", "post_id", name="_post_like_user_post_uc"),)
+    __table_args__ = (UniqueConstraint("user_id", "post_id", name="_post_like_user_post_uc"),
+                      Index("post_like_post_id_idx", post_id))
 
 
 class Post(Base):
@@ -256,7 +259,6 @@ class Feedback(Base):
 # Column properties
 
 # Users
-other_user = aliased(User)
 post_alias = aliased(Post)
 
 User.post_count = column_property(
@@ -264,17 +266,15 @@ User.post_count = column_property(
     deferred=True)
 
 User.follower_count = column_property(
-    select([func.count()]).select_from(UserRelation).join(other_user, UserRelation.from_user_id == other_user.id).where(
+    select([func.count()]).select_from(UserRelation).where(
         and_(UserRelation.to_user_id == User.id,
-             UserRelation.relation == UserRelationType.following,
-             other_user.deleted == false())).scalar_subquery(), deferred=True)
+             UserRelation.relation == UserRelationType.following)).scalar_subquery(), deferred=True)
 
 User.following_count = column_property(
-    select([func.count()]).select_from(UserRelation).join(other_user, UserRelation.to_user_id == other_user.id).where(
+    select([func.count()]).select_from(UserRelation).where(
         and_(UserRelation.from_user_id == User.id,
-             UserRelation.relation == UserRelationType.following,
-             other_user.deleted == false())).scalar_subquery(), deferred=True)
+             UserRelation.relation == UserRelationType.following)).scalar_subquery(), deferred=True)
 
 # Posts
-Post.like_count = column_property(select([func.count()]).select_from(PostLike).join(User).where(
-    and_(Post.id == PostLike.post_id, User.deleted == false())).scalar_subquery(), deferred=True)
+Post.like_count = column_property(select([func.count()]).select_from(PostLike).where(
+    and_(Post.id == PostLike.post_id)).scalar_subquery(), deferred=True)
