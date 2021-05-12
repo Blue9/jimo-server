@@ -48,10 +48,27 @@ class Place(Base):
 
 
 # Request types
+class AdditionalPlaceData(Base):
+    country_code: Optional[str]
+    country: Optional[str]
+    postal_code: Optional[str]
+    administrative_area: Optional[str]
+    sub_administrative_area: Optional[str]
+    locality: Optional[str]
+    sub_locality: Optional[str]
+    thoroughfare: Optional[str]
+    sub_thoroughfare: Optional[str]
+    poi_category: Optional[str]
+    phone_number: Optional[str]
+    url: Optional[str]
+    time_zone: Optional[str]
+
+
 class MaybeCreatePlaceRequest(Base):
     name: str
     location: Location
     region: Optional[Region]
+    additional_data: Optional[AdditionalPlaceData]
 
     @validator("name")
     def validate_name(cls, name):

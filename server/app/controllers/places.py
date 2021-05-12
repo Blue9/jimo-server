@@ -11,13 +11,17 @@ from app.controllers.users import get_following
 from app.models import models
 
 
-def save_place_data(db: Session, user: models.User, place: models.Place,
-                    region: schemas.place.Region) -> models.PlaceData:
+def save_place_data(
+    db: Session,
+    user: models.User,
+    place: models.Place,
+    region: schemas.place.Region,
+    additional_data: Optional[schemas.place.AdditionalPlaceData] = None
+) -> models.PlaceData:
     """Save the given place data to the database."""
-    # TODO(gmekkat): Add additional data
     place_data = models.PlaceData(place_id=place.id, user_id=user.id, region_center_lat=region.latitude,
                                   region_center_long=region.longitude, radius_meters=region.radius,
-                                  additional_data=None)
+                                  additional_data=additional_data.dict() if additional_data else None)
     try:
         db.add(place_data)
         db.commit()
@@ -91,7 +95,7 @@ def get_place_or_create(db: Session, user: models.User, request: schemas.place.M
             func.ST_Distance(point, models.Place.location) <= radius).order_by(
             asc(func.ST_Distance(point, models.Place.location))).first()
         if place:
-            save_place_data(db, user, place, request.region)
+            save_place_data(db, user, place, request.region, request.additional_data)
             return place
 
     # Otherwise search a 10 meter radius
@@ -101,7 +105,7 @@ def get_place_or_create(db: Session, user: models.User, request: schemas.place.M
     if place is None:
         place = create_place(db, request)
     if request.region:
-        save_place_data(db, user, place, request.region)
+        save_place_data(db, user, place, request.region, request.additional_data)
     return place
 
 
@@ -127,7 +131,11 @@ def get_map(db: Session, user: models.User, limit: int) -> list[schemas.place.Ma
     places = []
     for row in response:
         location = schemas.place.Location(latitude=row.place_latitude, longitude=row.place_longitude)
-        place = schemas.place.Place(id=row.place_id, name=row.place_name, location=location)
+        place = schemas.place.Place(
+            id=row.place_id,
+            name=row.place_name,
+            location=location
+        )
         icon = schemas.place.MapPinIcon(category=row.category, icon_url=row.firebase_public_url,
                                         num_mutual_posts=row.num_mutual_posts)
         places.append(schemas.place.MapPin(place=place, icon=icon))
