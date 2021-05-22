@@ -4,23 +4,13 @@ from typing import Optional
 from alembic import command
 from alembic.config import Config
 
-from app import config
-from app.controllers import users, categories
+from app.controllers import categories
 from app.db.database import get_session, engine
 from app.models import models
 
 
 def main():
     run_migrations()
-    if config.ADMIN_USER is not None:
-        user = config.ADMIN_USER
-        with get_session() as session:
-            created, error = users.create_user_ignore_invite_status(
-                session, user.uid, user.username, user.first_name, user.last_name)
-            if created:
-                created.is_admin = True
-                session.commit()
-                print("Created admin user with uid", user.uid)
 
 
 def init_db():

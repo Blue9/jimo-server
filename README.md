@@ -22,7 +22,6 @@ Variable | Value
 `DATABASE_URL` | Full database url (w/ credentials).
 `GOOGLE_APPLICATION_CREDENTIALS` | Path to the service account JSON file.
 `ALLOW_ORIGIN` | (Optional) Allow requests from the given host. Can be set to `*`.
-`ADMIN_USER` | (Optional) Base64 encoding of a JSON string of the default admin user (should conform to CreateUserRequest). If this is set then when initializing the db, attempt to create the given admin user in the database.
 `ENABLE_DOCS` | (Optional) If set to 1, enable the `/docs`, `/redoc`, and `/openapi.json` endpoints. Disabled by default.
 `STORAGE_BUCKET` | The Firebase storage bucket to save images to. Defaults to `goodplaces-app.appspot.com`.
 

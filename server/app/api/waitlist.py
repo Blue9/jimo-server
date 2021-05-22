@@ -1,33 +1,50 @@
+from app.stores.invite_store import InviteStore
+from app.stores.user_store import UserStore
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
 
-from app import schemas
+from app import schemas, config
 from app.api import utils
-from app.controllers import users
 from app.controllers.firebase import FirebaseUser, get_firebase_user
-from app.db.database import get_db
 
 router = APIRouter()
 
 
+def get_phone_number(firebase_user: FirebaseUser = Depends(get_firebase_user)) -> str:
+    phone_number = firebase_user.shared_firebase.get_phone_number_from_uid(firebase_user.uid)
+    if phone_number is None:
+        raise HTTPException(403)
+    return phone_number
+
+
 @router.get("/status", response_model=schemas.invite.UserWaitlistStatus)
-def get_waitlist_status(firebase_user: FirebaseUser = Depends(get_firebase_user), db: Session = Depends(get_db)):
-    return schemas.invite.UserWaitlistStatus(invited=users.is_invited(db, firebase_user),
-                                             waitlisted=users.on_waitlist(db, firebase_user))
+def get_waitlist_status(
+    phone_number: str = Depends(get_phone_number),
+    invite_store: InviteStore = Depends(InviteStore)
+):
+    return schemas.invite.UserWaitlistStatus(
+        invited=invite_store.is_invited(phone_number),
+        waitlisted=invite_store.is_on_waitlist(phone_number)
+    )
 
 
 @router.post("", response_model=schemas.invite.UserWaitlistStatus)
-def join_waitlist(firebase_user: FirebaseUser = Depends(get_firebase_user), db: Session = Depends(get_db)):
-    try:
-        users.join_waitlist(db, firebase_user)
-        return schemas.invite.UserWaitlistStatus(invited=users.is_invited(db, firebase_user),
-                                                 waitlisted=users.on_waitlist(db, firebase_user))
-    except ValueError as e:
-        raise HTTPException(403, detail=str(e))
+def join_waitlist(
+    phone_number: str = Depends(get_phone_number),
+    invite_store: InviteStore = Depends(InviteStore)
+):
+    invite_store.join_waitlist(phone_number)
+    return schemas.invite.UserWaitlistStatus(invited=False, waitlisted=True)
 
 
 @router.post("/invites", response_model=schemas.invite.UserInviteStatus)
-def invite_user(request: schemas.invite.InviteUserRequest, firebase_user: FirebaseUser = Depends(get_firebase_user),
-                db: Session = Depends(get_db)):
-    user = utils.get_user_from_uid_or_raise(db, firebase_user.uid)
-    return users.invite_user(db, user, request.phone_number)
+def invite_user(
+    request: schemas.invite.InviteUserRequest,
+    firebase_user: FirebaseUser = Depends(get_firebase_user),
+    user_store: UserStore = Depends(UserStore),
+    invite_store: InviteStore = Depends(InviteStore)
+):
+    user: schemas.internal.InternalUser = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
+    num_used_invites = invite_store.num_used_invites(user.id)
+    if num_used_invites >= config.INVITES_PER_USER:
+        return schemas.invite.UserInviteStatus(invited=False, message="Reached invite limit.")
+    return invite_store.invite_user(invited_by=user.id, phone_number=request.phone_number)

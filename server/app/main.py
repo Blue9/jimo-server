@@ -1,3 +1,4 @@
+from app.stores.user_store import UserStore
 from fastapi import FastAPI, Depends, UploadFile, File
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
@@ -10,7 +11,6 @@ from app import schemas, api, config
 from app.api import utils
 from app.controllers.firebase import FirebaseUser, get_firebase_user
 from app.db.database import get_db
-from app.models import models
 
 
 def get_app() -> FastAPI:
@@ -64,11 +64,14 @@ def index():
 
 
 @app.post("/images", response_model=schemas.image.ImageUploadResponse)
-def upload_image(file: UploadFile = File(...),
-                 firebase_user: FirebaseUser = Depends(get_firebase_user),
-                 db: Session = Depends(get_db)):
+def upload_image(
+    file: UploadFile = File(...),
+    firebase_user: FirebaseUser = Depends(get_firebase_user),
+    db: Session = Depends(get_db),
+    user_store: UserStore = Depends(UserStore)
+):
     """Upload the given image to Firebase if allowed, returning the image id (used for posts + profile pictures)."""
-    user: models.User = api.utils.get_user_from_uid_or_raise(db, firebase_user.uid)
+    user: schemas.internal.InternalUser = api.utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
     image_upload = utils.upload_image(file, user, firebase_user.shared_firebase, db)
     return schemas.image.ImageUploadResponse(image_id=image_upload.id)
 

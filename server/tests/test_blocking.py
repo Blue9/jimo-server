@@ -61,6 +61,7 @@ def test_basic_blocking():
     # Blocking other user is fine
     with request_as(uid="a"):
         response = client.post(block("b"))
+        print(response.json())
         assert response.status_code == 200
         assert response.json()["success"]
 

@@ -1,3 +1,5 @@
+import uuid
+
 from psycopg2.errorcodes import UNIQUE_VIOLATION
 
 from sqlalchemy import and_, exists
@@ -8,10 +10,10 @@ from app import schemas
 from app.models import models
 
 
-def is_post_liked_query(user: models.User):
+def is_post_liked_query(user_id: uuid.UUID):
     """Return a subquery that returns whether the post in the main query is liked by the given user."""
     return exists() \
-        .where(and_(models.PostLike.post_id == models.Post.id, models.PostLike.user_id == user.id)) \
+        .where(and_(models.PostLike.post_id == models.Post.id, models.PostLike.user_id == user_id)) \
         .label("post_liked")
 
 

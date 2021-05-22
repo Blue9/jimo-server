@@ -1,13 +1,16 @@
 import uuid
 from typing import Optional
 
-import pydantic
+from app.stores.invite_store import InviteStore
+from app.stores.post_store import PostStore
+from app.stores.relation_store import RelationStore
+from app.stores.user_store import UserStore
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app import schemas
 from app.api import utils
-from app.controllers import users, notifications
+from app.controllers import notifications
 from app.controllers.firebase import FirebaseUser, get_firebase_user
 from app.db.database import get_db
 from app.models import models
@@ -16,44 +19,39 @@ router = APIRouter()
 
 
 @router.post("", response_model=schemas.user.CreateUserResponse, response_model_exclude_none=True)
-def create_user(request: schemas.user.CreateUserRequest, firebase_user: FirebaseUser = Depends(get_firebase_user),
-                db: Session = Depends(get_db)):
-    """Create a new user.
-
-    Args:
-        request: The request to create the user. The uid should exist in Firebase.
-        firebase_user: Firebase user from auth header.
-        db: The database session object. This object is automatically injected by FastAPI.
-
-    Returns:
-        A dict with one key, "success," mapped to True if creating the user was successful and False otherwise.
-
-    Raises:
-        HTTPException: If the auth header is invalid (401).
-    """
+def create_user(
+    request: schemas.user.CreateUserRequest,
+    firebase_user: FirebaseUser = Depends(get_firebase_user),
+    user_store: UserStore = Depends(UserStore),
+    invite_store: InviteStore = Depends(InviteStore)
+):
+    """Create a new user."""
     phone_number: Optional[str] = firebase_user.shared_firebase.get_phone_number_from_uid(firebase_user.uid)
-    return users.create_user(db, firebase_user, request, phone_number=phone_number)
+    if not invite_store.is_invited(phone_number):
+        return schemas.user.CreateUserResponse(
+            created=None, error=schemas.user.UserFieldErrors(uid="You aren't invited yet."))
+    user, error = user_store.create_user(
+        uid=firebase_user.uid,
+        username=request.username,
+        first_name=request.first_name,
+        last_name=request.last_name,
+        phone_number=phone_number
+    )
+    return schemas.user.CreateUserResponse(created=user, error=error)
 
 
 @router.get("/{username}", response_model=schemas.user.PublicUser)
-def get_user(username: str, firebase_user: FirebaseUser = Depends(get_firebase_user), db: Session = Depends(get_db)):
-    """Get the given user's details.
-
-    Args:
-        username: The username string.
-        firebase_user: Firebase user from auth header.
-        db: The database session object. This object is automatically injected by FastAPI.
-
-    Returns:
-        The requested user.
-
-    Raises:
-        HTTPException: If the user could not be found (404) or the caller isn't authenticated (401).
-    """
-    caller_user = utils.get_user_from_uid_or_raise(db, firebase_user.uid)
-    user: Optional[models.User] = users.get_user(db, username)
-    utils.validate_user(db, caller_user=caller_user, user=user)
-    return pydantic.parse_obj_as(schemas.user.PublicUser, user)
+def get_user(
+    username: str,
+    firebase_user: FirebaseUser = Depends(get_firebase_user),
+    user_store: UserStore = Depends(UserStore),
+    relation_store: RelationStore = Depends(RelationStore)
+):
+    """Get the given user's details."""
+    caller_user: schemas.internal.InternalUser = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
+    user: Optional[schemas.internal.InternalUser] = user_store.get_user_by_username(username)
+    utils.validate_user(relation_store, caller_user_id=caller_user.id, user=user)
+    return user
 
 
 @router.get("/{username}/posts", response_model=schemas.post.Feed)
@@ -61,40 +59,34 @@ def get_posts(
     username: str,
     cursor: Optional[uuid.UUID] = None,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
-    db: Session = Depends(get_db)
+    user_store: UserStore = Depends(UserStore),
+    relation_store: RelationStore = Depends(RelationStore),
+    post_store: PostStore = Depends(PostStore)
 ):
-    """Get the posts of the given user.
-
-    Args:
-        cursor: Get all posts before this one.
-        username: The username string.
-        firebase_user: Firebase user from auth header.
-        db: The database session object. This object is automatically injected by FastAPI.
-
-    Returns:
-        The posts of the given user as a list of Post objects.
-
-    Raises:
-        HTTPException: If the user could not be found (404) or the caller isn't authenticated (401).
-    """
+    """Get the posts of the given user."""
     page_size = 50
-    caller_user = utils.get_user_from_uid_or_raise(db, firebase_user.uid)
-    user: Optional[models.User] = users.get_user(db, username)
-    utils.validate_user(db, caller_user=caller_user, user=user)
-    if users.is_blocked(db, blocked_by_user=caller_user, blocked_user=user):
+    caller_user: schemas.internal.InternalUser = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
+    user: Optional[schemas.internal.InternalUser] = user_store.get_user_by_username(username)
+    utils.validate_user(relation_store, caller_user_id=caller_user.id, user=user)
+    if relation_store.is_blocked(blocked_by_user_id=caller_user.id, blocked_user_id=user.id):
         raise HTTPException(403)
-    posts = users.get_posts(db, caller_user, user, cursor=cursor, limit=page_size)
+    posts = post_store.get_posts(caller_user.id, user, cursor=cursor, limit=page_size)
     next_cursor: Optional[uuid.UUID] = min(post.id for post in posts) if len(posts) >= page_size else None
     return schemas.post.Feed(posts=posts, cursor=next_cursor)
 
 
 @router.get("/{username}/relation", response_model=schemas.user.RelationToUser)
-def get_relation(username: str, firebase_user: FirebaseUser = Depends(get_firebase_user),
-                 db: Session = Depends(get_db)):
+def get_relation(
+    username: str,
+    firebase_user: FirebaseUser = Depends(get_firebase_user),
+    db: Session = Depends(get_db),
+    user_store: UserStore = Depends(UserStore),
+    relation_store: RelationStore = Depends(RelationStore)
+):
     """Get the relationship to the given user."""
-    from_user = utils.get_user_from_uid_or_raise(db, firebase_user.uid)
-    to_user = users.get_user(db, username)
-    utils.validate_user(db, caller_user=from_user, user=to_user)
+    from_user: schemas.internal.InternalUser = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
+    to_user = user_store.get_user_by_username(username)
+    utils.validate_user(relation_store, caller_user_id=from_user.id, user=to_user)
     relation: Optional[models.UserRelationType] = db.query(models.UserRelation.relation) \
         .filter(models.UserRelation.from_user_id == from_user.id,
                 models.UserRelation.to_user_id == to_user.id) \
@@ -106,88 +98,78 @@ def get_relation(username: str, firebase_user: FirebaseUser = Depends(get_fireba
 def follow_user(
     username: str,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user_store: UserStore = Depends(UserStore),
+    relation_store: RelationStore = Depends(RelationStore)
 ):
-    """Follow a user.
-
-    Args:
-        username: The username string to follow.
-        background_tasks: BackgroundTasks object.
-        firebase_user: Firebase user from auth header.
-        db: The database session object. This object is automatically injected by FastAPI.
-
-    Returns:
-        A boolean where true indicated the user is followed and false indicates the user is not followed.
-
-    Raises:
-        HTTPException: If the user could not be found (404), the caller isn't authenticated (401), the user is already
-        followed (400), or the caller is trying to follow themself (400).
-    """
-    from_user = utils.get_user_from_uid_or_raise(db, firebase_user.uid)
-    to_user = users.get_user(db, username)
-    if to_user == from_user:
+    """Follow the given user."""
+    from_user: schemas.internal.InternalUser = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
+    to_user = user_store.get_user_by_username(username)
+    utils.validate_user(relation_store, caller_user_id=from_user.id, user=to_user)
+    if to_user.id == from_user.id:
         raise HTTPException(400, "Cannot follow yourself")
-    utils.validate_user(db, caller_user=from_user, user=to_user)
     try:
-        follow_response = users.follow_user(db, from_user, to_user)
-        notifications.notify_follow_if_enabled(db, to_user, followed_by=from_user)
-        return follow_response
+        relation_store.follow_user(from_user.id, to_user.id)
+        prefs = user_store.get_user_preferences(to_user.id)
+        if prefs.follow_notifications:
+            notifications.notify_follow(db, to_user.id, followed_by=from_user)
+        return schemas.user.FollowUserResponse(followed=True, followers=to_user.follower_count + 1)
     except ValueError as e:
         raise HTTPException(400, detail=str(e))
 
 
 @router.post("/{username}/unfollow", response_model=schemas.user.FollowUserResponse)
-def unfollow_user(username: str, firebase_user: FirebaseUser = Depends(get_firebase_user),
-                  db: Session = Depends(get_db)):
-    """Unfollow a user.
-
-    Args:
-        username: The username string to follow.
-        firebase_user: Firebase user from auth header.
-        db: The database session object. This object is automatically injected by FastAPI.
-
-    Returns:
-        A boolean where true indicated the user is followed and false indicates the user is not followed.
-
-    Raises:
-        HTTPException: If the user could not be found (404), the caller isn't authenticated (401), the user is not
-        already followed (400), or the caller is trying to unfollow themself (400).
-    """
-    from_user = utils.get_user_from_uid_or_raise(db, firebase_user.uid)
-    to_user = users.get_user(db, username)
-    if to_user == from_user:
+def unfollow_user(
+    username: str,
+    firebase_user: FirebaseUser = Depends(get_firebase_user),
+    user_store: UserStore = Depends(UserStore),
+    relation_store: RelationStore = Depends(RelationStore)
+):
+    """Unfollow the given user."""
+    from_user: schemas.internal.InternalUser = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
+    to_user = user_store.get_user_by_username(username)
+    utils.validate_user(relation_store, caller_user_id=from_user.id, user=to_user)
+    if to_user.id == from_user.id:
         raise HTTPException(400, "Cannot follow yourself")
-    utils.validate_user(db, caller_user=from_user, user=to_user)
     try:
-        return users.unfollow_user(db, from_user, to_user)
+        relation_store.unfollow_user(from_user.id, to_user.id)
+        return schemas.user.FollowUserResponse(followed=False, followers=to_user.follower_count - 1)
     except ValueError as e:
         raise HTTPException(400, str(e))
 
 
 @router.post("/{username}/block", response_model=schemas.base.SimpleResponse)
-def block_user(username: str, firebase_user: FirebaseUser = Depends(get_firebase_user), db: Session = Depends(get_db)):
+def block_user(
+    username: str,
+    firebase_user: FirebaseUser = Depends(get_firebase_user),
+    user_store: UserStore = Depends(UserStore),
+    relation_store: RelationStore = Depends(RelationStore)
+):
     """Block the given user."""
-    from_user = utils.get_user_from_uid_or_raise(db, firebase_user.uid)
-    to_block = users.get_user(db, username)
-    if from_user == to_block:
+    from_user: schemas.internal.InternalUser = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
+    to_block = user_store.get_user_by_username(username)
+    utils.validate_user(relation_store, from_user.id, to_block)
+    if from_user.id == to_block.id:
         raise HTTPException(400, detail="Cannot block yourself")
-    utils.validate_user(db, from_user, to_block)
     try:
-        return users.block_user(db, from_user, to_block)
+        return relation_store.block_user(from_user.id, to_block.id)
     except ValueError as e:
         raise HTTPException(400, str(e))
 
 
 @router.post("/{username}/unblock", response_model=schemas.base.SimpleResponse)
-def unblock_user(username: str, firebase_user: FirebaseUser = Depends(get_firebase_user),
-                 db: Session = Depends(get_db)):
+def unblock_user(
+    username: str, firebase_user: FirebaseUser = Depends(get_firebase_user),
+    user_store: UserStore = Depends(UserStore),
+    relation_store: RelationStore = Depends(RelationStore)
+):
     """Unblock the given user."""
-    from_user = utils.get_user_from_uid_or_raise(db, firebase_user.uid)
-    to_user = users.get_user(db, username)
-    if from_user == to_user:
+    from_user: schemas.internal.InternalUser = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
+    to_user = user_store.get_user_by_username(username)
+    utils.validate_user(relation_store, from_user.id, to_user)
+    if from_user.id == to_user.id:
         raise HTTPException(400, detail="Cannot block yourself")
-    utils.validate_user(db, from_user, to_user)
     try:
-        return users.unblock_user(db, from_user, to_user)
+        return relation_store.unblock_user(from_user.id, to_user.id)
     except ValueError as e:
         raise HTTPException(400, str(e))

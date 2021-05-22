@@ -55,6 +55,7 @@ class User(Base):
 
     profile_picture = relationship("ImageUpload", primaryjoin=lambda: User.profile_picture_id == ImageUpload.id)
     profile_picture_url = association_proxy("profile_picture", "firebase_public_url")
+    profile_picture_blob_name = association_proxy("profile_picture", "firebase_blob_name")
 
     # Computed column properties
     post_count = None
@@ -207,6 +208,7 @@ class Post(Base):
     image = relationship("ImageUpload")
 
     image_url = association_proxy("image", "firebase_public_url")
+    image_blob_name = association_proxy("image", "firebase_blob_name")
 
     # Column property
     like_count = None

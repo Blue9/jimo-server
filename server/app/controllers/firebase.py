@@ -11,7 +11,6 @@ from firebase_admin.exceptions import FirebaseError
 from google.cloud.exceptions import GoogleCloudError
 
 from app import config
-from app.models import models
 
 
 class FirebaseAdminProtocol(Protocol):
@@ -19,9 +18,9 @@ class FirebaseAdminProtocol(Protocol):
 
     def get_phone_number_from_uid(self, uid: str) -> str: ...
 
-    def get_uid_from_auth_header(self, authorization: str) -> Optional[str]: ...
+    def get_uid_from_auth_header(self, authorization: Optional[str]) -> Optional[str]: ...
 
-    def upload_image(self, user: models.User, image_id: str, file_obj: IO) -> Optional[Tuple[str, str]]: ...
+    def upload_image(self, user_uid: str, image_id: str, file_obj: IO) -> Optional[Tuple[str, str]]: ...
 
     def make_image_private(self, blob_name: str): ...
 
@@ -54,7 +53,7 @@ class FirebaseAdmin:
         except (ValueError, UserNotFoundError, FirebaseError):
             return None
 
-    def get_uid_from_auth_header(self, authorization: str) -> Optional[str]:
+    def get_uid_from_auth_header(self, authorization: Optional[str]) -> Optional[str]:
         """Get the user's uid from the given authorization header."""
         if authorization is None or not authorization.startswith("Bearer "):
             return None
@@ -62,10 +61,10 @@ class FirebaseAdmin:
         return self.get_uid_from_token(id_token)
 
     # Storage
-    def upload_image(self, user: models.User, image_id: str, file_obj: IO) -> Optional[Tuple[str, str]]:
+    def upload_image(self, user_uid: str, image_id: str, file_obj: IO) -> Optional[Tuple[str, str]]:
         """Upload the given image to Firebase, returning the blob name and public URL if uploading was successful."""
         bucket = storage.bucket(app=self._app)
-        blob = bucket.blob(f"images/{user.uid}/{image_id}.jpg")
+        blob = bucket.blob(f"images/{user_uid}/{image_id}.jpg")
         # Known issue in firebase, this metadata is necessary to view images via Firebase console
         blob.metadata = {
             "firebaseStorageDownloadTokens": uuid.uuid4()

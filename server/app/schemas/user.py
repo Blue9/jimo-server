@@ -26,11 +26,6 @@ class UserPrefs(Base):
     post_liked_notifications: bool
 
 
-class PrivateUser(PublicUser):
-    uid: str
-    preferences: Optional[UserPrefs]
-
-
 # Request types
 class CreateUserRequest(Base):
     username: str
@@ -83,12 +78,12 @@ class UserFieldErrors(Base):
 
 
 class CreateUserResponse(Base):
-    created: Optional[PrivateUser]
+    created: Optional[PublicUser]
     error: Optional[UserFieldErrors]
 
 
 class UpdateProfileResponse(Base):
-    user: Optional[PrivateUser]
+    user: Optional[PublicUser]
     error: Optional[UserFieldErrors]
 
 
@@ -108,3 +103,9 @@ class RelationToUser(Base):
 
 class NotificationTokenRequest(Base):
     token: str
+
+    @validator("token")
+    def validate_token(cls, token):
+        if len(token) == 0:
+            raise ValueError("Invalid token")
+        return token

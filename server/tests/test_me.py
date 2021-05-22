@@ -60,16 +60,10 @@ def test_me_user_exists():
     assert "userId" in user
     user.pop("userId")
     assert user == {
-        "uid": "uid",
         "username": "user",
         "firstName": "first",
         "lastName": "last",
         "profilePictureUrl": None,
-        "preferences": {
-            "postNotifications": False,
-            "followNotifications": True,
-            "postLikedNotifications": True
-        },
         "followerCount": 0,
         "followingCount": 0,
         "postCount": 0

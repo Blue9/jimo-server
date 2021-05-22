@@ -12,6 +12,7 @@ from app.controllers.firebase import FirebaseUser, get_firebase_user
 from app.db.database import engine, get_session
 from app.main import app as main_app
 from app.models import models
+from app.stores.user_store import UserStore
 from tests.mock_firebase import MockFirebaseAdmin
 from tests.utils import init_db, reset_db
 
@@ -64,16 +65,18 @@ def teardown_module():
 
 def test_get_admin_or_raise():
     with get_session() as session:
+        user_store = UserStore(session)
         with pytest.raises(HTTPException) as regular_user_exception:
-            api.admin.get_admin_or_raise(FirebaseUser(shared_firebase=MockFirebaseAdmin(), uid="uid"), session)
+            api.admin.get_admin_or_raise(FirebaseUser(shared_firebase=MockFirebaseAdmin(), uid="uid"), user_store)
         assert regular_user_exception.value.status_code == 403
 
         with pytest.raises(HTTPException) as deleted_admin_exception:
-            api.admin.get_admin_or_raise(FirebaseUser(shared_firebase=MockFirebaseAdmin(), uid="deleted_uid"), session)
+            api.admin.get_admin_or_raise(
+                FirebaseUser(shared_firebase=MockFirebaseAdmin(), uid="deleted_uid"), user_store)
         assert deleted_admin_exception.value.status_code == 403
 
         admin = api.admin.get_admin_or_raise(FirebaseUser(shared_firebase=MockFirebaseAdmin(), uid="admin_uid"),
-                                             session)
+                                             user_store)
         assert admin is not None
         assert admin.is_admin
 

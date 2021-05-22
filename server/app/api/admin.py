@@ -1,7 +1,9 @@
 """Basic admin endpoints."""
+import uuid
 from collections import namedtuple
 from typing import Optional
 
+from app.stores.user_store import UserStore
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import true, exists
 from sqlalchemy.exc import IntegrityError
@@ -9,7 +11,6 @@ from sqlalchemy.orm import Session
 
 from app import schemas
 from app.api import utils
-from app.controllers import users
 from app.controllers.firebase import FirebaseUser, get_firebase_user
 from app.db.database import get_db
 from app.models import models
@@ -19,9 +20,11 @@ router = APIRouter()
 Page = namedtuple("Page", ["offset", "limit"])
 
 
-def get_admin_or_raise(firebase_user: FirebaseUser = Depends(get_firebase_user),
-                       db: Session = Depends(get_db)) -> models.User:
-    user: models.User = utils.get_user_from_uid_or_raise(db, uid=firebase_user.uid)
+def get_admin_or_raise(
+    firebase_user: FirebaseUser = Depends(get_firebase_user),
+    user_store: UserStore = Depends(UserStore)
+) -> schemas.internal.InternalUser:
+    user: schemas.internal.InternalUser = utils.get_user_from_uid_or_raise(user_store, uid=firebase_user.uid)
     if not user.is_admin:
         raise HTTPException(403)
     return user
@@ -33,8 +36,10 @@ def get_page(page: int = Query(1, gt=0), limit: int = Query(100, gt=0, le=1000))
 
 # User endpoints
 @router.get("/users", response_model=schemas.admin.Page[schemas.admin.User])
-def get_users(page: Page = Depends(get_page), db: Session = Depends(get_db),
-              _admin: models.User = Depends(get_admin_or_raise)):
+def get_users(
+    page: Page = Depends(get_page), db: Session = Depends(get_db),
+    _admin: schemas.internal.InternalUser = Depends(get_admin_or_raise)
+):
     """Get all users."""
     total = db.query(models.User).count()
     data = db.query(models.User) \
@@ -46,11 +51,13 @@ def get_users(page: Page = Depends(get_page), db: Session = Depends(get_db),
 
 
 @router.post("/users", response_model=schemas.admin.User)
-def create_user(request: schemas.admin.CreateUserRequest, db: Session = Depends(get_db),
-                _admin: models.User = Depends(get_admin_or_raise)):
+def create_user(
+    request: schemas.admin.CreateUserRequest,
+    user_store: UserStore = Depends(UserStore),
+    _admin: schemas.internal.InternalUser = Depends(get_admin_or_raise),
+):
     """Create a user."""
-    created_user, error = users.create_user_ignore_invite_status(db, request.uid, request.username, request.first_name,
-                                                                 request.last_name)
+    created_user, error = user_store.create_user(request.uid, request.username, request.first_name, request.last_name)
     if created_user:
         return created_user
     elif error:
@@ -60,7 +67,11 @@ def create_user(request: schemas.admin.CreateUserRequest, db: Session = Depends(
 
 
 @router.get("/users/{username}", response_model=schemas.admin.User)
-def get_user(username: str, db: Session = Depends(get_db), _admin: models.User = Depends(get_admin_or_raise)):
+def get_user(
+    username: str,
+    db: Session = Depends(get_db),
+    _admin: schemas.internal.InternalUser = Depends(get_admin_or_raise)
+):
     """Get the given user."""
     user = db.query(models.User).filter(models.User.username_lower == username.lower()).first()
     if user is None:
@@ -69,8 +80,12 @@ def get_user(username: str, db: Session = Depends(get_db), _admin: models.User =
 
 
 @router.post("/users/{username}", response_model=schemas.admin.User)
-def update_user(username: str, request: schemas.admin.UpdateUserRequest, db: Session = Depends(get_db),
-                admin: models.User = Depends(get_admin_or_raise)):
+def update_user(
+    username: str,
+    request: schemas.admin.UpdateUserRequest,
+    db: Session = Depends(get_db),
+    admin: schemas.internal.InternalUser = Depends(get_admin_or_raise)
+):
     """Update the given user."""
     to_update: Optional[models.User] = db.query(models.User) \
         .filter(models.User.username_lower == username.lower()) \
@@ -96,8 +111,11 @@ def update_user(username: str, request: schemas.admin.UpdateUserRequest, db: Ses
 
 
 @router.get("/admins", response_model=schemas.admin.Page[schemas.admin.User])
-def get_admins(page: Page = Depends(get_page), db: Session = Depends(get_db),
-               _admin: models.User = Depends(get_admin_or_raise)):
+def get_admins(
+    page: Page = Depends(get_page),
+    db: Session = Depends(get_db),
+    _admin: schemas.internal.InternalUser = Depends(get_admin_or_raise)
+):
     """Get all admin users."""
     total = db.query(models.User).filter(models.User.is_admin == true()).count()
     admins = db.query(models.User) \
@@ -111,8 +129,11 @@ def get_admins(page: Page = Depends(get_page), db: Session = Depends(get_db),
 
 # Featured users
 @router.get("/featuredUsers", response_model=schemas.admin.Page[schemas.admin.User])
-def get_featured_users(page: Page = Depends(get_page), db: Session = Depends(get_db),
-                       _admin: models.User = Depends(get_admin_or_raise)):
+def get_featured_users(
+    page: Page = Depends(get_page),
+    db: Session = Depends(get_db),
+    _admin: schemas.internal.InternalUser = Depends(get_admin_or_raise)
+):
     """Get featured users."""
     total = db.query(models.User).filter(models.User.is_featured == true()).count()
     featured_users = db.query(models.User) \
@@ -126,8 +147,11 @@ def get_featured_users(page: Page = Depends(get_page), db: Session = Depends(get
 
 # Posts
 @router.get("/posts", response_model=schemas.admin.Page[schemas.admin.Post])
-def get_all_posts(page: Page = Depends(get_page), db: Session = Depends(get_db),
-                  _admin: models.User = Depends(get_admin_or_raise)):
+def get_all_posts(
+    page: Page = Depends(get_page),
+    db: Session = Depends(get_db),
+    _admin: schemas.internal.InternalUser = Depends(get_admin_or_raise)
+):
     """Get all posts."""
     total = db.query(models.Post).count()
     posts = db.query(models.Post) \
@@ -139,7 +163,11 @@ def get_all_posts(page: Page = Depends(get_page), db: Session = Depends(get_db),
 
 
 @router.get("/posts/{post_id}", response_model=schemas.admin.Post)
-def get_post(post_id: str, db: Session = Depends(get_db), _admin: models.User = Depends(get_admin_or_raise)):
+def get_post(
+    post_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    _admin: schemas.internal.InternalUser = Depends(get_admin_or_raise)
+):
     post = db.query(models.Post) \
         .filter(models.Post.id == post_id) \
         .first()
@@ -149,9 +177,13 @@ def get_post(post_id: str, db: Session = Depends(get_db), _admin: models.User = 
 
 
 @router.post("/posts/{post_id}", response_model=schemas.admin.Post)
-def update_post(post_id: str, request: schemas.admin.UpdatePostRequest,
-                firebase_user: FirebaseUser = Depends(get_firebase_user), db: Session = Depends(get_db),
-                _admin: models.User = Depends(get_admin_or_raise)):
+def update_post(
+    post_id: uuid.UUID,
+    request: schemas.admin.UpdatePostRequest,
+    firebase_user: FirebaseUser = Depends(get_firebase_user),
+    db: Session = Depends(get_db),
+    _admin: schemas.internal.InternalUser = Depends(get_admin_or_raise)
+):
     post: Optional[models.Post] = db.query(models.Post).filter(models.Post.id == post_id).first()
     if post is None:
         raise HTTPException(404)
@@ -170,8 +202,11 @@ def update_post(post_id: str, request: schemas.admin.UpdatePostRequest,
 
 # Waitlist
 @router.get("/waitlist", response_model=schemas.admin.Page[schemas.admin.Waitlist])
-def get_waitlist(page: Page = Depends(get_page), db: Session = Depends(get_db),
-                 _admin: models.User = Depends(get_admin_or_raise)):
+def get_waitlist(
+    page: Page = Depends(get_page),
+    db: Session = Depends(get_db),
+    _admin: schemas.internal.InternalUser = Depends(get_admin_or_raise)
+):
     """Get all users on the waitlist that haven't been invited yet."""
     total = db.query(models.Waitlist) \
         .filter(~exists().where(models.Waitlist.phone_number == models.Invite.phone_number)) \
@@ -187,8 +222,11 @@ def get_waitlist(page: Page = Depends(get_page), db: Session = Depends(get_db),
 
 # Invites
 @router.get("/invites", response_model=schemas.admin.Page[schemas.admin.Invite])
-def get_all_invites(page: Page = Depends(get_page), db: Session = Depends(get_db),
-                    _admin: models.User = Depends(get_admin_or_raise)):
+def get_all_invites(
+    page: Page = Depends(get_page),
+    db: Session = Depends(get_db),
+    _admin: schemas.internal.InternalUser = Depends(get_admin_or_raise)
+):
     """Get invited phone numbers that haven't signed up yet."""
     total = db.query(models.Invite) \
         .filter(~exists().where(models.Invite.phone_number == models.User.phone_number)) \
@@ -203,8 +241,11 @@ def get_all_invites(page: Page = Depends(get_page), db: Session = Depends(get_db
 
 
 @router.post("/invites", response_model=schemas.admin.Invite)
-def create_invite(request: schemas.admin.CreateInviteRequest, db: Session = Depends(get_db),
-                  admin: models.User = Depends(get_admin_or_raise)):
+def create_invite(
+    request: schemas.admin.CreateInviteRequest,
+    db: Session = Depends(get_db),
+    admin: schemas.internal.InternalUser = Depends(get_admin_or_raise)
+):
     """Create invite."""
     invite = models.Invite(phone_number=request.phone_number, invited_by=admin.id)
     try:
@@ -216,8 +257,11 @@ def create_invite(request: schemas.admin.CreateInviteRequest, db: Session = Depe
 
 
 @router.delete("/invites", response_model=list[schemas.admin.Invite])
-def remove_invites(request: schemas.user.PhoneNumberList, db: Session = Depends(get_db),
-                   _admin: models.User = Depends(get_admin_or_raise)):
+def remove_invites(
+    request: schemas.user.PhoneNumberList,
+    db: Session = Depends(get_db),
+    _admin: schemas.internal.InternalUser = Depends(get_admin_or_raise)
+):
     """Remove invites."""
     to_delete = db.query(models.Invite).filter(models.Invite.phone_number.in_(request.phone_numbers)).all()
     for invite in to_delete:
@@ -228,8 +272,11 @@ def remove_invites(request: schemas.user.PhoneNumberList, db: Session = Depends(
 
 # Reports + Feedback
 @router.get("/reports", response_model=schemas.admin.Page[schemas.admin.Report])
-def get_post_reports(page: Page = Depends(get_page), db: Session = Depends(get_db),
-                     _admin: models.User = Depends(get_admin_or_raise)):
+def get_post_reports(
+    page: Page = Depends(get_page),
+    db: Session = Depends(get_db),
+    _admin: schemas.internal.InternalUser = Depends(get_admin_or_raise)
+):
     """Get all post reports."""
     total = db.query(models.PostReport).count()
     reports = db.query(models.PostReport) \
@@ -241,8 +288,11 @@ def get_post_reports(page: Page = Depends(get_page), db: Session = Depends(get_d
 
 
 @router.get("/feedback", response_model=schemas.admin.Page[schemas.admin.Feedback])
-def get_feedback(page: Page = Depends(get_page), db: Session = Depends(get_db),
-                 _admin: models.User = Depends(get_admin_or_raise)):
+def get_feedback(
+    page: Page = Depends(get_page),
+    db: Session = Depends(get_db),
+    _admin: schemas.internal.InternalUser = Depends(get_admin_or_raise)
+):
     """Get all submitted feedback."""
     total = db.query(models.Feedback).count()
     feedback = db.query(models.Feedback) \

@@ -1,7 +1,5 @@
 from typing import Optional, IO, Tuple
 
-from app.models import models
-
 
 class MockFirebaseAdmin:
     def __init__(self):
@@ -16,7 +14,7 @@ class MockFirebaseAdmin:
     def get_uid_from_auth_header(self, authorization: str) -> Optional[str]:
         return None
 
-    def upload_image(self, user: models.User, image_id: str, file_obj: IO) -> Optional[Tuple[str, str]]:
+    def upload_image(self, user_uid: str, image_id: str, file_obj: IO) -> Optional[Tuple[str, str]]:
         return None
 
     def make_image_private(self, blob_name: str):
