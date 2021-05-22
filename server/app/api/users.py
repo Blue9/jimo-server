@@ -27,7 +27,7 @@ def create_user(
 ):
     """Create a new user."""
     phone_number: Optional[str] = firebase_user.shared_firebase.get_phone_number_from_uid(firebase_user.uid)
-    if not invite_store.is_invited(phone_number):
+    if phone_number is None or not invite_store.is_invited(phone_number):
         return schemas.user.CreateUserResponse(
             created=None, error=schemas.user.UserFieldErrors(uid="You aren't invited yet."))
     user, error = user_store.create_user(
@@ -50,8 +50,7 @@ def get_user(
     """Get the given user's details."""
     caller_user: schemas.internal.InternalUser = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
     user: Optional[schemas.internal.InternalUser] = user_store.get_user_by_username(username)
-    utils.validate_user(relation_store, caller_user_id=caller_user.id, user=user)
-    return user
+    return utils.validate_user(relation_store, caller_user_id=caller_user.id, user=user)
 
 
 @router.get("/{username}/posts", response_model=schemas.post.Feed)
@@ -66,8 +65,8 @@ def get_posts(
     """Get the posts of the given user."""
     page_size = 50
     caller_user: schemas.internal.InternalUser = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
-    user: Optional[schemas.internal.InternalUser] = user_store.get_user_by_username(username)
-    utils.validate_user(relation_store, caller_user_id=caller_user.id, user=user)
+    maybe_user = user_store.get_user_by_username(username)
+    user = utils.validate_user(relation_store, caller_user_id=caller_user.id, user=maybe_user)
     if relation_store.is_blocked(blocked_by_user_id=caller_user.id, blocked_user_id=user.id):
         raise HTTPException(403)
     posts = post_store.get_posts(caller_user.id, user, cursor=cursor, limit=page_size)
@@ -85,8 +84,8 @@ def get_relation(
 ):
     """Get the relationship to the given user."""
     from_user: schemas.internal.InternalUser = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
-    to_user = user_store.get_user_by_username(username)
-    utils.validate_user(relation_store, caller_user_id=from_user.id, user=to_user)
+    maybe_to_user = user_store.get_user_by_username(username)
+    to_user = utils.validate_user(relation_store, caller_user_id=from_user.id, user=maybe_to_user)
     relation: Optional[models.UserRelationType] = db.query(models.UserRelation.relation) \
         .filter(models.UserRelation.from_user_id == from_user.id,
                 models.UserRelation.to_user_id == to_user.id) \
@@ -104,8 +103,8 @@ def follow_user(
 ):
     """Follow the given user."""
     from_user: schemas.internal.InternalUser = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
-    to_user = user_store.get_user_by_username(username)
-    utils.validate_user(relation_store, caller_user_id=from_user.id, user=to_user)
+    maybe_to_user = user_store.get_user_by_username(username)
+    to_user = utils.validate_user(relation_store, caller_user_id=from_user.id, user=maybe_to_user)
     if to_user.id == from_user.id:
         raise HTTPException(400, "Cannot follow yourself")
     try:
@@ -127,8 +126,8 @@ def unfollow_user(
 ):
     """Unfollow the given user."""
     from_user: schemas.internal.InternalUser = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
-    to_user = user_store.get_user_by_username(username)
-    utils.validate_user(relation_store, caller_user_id=from_user.id, user=to_user)
+    maybe_to_user = user_store.get_user_by_username(username)
+    to_user = utils.validate_user(relation_store, caller_user_id=from_user.id, user=maybe_to_user)
     if to_user.id == from_user.id:
         raise HTTPException(400, "Cannot follow yourself")
     try:
@@ -147,8 +146,8 @@ def block_user(
 ):
     """Block the given user."""
     from_user: schemas.internal.InternalUser = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
-    to_block = user_store.get_user_by_username(username)
-    utils.validate_user(relation_store, from_user.id, to_block)
+    maybe_to_block = user_store.get_user_by_username(username)
+    to_block = utils.validate_user(relation_store, from_user.id, maybe_to_block)
     if from_user.id == to_block.id:
         raise HTTPException(400, detail="Cannot block yourself")
     try:
@@ -165,8 +164,8 @@ def unblock_user(
 ):
     """Unblock the given user."""
     from_user: schemas.internal.InternalUser = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
-    to_user = user_store.get_user_by_username(username)
-    utils.validate_user(relation_store, from_user.id, to_user)
+    maybe_to_user = user_store.get_user_by_username(username)
+    to_user = utils.validate_user(relation_store, from_user.id, maybe_to_user)
     if from_user.id == to_user.id:
         raise HTTPException(400, detail="Cannot block yourself")
     try:

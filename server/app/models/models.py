@@ -1,11 +1,12 @@
 import enum
+import uuid
 
 from sqlalchemy import Column, Enum, DateTime, Boolean, ForeignKey, Text, select, func, and_, Float, Computed, \
     UniqueConstraint, Index, false
 from geoalchemy2 import Geography
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.ext.associationproxy import association_proxy
-from sqlalchemy.orm import relationship, column_property, aliased
+from sqlalchemy.orm import relationship, column_property, aliased, ColumnProperty
 from sqlalchemy.sql import expression
 
 from app.db.database import Base
@@ -58,9 +59,9 @@ class User(Base):
     profile_picture_blob_name = association_proxy("profile_picture", "firebase_blob_name")
 
     # Computed column properties
-    post_count = None
-    follower_count = None
-    following_count = None
+    post_count = None  # type: ColumnProperty
+    follower_count = None  # type: ColumnProperty
+    following_count = None  # type: ColumnProperty
 
 
 class Waitlist(Base):
@@ -211,7 +212,7 @@ class Post(Base):
     image_blob_name = association_proxy("image", "firebase_blob_name")
 
     # Column property
-    like_count = None
+    like_count = None  # type: ColumnProperty
 
     # Only want one row per (user, place) pair for all non-deleted posts
     user_place_uc = "_posts_user_place_uc"
@@ -239,7 +240,7 @@ class PostReport(Base):
 class ImageUpload(Base):
     __tablename__ = "image_upload"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=gen_ulid)
+    id: uuid.UUID = Column(UUID(as_uuid=True), primary_key=True, default=gen_ulid)
     user_id = Column(UUID(as_uuid=True), ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
     firebase_blob_name = Column(Text, nullable=True)  # Set after creating the row in db
     firebase_public_url = Column(Text, nullable=True)  # Set after creating the row in db

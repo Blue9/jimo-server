@@ -16,11 +16,11 @@ from app import config
 class FirebaseAdminProtocol(Protocol):
     def get_uid_from_token(self, id_token: str) -> Optional[str]: ...
 
-    def get_phone_number_from_uid(self, uid: str) -> str: ...
+    def get_phone_number_from_uid(self, uid: str) -> Optional[str]: ...
 
     def get_uid_from_auth_header(self, authorization: Optional[str]) -> Optional[str]: ...
 
-    def upload_image(self, user_uid: str, image_id: str, file_obj: IO) -> Optional[Tuple[str, str]]: ...
+    def upload_image(self, user_uid: str, image_id: uuid.UUID, file_obj: IO) -> Optional[Tuple[str, str]]: ...
 
     def make_image_private(self, blob_name: str): ...
 
@@ -29,7 +29,7 @@ class FirebaseAdminProtocol(Protocol):
     def delete_image(self, blob_name: str): ...
 
 
-class FirebaseAdmin:
+class FirebaseAdmin(FirebaseAdminProtocol):
     def __init__(self):
         self._app = firebase_admin.initialize_app(options={
             "storageBucket": config.STORAGE_BUCKET
@@ -61,7 +61,7 @@ class FirebaseAdmin:
         return self.get_uid_from_token(id_token)
 
     # Storage
-    def upload_image(self, user_uid: str, image_id: str, file_obj: IO) -> Optional[Tuple[str, str]]:
+    def upload_image(self, user_uid: str, image_id: uuid.UUID, file_obj: IO) -> Optional[Tuple[str, str]]:
         """Upload the given image to Firebase, returning the blob name and public URL if uploading was successful."""
         bucket = storage.bucket(app=self._app)
         blob = bucket.blob(f"images/{user_uid}/{image_id}.jpg")

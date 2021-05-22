@@ -18,12 +18,13 @@ def validate_user(
     relation_store: RelationStore,
     caller_user_id: uuid.UUID,
     user: Optional[schemas.internal.InternalUser]
-):
+) -> schemas.internal.InternalUser:
     if user is None or user.deleted or relation_store.is_blocked(
         blocked_by_user_id=user.id,
         blocked_user_id=caller_user_id
     ):
         raise HTTPException(404, detail="User not found")
+    return user
 
 
 def validate_firebase_user(firebase_user: FirebaseUser, db: Session):

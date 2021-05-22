@@ -50,7 +50,7 @@ class UserStore:
     def get_users_by_phone_number(
         self,
         user_id: uuid.UUID,
-        phone_numbers: list[str],
+        phone_numbers: list[schemas.user.PhoneNumber],
         limit: int = 1000
     ) -> list[schemas.user.PublicUser]:
         """Return up to `limit` users with the given phone numbers."""
