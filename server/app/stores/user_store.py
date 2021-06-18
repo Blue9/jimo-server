@@ -4,7 +4,7 @@ from typing import Optional, Tuple
 from sqlalchemy.sql.functions import concat
 
 from app import schemas
-from app.controllers import images
+from app.controllers import images, utils
 from app.db.database import get_db
 from app.models import models
 from fastapi import Depends
@@ -34,6 +34,7 @@ class UserStore:
     def get_user_by_uid(self, uid: str) -> Optional[schemas.internal.InternalUser]:
         """Return the user with the given uid or None if no such user exists or the user is deleted."""
         user = self.db.query(models.User) \
+            .options(utils.eager_load_user_options()) \
             .filter(models.User.uid == uid,
                     ~models.User.deleted) \
             .first()
@@ -42,6 +43,7 @@ class UserStore:
     def get_user_by_username(self, username: str) -> Optional[schemas.internal.InternalUser]:
         """Return the user with the given username or None if no such user exists or the user is deleted."""
         user = self.db.query(models.User) \
+            .options(utils.eager_load_user_options()) \
             .filter(models.User.username_lower == username.lower(),
                     ~models.User.deleted) \
             .first()
