@@ -18,6 +18,7 @@ class ORMPostWithoutUser(Base):
     image_url: Optional[str]
     created_at: datetime
     like_count: int
+    comment_count: int
     custom_location: Optional[Location]
 
     @validator("content")

@@ -1,1 +1,1 @@
-from . import admin, base, feedback, image, internal, invite, notifications, place, post, user
+from . import admin, base, comment, feedback, image, internal, invite, notifications, place, post, user

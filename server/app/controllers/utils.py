@@ -17,6 +17,13 @@ def is_post_liked_query(user_id: uuid.UUID):
         .label("post_liked")
 
 
+def is_comment_liked_query(user_id: uuid.UUID):
+    """Return a subquery that returns whether the comment in the main query is liked by the given user."""
+    return exists() \
+        .where(and_(models.CommentLike.comment_id == models.Comment.id, models.CommentLike.user_id == user_id)) \
+        .label("comment_liked")
+
+
 def rows_to_posts(rows: list[tuple[models.Post, bool]]) -> list[schemas.post.Post]:
     """Convert the list of rows in (post, is_post_liked) format to a list of post objects."""
     schema_posts = []
@@ -36,7 +43,20 @@ def eager_load_post_options():
         joinedload(models.Post.user, innerjoin=True).undefer(models.User.follower_count),
         joinedload(models.Post.place, innerjoin=True),
         joinedload(models.Post.image),
-        undefer(models.Post.like_count)
+        undefer(models.Post.like_count),
+        undefer(models.Post.comment_count)
+    )
+
+
+def eager_load_comment_options():
+    """Return the options to eagerly load a comment's attributes."""
+    return (
+        joinedload(models.Comment.user, innerjoin=True),
+        joinedload(models.Comment.user, innerjoin=True).joinedload(models.User.profile_picture),
+        joinedload(models.Comment.user, innerjoin=True).undefer(models.User.post_count),
+        joinedload(models.Comment.user, innerjoin=True).undefer(models.User.following_count),
+        joinedload(models.Comment.user, innerjoin=True).undefer(models.User.follower_count),
+        undefer(models.Comment.like_count)
     )
 
 
@@ -44,7 +64,8 @@ def eager_load_post_except_user_options():
     """Return the options to eagerly load a post's attributes except the user attributes."""
     return (joinedload(models.Post.place, innerjoin=True),
             joinedload(models.Post.image),
-            undefer(models.Post.like_count))
+            undefer(models.Post.like_count),
+            undefer(models.Post.comment_count))
 
 
 def eager_load_user_options():

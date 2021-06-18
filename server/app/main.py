@@ -79,6 +79,7 @@ def upload_image(
 app.include_router(api.me.router, prefix="/me")
 app.include_router(api.notifications.router, prefix="/notifications")
 app.include_router(api.users.router, prefix="/users")
+app.include_router(api.comments.router, prefix="/comments")
 app.include_router(api.posts.router, prefix="/posts")
 app.include_router(api.places.router, prefix="/places")
 app.include_router(api.search.router, prefix="/search")

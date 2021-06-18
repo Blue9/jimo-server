@@ -1,1 +1,1 @@
-from . import admin, feedback, me, notifications, places, posts, search, users, utils, waitlist
+from . import admin, comments, feedback, me, notifications, places, posts, search, users, utils, waitlist

@@ -6,6 +6,7 @@ from datetime import datetime
 from pydantic import validator
 
 from app.schemas.base import Base
+from app.schemas.comment import Comment
 from app.schemas.user import PublicUser
 from app.schemas.post import Post
 
@@ -22,6 +23,7 @@ class NotificationItem(Base):
     user: PublicUser
     item_id: uuid.UUID
     post: Optional[Post]
+    comment: Optional[Comment]
 
     @validator("created_at")
     def validate_created_at(cls, created_at):

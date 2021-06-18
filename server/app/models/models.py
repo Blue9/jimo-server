@@ -2,7 +2,7 @@ import enum
 import uuid
 
 from sqlalchemy import Column, Enum, DateTime, Boolean, ForeignKey, Text, select, func, and_, Float, Computed, \
-    UniqueConstraint, Index, false
+    UniqueConstraint, Index, false, true
 from geoalchemy2 import Geography
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.ext.associationproxy import association_proxy
@@ -97,9 +97,10 @@ class UserPrefs(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=gen_ulid)
     user_id = Column(UUID(as_uuid=True), ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
-    post_notifications = Column(Boolean, nullable=False)
     follow_notifications = Column(Boolean, nullable=False)
     post_liked_notifications = Column(Boolean, nullable=False)
+    comment_notifications = Column(Boolean, nullable=False, server_default=true())
+    comment_liked_notifications = Column(Boolean, nullable=False, server_default=true())
     updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     user = relationship("User", back_populates="preferences")
@@ -211,13 +212,47 @@ class Post(Base):
     image_url = association_proxy("image", "firebase_public_url")
     image_blob_name = association_proxy("image", "firebase_blob_name")
 
-    # Column property
+    # Column properties
     like_count = None  # type: ColumnProperty
+    comment_count = None  # type: ColumnProperty
 
     # Only want one row per (user, place) pair for all non-deleted posts
     user_place_uc = "_posts_user_place_uc"
     __table_args__ = (Index(user_place_uc, "user_id", "place_id", unique=True, postgresql_where=(~deleted)),
                       Index("idx_post_custom_location", custom_location, postgresql_using="gist"))
+
+
+# Comments
+class CommentLike(Base):
+    __tablename__ = "comment_like"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=gen_ulid)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
+    comment_id = Column(UUID(as_uuid=True), ForeignKey("comment.id", ondelete="CASCADE"), nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    # Only want one row per (user, comment) pair
+    __table_args__ = (UniqueConstraint("user_id", "comment_id", name="_comment_like_user_post_uc"),)
+
+
+class Comment(Base):
+    __tablename__ = "comment"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=gen_ulid)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
+    post_id = Column(UUID(as_uuid=True), ForeignKey("post.id", ondelete="CASCADE"), nullable=False)
+    content = Column(Text, nullable=False)
+    deleted = Column(Boolean, nullable=False, server_default=expression.false())
+
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+
+    user = relationship("User")
+
+    # Column property
+    like_count = None
+
+    __table_args__ = (Index("comment_post_id_idx", post_id),)
 
 
 # Reports
@@ -279,5 +314,13 @@ User.following_count = column_property(
              UserRelation.relation == UserRelationType.following)).scalar_subquery(), deferred=True)
 
 # Posts
-Post.like_count = column_property(select([func.count()]).select_from(PostLike).where(
-    and_(Post.id == PostLike.post_id)).scalar_subquery(), deferred=True)
+Post.like_count = column_property(
+    select([func.count()]).select_from(PostLike).where(Post.id == PostLike.post_id).scalar_subquery(), deferred=True)
+
+Post.comment_count = column_property(select([func.count()]).select_from(Comment).where(
+    and_(Post.id == Comment.post_id, Comment.deleted == false())).scalar_subquery(), deferred=True)
+
+# Comments
+Comment.like_count = column_property(
+    select([func.count()]).select_from(CommentLike).where(Comment.id == CommentLike.comment_id).scalar_subquery(),
+    deferred=True)

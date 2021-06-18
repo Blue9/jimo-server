@@ -87,8 +87,8 @@ class UserStore:
     def get_user_preferences(self, user_id: uuid.UUID) -> schemas.user.UserPrefs:
         prefs = self.db.query(models.UserPrefs).filter(models.UserPrefs.user_id == user_id).first()
         return (schemas.user.UserPrefs.from_orm(prefs) if prefs else
-                schemas.user.UserPrefs(post_notifications=False, follow_notifications=False,
-                                       post_liked_notifications=False))
+                schemas.user.UserPrefs(follow_notifications=False, comment_notifications=False,
+                                       post_liked_notifications=False, comment_liked_notifications=False))
 
     # Operations
 
@@ -107,8 +107,8 @@ class UserStore:
         try:
             self.db.commit()
             # Initialize user preferences
-            prefs = models.UserPrefs(user_id=new_user.id, post_notifications=False, follow_notifications=True,
-                                     post_liked_notifications=True)
+            prefs = models.UserPrefs(user_id=new_user.id, follow_notifications=True, comment_notifications=True,
+                                     post_liked_notifications=True, comment_liked_notifications=True)
             self.db.add(prefs)
             self.db.commit()
             return schemas.internal.InternalUser.from_orm(new_user), None
@@ -170,6 +170,9 @@ class UserStore:
             return request
         prefs.follow_notifications = request.follow_notifications
         prefs.post_liked_notifications = request.post_liked_notifications
-        prefs.post_notifications = request.post_notifications
+        if request.comment_notifications is not None:
+            prefs.comment_notifications = request.comment_notifications
+        if request.comment_liked_notifications is not None:
+            prefs.comment_liked_notifications = request.comment_liked_notifications
         self.db.commit()
         return schemas.user.UserPrefs.from_orm(prefs)

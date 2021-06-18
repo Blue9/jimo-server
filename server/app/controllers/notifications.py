@@ -29,30 +29,46 @@ def remove_fcm_token(db: Session, user_id: uuid.UUID, token: str):
     db.commit()
 
 
-def notify_post_liked(db: Session, post: models.Post, liked_by: schemas.internal.InternalUser):
+def notify_post_liked(
+    db: Session,
+    post: schemas.internal.InternalPost,
+    place_name: str,
+    liked_by: schemas.internal.InternalUser
+):
     """Notify the user their post was liked."""
-    if not post.user.preferences.post_liked_notifications:
-        return
-    fcm_tokens = db.query(models.FCMToken).filter(models.FCMToken.user_id == post.user_id).all()
-    # Notify every device the user is signed in on
-    for fcm_token in fcm_tokens:
-        body = f"{liked_by.first_name} {liked_by.last_name} liked your post about {post.place.name}"
-        message = messaging.Message(notification=messaging.Notification(body=body), token=fcm_token.token)
-        try:
-            messaging.send(message)
-        except InvalidArgumentError:
-            db.delete(fcm_token)
-            db.commit()
-        except (FirebaseError, ValueError) as e:
-            print("Exception when notifying post liked", e)
+    body = f"{liked_by.first_name} {liked_by.last_name} liked your post about {place_name}"
+    _send_notification(db, post.user_id, body)
+
+
+def notify_comment(
+    db: Session,
+    post: schemas.internal.InternalPost,
+    place_name: str,
+    comment: str,
+    comment_by: schemas.internal.InternalUser
+):
+    body = f"{comment_by.username} commented on your post about {place_name}: \"{comment}\""
+    _send_notification(db, post.user_id, body)
+
+
+def notify_comment_liked(
+    db: Session,
+    comment: schemas.internal.InternalComment,
+    liked_by: schemas.internal.InternalUser
+):
+    body = f"{liked_by.username} liked your comment: \"{comment.content}\""
+    _send_notification(db, comment.user_id, body)
 
 
 def notify_follow(db: Session, user_id: uuid.UUID, followed_by: schemas.internal.InternalUser):
     """Notify the user of their new follower."""
+    body = f"{followed_by.first_name} {followed_by.last_name} started following you"
+    _send_notification(db, user_id, body)
+
+
+def _send_notification(db: Session, user_id: uuid.UUID, body: str):
     fcm_tokens = db.query(models.FCMToken).filter(models.FCMToken.user_id == user_id).all()
-    # Notify every device the user is signed in on
     for fcm_token in fcm_tokens:
-        body = f"{followed_by.first_name} {followed_by.last_name} started following you"
         message = messaging.Message(notification=messaging.Notification(body=body), token=fcm_token.token)
         try:
             messaging.send(message)
@@ -65,6 +81,6 @@ def notify_follow(db: Session, user_id: uuid.UUID, followed_by: schemas.internal
                 db.delete(fcm_token)
                 db.commit()
             else:
-                print(f"Exception when notifying new follower {e.__dict__}")
+                print(f"Exception when notifying: {e}, {e.__dict__}")
         except ValueError as e:
-            print(f"Exception when notifying new follower {e.__dict__}")
+            print(f"Exception when notifying: {e}, {e.__dict__}")

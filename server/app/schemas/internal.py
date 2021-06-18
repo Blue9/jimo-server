@@ -40,3 +40,12 @@ class InternalPost(Base):
     image_blob_name: Optional[str]
     deleted: bool
     created_at: datetime
+
+
+class InternalComment(Base):
+    id: uuid.UUID
+    user_id: uuid.UUID
+    post_id: uuid.UUID
+    content: str
+    deleted: bool
+    created_at: datetime

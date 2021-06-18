@@ -3,6 +3,7 @@ import uuid
 from typing import Optional
 
 from app import schemas
+from app.stores.post_store import PostStore
 from app.stores.relation_store import RelationStore
 from app.stores.user_store import UserStore
 from fastapi import HTTPException, UploadFile
@@ -79,3 +80,24 @@ def upload_image(
     image_upload.firebase_public_url = url
     db.commit()
     return image_upload
+
+
+def get_post_and_validate_or_raise(
+    post_store: PostStore,
+    relation_store: RelationStore,
+    caller_user_id: uuid.UUID,
+    post_id: uuid.UUID
+) -> schemas.internal.InternalPost:
+    """
+    Check that the post exists and the given user is authorized to view it.
+
+    Note: if the user is not authorized (the author blocked the caller user or has been blocked by the caller user),
+    a 404 will be returned because they shouldn't even know that the post exists.
+    """
+    post: Optional[schemas.internal.InternalPost] = post_store.get_post(post_id)
+    if post is None:
+        raise HTTPException(404, detail="Post not found")
+    if (relation_store.is_blocked(post.user_id, caller_user_id) or
+            relation_store.is_blocked(caller_user_id, post.user_id)):
+        raise HTTPException(404, detail="Post not found")
+    return post

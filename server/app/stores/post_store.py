@@ -26,6 +26,15 @@ class PostStore:
             .exists()
         return self.db.query(query).scalar()
 
+    def get_like_count(self, post_id: uuid.UUID):
+        """Return the like count of the given post."""
+        return self.db.query(models.PostLike).filter(models.PostLike.post_id == post_id).count()
+
+    def post_exists(self, post_id: uuid.UUID):
+        """Return whether the post exists and is not deleted."""
+        query = self.db.query(models.Post.id).filter(models.Post.id == post_id, ~models.Post.deleted).exists()
+        return self.db.query(query).scalar()
+
     # Queries
 
     def get_post(self, post_id: uuid.UUID) -> Optional[schemas.internal.InternalPost]:
@@ -53,6 +62,13 @@ class PostStore:
             fields = schemas.post.ORMPostWithoutUser.from_orm(post).dict()
             user_posts.append(schemas.post.Post(**fields, user=user, liked=is_post_liked))
         return user_posts
+
+    def get_place_name(self, post_id: uuid.UUID) -> str:
+        place_name = self.db.query(models.Place.name) \
+            .join(models.Post) \
+            .filter(models.Post.id == post_id, ~models.Post.deleted, models.Post.place_id == models.Place.id) \
+            .scalar()
+        return place_name if place_name is not None else ""
 
     def get_mutual_posts(self, user_id: uuid.UUID, place_id: uuid.UUID, limit: int = 100) -> list[schemas.post.Post]:
         following_ids = select(models.UserRelation.to_user_id).where(

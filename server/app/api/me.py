@@ -178,7 +178,7 @@ def follow_many(
     # Users to follow = all the existing users in the list that do not block us and that we do not follow or block
     followed_or_blocked_subquery = union_all(
         select(models.UserRelation.to_user_id).where(models.UserRelation.from_user_id == user.id),
-        select(models.UserRelation.from_user_id).where((models.UserRelation.to_user_id == user.id) | (
+        select(models.UserRelation.from_user_id).where((models.UserRelation.to_user_id == user.id) & (
                 models.UserRelation.relation == models.UserRelationType.blocked))
     )
     users_to_follow: list[models.User] = db \

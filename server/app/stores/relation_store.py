@@ -2,7 +2,6 @@ import uuid
 from typing import Callable, Optional
 
 from fastapi import Depends
-from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -87,32 +86,18 @@ class RelationStore:
         Have from_user block to_user.
 
         Requires that from_user does not already follow or block to_user.
-        If from_user (A) blocks to_user (B), make B unfollow A, and remove their likes from each other's posts.
+        If from_user (A) blocks to_user (B), make B unfollow A.
         """
 
         # TODO: race condition 1: If A and B try to block each other at the same time, they could both go through
         #  and they will be unable to unblock each other.
         # TODO: race condition 2: If B follows A after this transaction starts the follow will go through.
-        # TODO: race condition 3: If A/B likes B/A's post after this transaction starts, the inner select stmt won't
-        #  detect it, so that like will remain un-deleted.
         def before_commit():
             self.db.query(models.UserRelation) \
                 .filter(models.UserRelation.from_user_id == to_user_id,
                         models.UserRelation.to_user_id == from_user_id,
                         models.UserRelation.relation == models.UserRelationType.following) \
                 .delete()
-            # Delete to_user's likes of from_user's posts
-            self.db.query(models.PostLike) \
-                .filter(models.PostLike.user_id == to_user_id,
-                        models.PostLike.post_id.in_(
-                            select([models.Post.id]).where(models.Post.user_id == from_user_id))) \
-                .delete(synchronize_session=False)
-            # Delete from_user's likes of to_user's posts
-            self.db.query(models.PostLike) \
-                .filter(models.PostLike.user_id == from_user_id,
-                        models.PostLike.post_id.in_(
-                            select([models.Post.id]).where(models.Post.user_id == to_user_id))) \
-                .delete(synchronize_session=False)
 
         existing = self._try_add_relation(from_user_id, to_user_id, models.UserRelationType.blocked,
                                           before_commit=before_commit)

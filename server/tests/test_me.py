@@ -21,8 +21,8 @@ def setup_module():
         session.add(user)
         session.add(deleted_user)
         session.commit()
-        user_prefs = models.UserPrefs(user_id=user.id, post_notifications=False, follow_notifications=True,
-                                      post_liked_notifications=True)
+        user_prefs = models.UserPrefs(user_id=user.id, follow_notifications=True, comment_notifications=True,
+                                      post_liked_notifications=True, comment_liked_notifications=True)
         session.add(user_prefs)
         session.commit()
 

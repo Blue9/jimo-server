@@ -3,46 +3,19 @@ from typing import Optional
 
 from app.stores.place_store import PlaceStore
 from app.stores.post_store import PostStore
+from app.stores.relation_store import RelationStore
 from app.stores.user_store import UserStore
 from fastapi import APIRouter, HTTPException, Depends
-from sqlalchemy import false
-from sqlalchemy.orm import aliased, Session
+from sqlalchemy.orm import Session
 
 from app import schemas
 from app.api import utils
 from app.controllers import notifications
 from app.controllers.firebase import FirebaseUser, get_firebase_user
 from app.db.database import get_db
-from app.models import models
+from app.stores.comment_store import CommentStore
 
 router = APIRouter()
-
-
-def get_post_and_validate_or_raise(db: Session, caller_user_id: uuid.UUID, post_id: uuid.UUID) -> models.Post:
-    """
-    Check that the post exists and the given user is authorized to view it.
-
-    Note: if the user is not authorized (the author blocked the caller user or has been blocked by the caller user),
-    a 404 will be returned because they shouldn't even know that the post exists.
-    """
-    RelationFromCaller = aliased(models.UserRelation)
-    RelationToCaller = aliased(models.UserRelation)
-    post: Optional[models.Post] = db.query(models.Post) \
-        .join(models.User) \
-        .join(RelationToCaller,
-              (RelationToCaller.from_user_id == models.User.id) & (RelationToCaller.to_user_id == caller_user_id),
-              isouter=True) \
-        .join(RelationFromCaller,
-              (RelationFromCaller.from_user_id == caller_user_id) & (RelationFromCaller.to_user_id == models.User.id),
-              isouter=True) \
-        .filter(models.Post.id == post_id,
-                models.Post.deleted == false(),
-                RelationToCaller.relation.is_distinct_from(models.UserRelationType.blocked),
-                RelationFromCaller.relation.is_distinct_from(models.UserRelationType.blocked)) \
-        .first()
-    if post is None:
-        raise HTTPException(404, detail="Post not found")
-    return post
 
 
 @router.post("", response_model=schemas.post.Post)
@@ -91,32 +64,33 @@ def like_post(
     firebase_user: FirebaseUser = Depends(get_firebase_user),
     db: Session = Depends(get_db),
     user_store: UserStore = Depends(UserStore),
-    post_store: PostStore = Depends(PostStore)
+    post_store: PostStore = Depends(PostStore),
+    relation_store: RelationStore = Depends(RelationStore)
 ):
     """Like the given post if the user has not already liked the post."""
     user: schemas.internal.InternalUser = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
-    post = get_post_and_validate_or_raise(db, caller_user_id=user.id, post_id=post_id)
+    post = utils.get_post_and_validate_or_raise(post_store, relation_store, caller_user_id=user.id, post_id=post_id)
     post_store.like_post(user.id, post.id)
     # Notify the user that their post was liked
     prefs = user_store.get_user_preferences(post.user_id)
     if prefs.post_liked_notifications:
-        notifications.notify_post_liked(db, post, liked_by=user)
-    return {"likes": post.like_count}
+        notifications.notify_post_liked(db, post, place_name=post_store.get_place_name(post.id), liked_by=user)
+    return {"likes": post_store.get_like_count(post.id)}
 
 
 @router.delete("/{post_id}/likes", response_model=schemas.post.LikePostResponse)
 def unlike_post(
     post_id: uuid.UUID,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
-    db: Session = Depends(get_db),
     user_store: UserStore = Depends(UserStore),
-    post_store: PostStore = Depends(PostStore)
+    post_store: PostStore = Depends(PostStore),
+    relation_store: RelationStore = Depends(RelationStore)
 ):
     """Unlike the given post if the user has already liked the post."""
     user: schemas.internal.InternalUser = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
-    post = get_post_and_validate_or_raise(db, caller_user_id=user.id, post_id=post_id)
+    post = utils.get_post_and_validate_or_raise(post_store, relation_store, caller_user_id=user.id, post_id=post_id)
     post_store.unlike_post(user.id, post.id)
-    return {"likes": post.like_count}
+    return {"likes": post_store.get_like_count(post.id)}
 
 
 @router.post("/{post_id}/report", response_model=schemas.base.SimpleResponse)
@@ -124,12 +98,28 @@ def report_post(
     post_id: uuid.UUID,
     request: schemas.post.ReportPostRequest,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
-    db: Session = Depends(get_db),
     user_store: UserStore = Depends(UserStore),
-    post_store: PostStore = Depends(PostStore)
+    post_store: PostStore = Depends(PostStore),
+    relation_store: RelationStore = Depends(RelationStore)
 ):
     """Report the given post."""
     reported_by: schemas.internal.InternalUser = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
-    post = get_post_and_validate_or_raise(db, caller_user_id=reported_by.id, post_id=post_id)
+    post = utils.get_post_and_validate_or_raise(
+        post_store, relation_store, caller_user_id=reported_by.id, post_id=post_id)
     success = post_store.report_post(post.id, reported_by.id, details=request.details)
     return schemas.base.SimpleResponse(success=success)
+
+
+@router.get("/{post_id}/comments", response_model=schemas.comment.CommentPage)
+def get_comments(
+    post_id: uuid.UUID,
+    cursor: Optional[uuid.UUID] = None,
+    firebase_user: FirebaseUser = Depends(get_firebase_user),
+    post_store: PostStore = Depends(PostStore),
+    user_store: UserStore = Depends(UserStore),
+    comment_store: CommentStore = Depends(CommentStore),
+    relation_store: RelationStore = Depends(RelationStore)
+):
+    user = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
+    post = utils.get_post_and_validate_or_raise(post_store, relation_store, caller_user_id=user.id, post_id=post_id)
+    return comment_store.get_comments(caller_user_id=user.id, post_id=post.id, cursor=cursor)
