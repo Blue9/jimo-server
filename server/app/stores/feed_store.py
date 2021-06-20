@@ -1,6 +1,6 @@
 import datetime
 import uuid
-from typing import Optional
+from typing import Optional, Tuple
 
 from fastapi import Depends
 from sqlalchemy import union_all, select, exists
