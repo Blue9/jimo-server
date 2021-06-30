@@ -70,11 +70,12 @@ class FeedStore:
         user_id, cursor: Optional[uuid.UUID] = None,
         limit: int = 50
     ) -> list[NotificationItem]:
-        follow_query = self.db.query(models.UserRelation, models.User).filter(
-            models.UserRelation.to_user_id == user_id,
-            models.User.id == models.UserRelation.from_user_id,
-            models.UserRelation.relation == models.UserRelationType.following,
-            ~models.User.deleted)
+        follow_query = self.db.query(models.UserRelation, models.User) \
+            .options(utils.eager_load_user_options()) \
+            .filter(models.UserRelation.to_user_id == user_id,
+                    models.User.id == models.UserRelation.from_user_id,
+                    models.UserRelation.relation == models.UserRelationType.following,
+                    ~models.User.deleted)
         if cursor is not None:
             follow_query = follow_query.filter(models.UserRelation.id < cursor)
         follow_results = follow_query.order_by(models.UserRelation.id.desc()).limit(limit).all()
