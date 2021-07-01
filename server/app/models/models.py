@@ -181,6 +181,8 @@ class PostLike(Base):
     post_id = Column(UUID(as_uuid=True), ForeignKey("post.id", ondelete="CASCADE"), nullable=False)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
+    liked_by = relationship("User")
+
     # Only want one row per (user, post) pair
     __table_args__ = (UniqueConstraint("user_id", "post_id", name="_post_like_user_post_uc"),
                       Index("post_like_post_id_idx", post_id))
@@ -298,24 +300,27 @@ class Feedback(Base):
 
 # Users
 post_alias = aliased(Post)
+relation_alias = aliased(UserRelation)
+post_like_alias = aliased(PostLike)
 
 User.post_count = column_property(
     select([func.count()]).where(and_(post_alias.user_id == User.id, post_alias.deleted == false())).scalar_subquery(),
     deferred=True)
 
 User.follower_count = column_property(
-    select([func.count()]).select_from(UserRelation).where(
-        and_(UserRelation.to_user_id == User.id,
-             UserRelation.relation == UserRelationType.following)).scalar_subquery(), deferred=True)
+    select([func.count()]).select_from(relation_alias).where(
+        and_(relation_alias.to_user_id == User.id,
+             relation_alias.relation == UserRelationType.following)).scalar_subquery(), deferred=True)
 
 User.following_count = column_property(
-    select([func.count()]).select_from(UserRelation).where(
-        and_(UserRelation.from_user_id == User.id,
-             UserRelation.relation == UserRelationType.following)).scalar_subquery(), deferred=True)
+    select([func.count()]).select_from(relation_alias).where(
+        and_(relation_alias.from_user_id == User.id,
+             relation_alias.relation == UserRelationType.following)).scalar_subquery(), deferred=True)
 
 # Posts
 Post.like_count = column_property(
-    select([func.count()]).select_from(PostLike).where(Post.id == PostLike.post_id).scalar_subquery(), deferred=True)
+    select([func.count()]).select_from(post_like_alias).where(Post.id == post_like_alias.post_id).scalar_subquery(),
+    deferred=True)
 
 Post.comment_count = column_property(select([func.count()]).select_from(Comment).where(
     and_(Post.id == Comment.post_id, Comment.deleted == false())).scalar_subquery(), deferred=True)
