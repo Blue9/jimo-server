@@ -180,10 +180,10 @@ class UserStore:
         return schemas.user.UserPrefs.from_orm(prefs)
 
     def get_followers(
-            self,
-            user_id: uuid.UUID,
-            cursor: Optional[uuid.UUID] = None,
-            limit: int = 50
+        self,
+        user_id: uuid.UUID,
+        cursor: Optional[uuid.UUID] = None,
+        limit: int = 50
     ) -> Tuple[list[schemas.user.PublicUser], Optional[uuid.UUID]]:
         query = self.db.query(models.User, models.UserRelation.id) \
             .options(*utils.eager_load_user_options()) \
@@ -199,10 +199,10 @@ class UserStore:
         return users, next_cursor
 
     def get_following(
-            self,
-            user_id: uuid.UUID,
-            cursor: Optional[uuid.UUID] = None,
-            limit: int = 50
+        self,
+        user_id: uuid.UUID,
+        cursor: Optional[uuid.UUID] = None,
+        limit: int = 50
     ) -> Tuple[list[schemas.user.PublicUser], Optional[uuid.UUID]]:
         query = self.db.query(models.User, models.UserRelation.id) \
             .options(*utils.eager_load_user_options()) \
