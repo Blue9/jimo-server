@@ -96,11 +96,11 @@ def get_relation(
 
 @router.get("/{username}/followers", response_model=schemas.user.FollowFeedResponse)
 def get_followers(
-        username: str,
-        cursor: Optional[uuid.UUID] = None,
-        firebase_user: FirebaseUser = Depends(get_firebase_user),
-        user_store: UserStore = Depends(UserStore),
-        relation_store: RelationStore = Depends(RelationStore)
+    username: str,
+    cursor: Optional[uuid.UUID] = None,
+    firebase_user: FirebaseUser = Depends(get_firebase_user),
+    user_store: UserStore = Depends(UserStore),
+    relation_store: RelationStore = Depends(RelationStore)
 ):
     """Get the followers of the given user."""
     limit = 50
@@ -108,21 +108,20 @@ def get_followers(
     maybe_to_user = user_store.get_user_by_username(username)
     to_user = utils.validate_user(relation_store, caller_user_id=current_user.id, user=maybe_to_user)
 
-    users = user_store.get_followers(to_user.id, cursor, limit)
+    users, next_cursor = user_store.get_followers(to_user.id, cursor, limit)
     relations = relation_store.get_relations(current_user.id, [user.id for user in users])
     items = [schemas.user.FollowFeedItem(user=user, relation=relations.get(user.id)) for user in users]
 
-    return schemas.user.FollowFeedResponse(follow=items,
-                                           cursor=min(user.id for user in users) if len(users) >= limit else None)
+    return schemas.user.FollowFeedResponse(users=items, cursor=next_cursor)
 
 
 @router.get("/{username}/following", response_model=schemas.user.FollowFeedResponse)
 def get_following(
-        username: str,
-        cursor: Optional[uuid.UUID] = None,
-        firebase_user: FirebaseUser = Depends(get_firebase_user),
-        user_store: UserStore = Depends(UserStore),
-        relation_store: RelationStore = Depends(RelationStore),
+    username: str,
+    cursor: Optional[uuid.UUID] = None,
+    firebase_user: FirebaseUser = Depends(get_firebase_user),
+    user_store: UserStore = Depends(UserStore),
+    relation_store: RelationStore = Depends(RelationStore),
 ):
     """Get the given user's following."""
     limit = 50
@@ -130,12 +129,11 @@ def get_following(
     maybe_to_user = user_store.get_user_by_username(username)
     to_user = utils.validate_user(relation_store, caller_user_id=current_user.id, user=maybe_to_user)
 
-    users = user_store.get_following(to_user.id, cursor, limit)
+    users, next_cursor = user_store.get_following(to_user.id, cursor, limit)
     relations = relation_store.get_relations(current_user.id, [user.id for user in users])
     items = [schemas.user.FollowFeedItem(user=user, relation=relations.get(user.id)) for user in users]
 
-    return schemas.user.FollowFeedResponse(follow=items,
-                                           cursor=min(user.id for user in users) if len(users) >= limit else None)
+    return schemas.user.FollowFeedResponse(users=items, cursor=next_cursor)
 
 
 @router.post("/{username}/follow", response_model=schemas.user.FollowUserResponse)

@@ -184,35 +184,35 @@ class UserStore:
             user_id: uuid.UUID,
             cursor: Optional[uuid.UUID] = None,
             limit: int = 50
-    ) -> list[schemas.user.PublicUser]:
-        query = self.db.query(models.User, models.UserRelation) \
+    ) -> Tuple[list[schemas.user.PublicUser], Optional[uuid.UUID]]:
+        query = self.db.query(models.User, models.UserRelation.id) \
+            .options(*utils.eager_load_user_options()) \
             .filter(models.UserRelation.from_user_id == models.User.id,
                     models.UserRelation.to_user_id == user_id,
                     models.UserRelation.relation == models.UserRelationType.following,
                     ~models.User.deleted)
-
         if cursor is not None:
-            query = query.filter(models.User.id < cursor)
-
-        users = query.order_by(models.UserRelation.id.desc()).limit(limit).all()
-
-        return [schemas.user.PublicUser.from_orm(user.User) for user in users]
+            query = query.filter(models.UserRelation.id < cursor)
+        rows = query.order_by(models.UserRelation.id.desc()).limit(limit).all()
+        users = [schemas.user.PublicUser.from_orm(user.User) for user in rows]
+        next_cursor: Optional[uuid.UUID] = rows[-1].id if len(rows) >= limit else None
+        return users, next_cursor
 
     def get_following(
             self,
             user_id: uuid.UUID,
             cursor: Optional[uuid.UUID] = None,
             limit: int = 50
-    ) -> list[schemas.user.PublicUser]:
-        query = self.db.query(models.User, models.UserRelation) \
+    ) -> Tuple[list[schemas.user.PublicUser], Optional[uuid.UUID]]:
+        query = self.db.query(models.User, models.UserRelation.id) \
+            .options(*utils.eager_load_user_options()) \
             .filter(models.UserRelation.to_user_id == models.User.id,
                     models.UserRelation.from_user_id == user_id,
                     models.UserRelation.relation == models.UserRelationType.following,
                     ~models.User.deleted)
-
         if cursor is not None:
-            query = query.filter(models.User.id < cursor)
-
-        users = query.order_by(models.UserRelation.id.desc()).limit(limit).all()
-
-        return [schemas.user.PublicUser.from_orm(user.User) for user in users]
+            query = query.filter(models.UserRelation.id < cursor)
+        rows = query.order_by(models.UserRelation.id.desc()).limit(limit).all()
+        users = [schemas.user.PublicUser.from_orm(user.User) for user in rows]
+        next_cursor: Optional[uuid.UUID] = rows[-1].id if len(rows) >= limit else None
+        return users, next_cursor

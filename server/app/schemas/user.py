@@ -110,7 +110,7 @@ class FollowFeedItem(Base):
 
 
 class FollowFeedResponse(Base):
-    follow: list[FollowFeedItem]
+    users: list[FollowFeedItem]
     cursor: Optional[uuid.UUID]
 
 
