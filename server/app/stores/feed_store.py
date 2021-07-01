@@ -98,7 +98,7 @@ class FeedStore:
                    exists().where((post_like_alias.post_id == models.Post.id)
                                   & (post_like_alias.user_id == user_id)).label("post_liked")) \
             .options(joinedload(models.PostLike.liked_by).options(*utils.eager_load_user_options()),
-                     *utils.eager_load_post_except_user_options()) \
+                     *utils.eager_load_post_options()) \
             .filter(models.PostLike.post_id == models.Post.id,
                     models.Post.user_id == user_id,
                     ~models.Post.deleted,
