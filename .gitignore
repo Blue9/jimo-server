@@ -139,6 +139,7 @@ cython_debug/
 
 # IDE files
 .idea/
+.editorconfig
 
 # macOS
 .DS_Store
