@@ -181,6 +181,8 @@ class PostLike(Base):
     post_id = Column(UUID(as_uuid=True), ForeignKey("post.id", ondelete="CASCADE"), nullable=False)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
+    liked_by = relationship("User")
+
     # Only want one row per (user, post) pair
     __table_args__ = (UniqueConstraint("user_id", "post_id", name="_post_like_user_post_uc"),
                       Index("post_like_post_id_idx", post_id))

@@ -4,7 +4,7 @@ from typing import Optional
 
 from fastapi import Depends
 from sqlalchemy import union_all, select, exists
-from sqlalchemy.orm import Session, aliased
+from sqlalchemy.orm import Session, aliased, joinedload
 
 from app import schemas
 from app.controllers import utils
@@ -92,31 +92,29 @@ class FeedStore:
         limit: int = 50
     ) -> list[NotificationItem]:
         post_like_alias = aliased(models.PostLike)
-        like_query = self.db.query(
-            models.PostLike,
-            models.Post,
-            models.User,
-            exists().where((post_like_alias.post_id == models.Post.id)
-                           & (post_like_alias.user_id == user_id)).label("post_liked")
-        ).filter(
-            models.PostLike.post_id == models.Post.id,
-            models.Post.user_id == user_id,
-            ~models.Post.deleted,
-            models.User.id == models.PostLike.user_id,
-            models.User.id != user_id,
-            ~models.User.deleted
-        )
+        like_query = self.db \
+            .query(models.PostLike,
+                   models.Post,
+                   exists().where((post_like_alias.post_id == models.Post.id)
+                                  & (post_like_alias.user_id == user_id)).label("post_liked")) \
+            .options(joinedload(models.PostLike.liked_by).options(*utils.eager_load_user_options()),
+                     *utils.eager_load_post_except_user_options()) \
+            .filter(models.PostLike.post_id == models.Post.id,
+                    models.Post.user_id == user_id,
+                    ~models.Post.deleted,
+                    user_id != models.PostLike.user_id,
+                    models.PostLike.liked_by.has(deleted=False))
         if cursor is not None:
             like_query = like_query.filter(models.PostLike.id < cursor)
 
         like_results = like_query.order_by(models.PostLike.id.desc()).limit(limit).all()
         like_items = []
 
-        for like in like_results:
-            fields = ORMPost.from_orm(like.Post).dict()
-            like_items.append(NotificationItem(type=ItemType.like, created_at=like.PostLike.created_at,
-                                               user=like.User, item_id=like.PostLike.id,
-                                               post=schemas.post.Post(**fields, liked=like.post_liked)))
+        for post_like, post, is_post_liked in like_results:
+            fields = ORMPost.from_orm(post).dict()
+            like_items.append(NotificationItem(type=ItemType.like, created_at=post_like.created_at,
+                                               user=post_like.liked_by, item_id=post_like.id,
+                                               post=schemas.post.Post(**fields, liked=is_post_liked)))
         return like_items
 
     def get_comment_feed(
