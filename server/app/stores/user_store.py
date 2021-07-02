@@ -53,14 +53,16 @@ class UserStore:
         self,
         user_id: uuid.UUID,
         phone_numbers: list[schemas.user.PhoneNumber],
-        limit: int = 1000
+        limit: int = 100
     ) -> list[schemas.user.PublicUser]:
         """Return up to `limit` users with the given phone numbers."""
         blocked_subquery = select(models.UserRelation.from_user_id).select_from(models.UserRelation).where(
             models.UserRelation.to_user_id == user_id,
             models.UserRelation.relation == models.UserRelationType.blocked)
         users = self.db.query(models.User) \
+            .join(models.UserPrefs) \
             .filter(models.User.phone_number.in_(phone_numbers),
+                    models.UserPrefs.searchable_by_phone_number,
                     models.User.id.notin_(blocked_subquery),
                     ~models.User.deleted) \
             .limit(limit) \
@@ -90,7 +92,8 @@ class UserStore:
         prefs = self.db.query(models.UserPrefs).filter(models.UserPrefs.user_id == user_id).first()
         return (schemas.user.UserPrefs.from_orm(prefs) if prefs else
                 schemas.user.UserPrefs(follow_notifications=False, comment_notifications=False,
-                                       post_liked_notifications=False, comment_liked_notifications=False))
+                                       post_liked_notifications=False, comment_liked_notifications=False,
+                                       searchable_by_phone_number=False))
 
     # Operations
 
@@ -109,8 +112,7 @@ class UserStore:
         try:
             self.db.commit()
             # Initialize user preferences
-            prefs = models.UserPrefs(user_id=new_user.id, follow_notifications=True, comment_notifications=True,
-                                     post_liked_notifications=True, comment_liked_notifications=True)
+            prefs = models.UserPrefs(user_id=new_user.id, follow_notifications=True, post_liked_notifications=True)
             self.db.add(prefs)
             self.db.commit()
             return schemas.internal.InternalUser.from_orm(new_user), None
@@ -176,5 +178,7 @@ class UserStore:
             prefs.comment_notifications = request.comment_notifications
         if request.comment_liked_notifications is not None:
             prefs.comment_liked_notifications = request.comment_liked_notifications
+        if request.searchable_by_phone_number is not None:
+            prefs.searchable_by_phone_number = request.searchable_by_phone_number
         self.db.commit()
         return schemas.user.UserPrefs.from_orm(prefs)

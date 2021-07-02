@@ -27,6 +27,7 @@ class UserPrefs(Base):
     # New fields, so they have to be optional
     comment_notifications: Optional[bool]
     comment_liked_notifications: Optional[bool]
+    searchable_by_phone_number: Optional[bool]
 
 
 # Request types
@@ -66,8 +67,8 @@ class UsernameList(Base):
 
     @validator("usernames")
     def validate_usernames(cls, usernames):
-        if len(usernames) > 1000:
-            raise ValueError("Username list too long, max length is 1000")
+        if len(usernames) > 100:
+            raise ValueError("Username list too long, max length is 100")
         return usernames
 
 
