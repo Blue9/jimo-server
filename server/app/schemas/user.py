@@ -105,6 +105,16 @@ class RelationToUser(Base):
     relation: Optional[UserRelation]
 
 
+class FollowFeedItem(Base):
+    user: PublicUser
+    relation: Optional[UserRelation]
+
+
+class FollowFeedResponse(Base):
+    users: list[FollowFeedItem]
+    cursor: Optional[uuid.UUID]
+
+
 class NotificationTokenRequest(Base):
     token: str
 
