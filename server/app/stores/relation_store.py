@@ -116,8 +116,9 @@ class RelationStore:
             raise ValueError("Not blocked")
 
     def get_relations(
-            self, from_user_id: uuid.UUID,
-            to_user_ids: [uuid.UUID]
+        self,
+        from_user_id: uuid.UUID,
+        to_user_ids: list[uuid.UUID]
     ) -> dict[uuid.UUID, schemas.user.UserRelation]:
         rows = self.db.query(models.UserRelation.to_user_id, models.UserRelation.relation) \
             .filter(models.UserRelation.from_user_id == from_user_id,

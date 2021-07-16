@@ -1,7 +1,6 @@
 import uuid
 from typing import Optional
 
-from app.stores.feed_store import FeedStore
 from app.stores.invite_store import InviteStore
 from app.stores.post_store import PostStore
 from app.stores.relation_store import RelationStore
