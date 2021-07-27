@@ -69,7 +69,11 @@ def notify_follow(db: Session, user_id: uuid.UUID, followed_by: schemas.internal
 def _send_notification(db: Session, user_id: uuid.UUID, body: str):
     fcm_tokens = db.query(models.FCMToken).filter(models.FCMToken.user_id == user_id).all()
     for fcm_token in fcm_tokens:
-        message = messaging.Message(notification=messaging.Notification(body=body), token=fcm_token.token)
+        message = messaging.Message(
+            notification=messaging.Notification(body=body),
+            apns=messaging.APNSConfig(payload=messaging.APNSPayload(messaging.Aps(sound="default"))),
+            token=fcm_token.token
+        )
         try:
             messaging.send(message)
         except InvalidArgumentError:
