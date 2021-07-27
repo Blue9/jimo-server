@@ -67,7 +67,12 @@ def notify_follow(db: Session, user_id: uuid.UUID, followed_by: schemas.internal
 
 
 def _send_notification(db: Session, user_id: uuid.UUID, body: str):
-    fcm_tokens = db.query(models.FCMToken).filter(models.FCMToken.user_id == user_id).all()
+    fcm_tokens = db.query(models.FCMToken) \
+        .filter(models.FCMToken.user_id == user_id) \
+        .order_by(models.FCMToken.id.desc()) \
+        .limit(1) \
+        .all()
+    # Only notify the latest device (temporary performance improvement, remove when moving to background service)
     for fcm_token in fcm_tokens:
         message = messaging.Message(
             notification=messaging.Notification(body=body),
