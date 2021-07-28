@@ -60,6 +60,7 @@ class UserStore:
             models.UserRelation.to_user_id == user_id,
             models.UserRelation.relation == models.UserRelationType.blocked)
         users = self.db.query(models.User) \
+            .options(*utils.eager_load_user_options()) \
             .join(models.UserPrefs) \
             .filter(models.User.phone_number.in_(phone_numbers),
                     models.UserPrefs.searchable_by_phone_number,
