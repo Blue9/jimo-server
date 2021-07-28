@@ -162,7 +162,10 @@ def get_existing_users(
         phone_numbers = [number for number in request.phone_numbers if number != user.phone_number]
     else:
         phone_numbers = request.phone_numbers
-    return user_store.get_users_by_phone_number(user.id, phone_numbers)
+    if len(phone_numbers) < 10:
+        return []
+    limit = int(len(phone_numbers) / 4)
+    return user_store.get_users_by_phone_number(user.id, phone_numbers, limit=limit)
 
 
 @router.post("/following", response_model=schemas.base.SimpleResponse)
