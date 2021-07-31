@@ -71,9 +71,8 @@ def like_post(
     user: schemas.internal.InternalUser = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
     post = utils.get_post_and_validate_or_raise(post_store, relation_store, caller_user_id=user.id, post_id=post_id)
     post_store.like_post(user.id, post.id)
-    # Notify the user that their post was liked
-    prefs = user_store.get_user_preferences(post.user_id)
-    if prefs.post_liked_notifications:
+    # Notify the user that their post was liked if they aren't the current user
+    if user.id != post.user_id and user_store.get_user_preferences(post.user_id).post_liked_notifications:
         notifications.notify_post_liked(db, post, place_name=post_store.get_place_name(post.id), liked_by=user)
     return {"likes": post_store.get_like_count(post.id)}
 

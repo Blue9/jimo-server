@@ -31,7 +31,7 @@ def create_comment(
     post = utils.get_post_and_validate_or_raise(
         post_store, relation_store, caller_user_id=user.id, post_id=request.post_id)
     comment = comment_store.create_comment(user.id, post.id, content=request.content)
-    if user_store.get_user_preferences(post.user_id).comment_notifications:
+    if user.id != post.user_id and user_store.get_user_preferences(post.user_id).comment_notifications:
         notifications.notify_comment(db, post, post_store.get_place_name(post.id), comment.content, comment_by=user)
     return schemas.comment.Comment(
         id=comment.id,
@@ -79,7 +79,7 @@ def like_comment(
     if comment is None or not post_store.post_exists(comment.post_id):
         raise HTTPException(404)
     comment_store.like_comment(comment_id, user.id)
-    if user_store.get_user_preferences(comment.user_id).comment_liked_notifications:
+    if user.id != comment.user_id and user_store.get_user_preferences(comment.user_id).comment_liked_notifications:
         notifications.notify_comment_liked(db, comment, liked_by=user)
     return schemas.comment.LikeCommentResponse(likes=comment_store.get_like_count(comment_id))
 
