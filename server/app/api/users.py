@@ -1,6 +1,8 @@
 import uuid
 from typing import Optional
 
+from sqlalchemy import select
+
 from app.stores.invite_store import InviteStore
 from app.stores.post_store import PostStore
 from app.stores.relation_store import RelationStore
@@ -86,10 +88,9 @@ def get_relation(
     from_user: schemas.internal.InternalUser = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
     maybe_to_user = user_store.get_user_by_username(username)
     to_user = utils.validate_user(relation_store, caller_user_id=from_user.id, user=maybe_to_user)
-    relation: Optional[models.UserRelationType] = db.query(models.UserRelation.relation) \
-        .filter(models.UserRelation.from_user_id == from_user.id,
-                models.UserRelation.to_user_id == to_user.id) \
-        .scalar()
+    relation_query = select(models.UserRelation.relation) \
+        .where(models.UserRelation.from_user_id == from_user.id, models.UserRelation.to_user_id == to_user.id)
+    relation: Optional[models.UserRelationType] = db.execute(relation_query).scalar()
     return schemas.user.RelationToUser(relation=relation.value if relation else None)
 
 

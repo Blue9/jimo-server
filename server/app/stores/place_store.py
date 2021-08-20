@@ -23,24 +23,23 @@ class PlaceStore:
         following_ids = select(models.UserRelation.to_user_id).where(
             (models.UserRelation.from_user_id == user_id) & (
                 models.UserRelation.relation == models.UserRelationType.following))
-        response = self.db \
-            .query(models.Place.id.label("place_id"),
-                   models.Place.latitude.label("place_latitude"),
-                   models.Place.longitude.label("place_longitude"),
-                   models.Place.name.label("place_name"),
-                   models.Post.category.label("category"),
-                   models.ImageUpload.firebase_public_url,
-                   func.count(models.Post.id).over(partition_by=models.Place.id).label("num_mutual_posts")) \
+        query = select(models.Place.id.label("place_id"),
+                       models.Place.latitude.label("place_latitude"),
+                       models.Place.longitude.label("place_longitude"),
+                       models.Place.name.label("place_name"),
+                       models.Post.category.label("category"),
+                       models.ImageUpload.firebase_public_url,
+                       func.count(models.Post.id).over(partition_by=models.Place.id).label("num_mutual_posts")) \
             .select_from(models.Post) \
-            .filter(models.Post.user_id.in_(following_ids) | (models.Post.user_id == user_id)) \
-            .filter(~models.Post.deleted) \
+            .where(models.Post.user_id.in_(following_ids) | (models.Post.user_id == user_id)) \
+            .where(~models.Post.deleted) \
             .join(models.Place, models.Post.place_id == models.Place.id) \
             .join(models.User, models.Post.user_id == models.User.id) \
             .join(models.ImageUpload, models.User.profile_picture_id == models.ImageUpload.id, isouter=True) \
             .order_by(models.Place.id.desc(), models.Post.id.desc()) \
             .distinct(models.Place.id) \
-            .limit(limit) \
-            .all()
+            .limit(limit)
+        response = self.db.execute(query).all()
         places = []
         for row in response:
             location = schemas.place.Location(latitude=row.place_latitude, longitude=row.place_longitude)
@@ -58,19 +57,18 @@ class PlaceStore:
         following_ids = select(models.UserRelation.to_user_id).where(
             (models.UserRelation.from_user_id == user_id) & (
                 models.UserRelation.relation == models.UserRelationType.following))
-        icon_details = self.db \
-            .query(func.count().over().label("num_mutual_posts"),
-                   models.Post.category.label("category"),
-                   models.ImageUpload.firebase_public_url.label("icon_url")) \
+        icon_details_query = select(func.count().over().label("num_mutual_posts"),
+                                    models.Post.category.label("category"),
+                                    models.ImageUpload.firebase_public_url.label("icon_url")) \
             .select_from(models.Post) \
             .join(models.Place, models.Post.place_id == models.Place.id) \
             .join(models.User) \
             .join(models.ImageUpload, models.User.profile_picture_id == models.ImageUpload.id, isouter=True) \
-            .filter(models.Place.id == place_id) \
-            .filter(models.Post.user_id.in_(following_ids) | (models.Post.user_id == user_id)) \
-            .filter(~models.Post.deleted) \
-            .order_by(models.Post.created_at.desc()) \
-            .first()
+            .where(models.Place.id == place_id) \
+            .where(models.Post.user_id.in_(following_ids) | (models.Post.user_id == user_id)) \
+            .where(~models.Post.deleted) \
+            .order_by(models.Post.created_at.desc())
+        icon_details = self.db.execute(icon_details_query).first()
         if icon_details is None:
             return schemas.place.MapPinIcon(num_mutual_posts=0)
         else:
@@ -92,11 +90,11 @@ class PlaceStore:
             if utils.is_unique_column_error(e, models.Place.id.key):
                 raise ValueError("UUID collision")
             # else the place exists
-            existing_place = self.db.query(models.Place) \
-                .filter(models.Place.name == request.name,
-                        models.Place.latitude == request.location.latitude,
-                        models.Place.longitude == request.location.longitude) \
-                .one()
+            existing_place_query = select(models.Place) \
+                .where(models.Place.name == request.name,
+                       models.Place.latitude == request.location.latitude,
+                       models.Place.longitude == request.location.longitude)
+            existing_place = self.db.execute(existing_place_query).scalars().one()
             return schemas.place.Place.from_orm(existing_place)
 
     def get_place(self, request: schemas.place.MaybeCreatePlaceRequest) -> Optional[schemas.place.Place]:
@@ -122,17 +120,18 @@ class PlaceStore:
         # First check passed in region
         if request.region:
             radius = request.region.radius
-            place = self.db.query(models.Place).filter(models.Place.name == name).filter(
+            place_query = select(models.Place).where(models.Place.name == name).where(
                 func.ST_Distance(point, models.Place.location) <= radius).order_by(
-                asc(func.ST_Distance(point, models.Place.location))).first()
+                asc(func.ST_Distance(point, models.Place.location)))
+            place = self.db.execute(place_query).scalars().first()
             if place:
                 return schemas.place.Place.from_orm(place)
 
         # Otherwise search a 10 meter radius
-        place = self.db.query(models.Place) \
-            .filter(models.Place.name == name) \
-            .filter(func.ST_Distance(point, models.Place.location) <= 10) \
-            .first()
+        place_query = select(models.Place) \
+            .where(models.Place.name == name) \
+            .where(func.ST_Distance(point, models.Place.location) <= 10)
+        place = self.db.execute(place_query).scalars().first()
         return schemas.place.Place.from_orm(place) if place else None
 
     def create_or_update_place_data(
@@ -156,9 +155,9 @@ class PlaceStore:
         except IntegrityError:
             self.db.rollback()
             # Place data exists, just update it
-            existing: models.PlaceData = self.db.query(models.PlaceData) \
-                .filter(models.PlaceData.user_id == user_id, models.PlaceData.place_id == place_id) \
-                .first()
+            existing_query = select(models.PlaceData) \
+                .where(models.PlaceData.user_id == user_id, models.PlaceData.place_id == place_id)
+            existing: Optional[models.PlaceData] = self.db.execute(existing_query).scalars().first()
             # It's unlikely, but if we delete the matching row before querying and after trying to insert,
             # existing could be None
             if existing is not None:

@@ -5,7 +5,7 @@ from typing import Optional
 
 from app.stores.user_store import UserStore
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import true, exists
+from sqlalchemy import exists, select, func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -37,16 +37,17 @@ def get_page(page: int = Query(1, gt=0), limit: int = Query(100, gt=0, le=1000))
 # User endpoints
 @router.get("/users", response_model=schemas.admin.Page[schemas.admin.User])
 def get_users(
-    page: Page = Depends(get_page), db: Session = Depends(get_db),
+    page: Page = Depends(get_page),
+    db: Session = Depends(get_db),
     _admin: schemas.internal.InternalUser = Depends(get_admin_or_raise)
 ):
     """Get all users."""
-    total = db.query(models.User).count()
-    data = db.query(models.User) \
+    total = db.execute(select(func.count(models.User.id))).scalar()
+    query = select(models.User) \
         .order_by(models.User.id.desc()) \
         .offset(page.offset) \
-        .limit(page.limit) \
-        .all()
+        .limit(page.limit)
+    data = db.execute(query).scalars().all()
     return schemas.admin.Page(total=total, data=data)
 
 
@@ -73,7 +74,8 @@ def get_user(
     _admin: schemas.internal.InternalUser = Depends(get_admin_or_raise)
 ):
     """Get the given user."""
-    user = db.query(models.User).filter(models.User.username_lower == username.lower()).first()
+    query = select(models.User).where(models.User.username_lower == username.lower())
+    user = db.execute(query).scalars().first()
     if user is None:
         raise HTTPException(404)
     return user
@@ -87,9 +89,8 @@ def update_user(
     admin: schemas.internal.InternalUser = Depends(get_admin_or_raise)
 ):
     """Update the given user."""
-    to_update: Optional[models.User] = db.query(models.User) \
-        .filter(models.User.username_lower == username.lower()) \
-        .first()
+    query = select(models.User).where(models.User.username_lower == username.lower())
+    to_update: Optional[models.User] = db.execute(query).scalars().first()
     if not to_update:
         raise HTTPException(404)
     if request.username:
@@ -117,13 +118,13 @@ def get_admins(
     _admin: schemas.internal.InternalUser = Depends(get_admin_or_raise)
 ):
     """Get all admin users."""
-    total = db.query(models.User).filter(models.User.is_admin == true()).count()
-    admins = db.query(models.User) \
-        .filter(models.User.is_admin == true()) \
+    total = db.execute(select(func.count()).where(models.User.is_admin)).scalar()
+    query = select(models.User) \
+        .where(models.User.is_admin) \
         .order_by(models.User.id.desc()) \
         .offset(page.offset) \
-        .limit(page.limit) \
-        .all()
+        .limit(page.limit)
+    admins = db.execute(query).scalars().all()
     return schemas.admin.Page(total=total, data=admins)
 
 
@@ -135,13 +136,13 @@ def get_featured_users(
     _admin: schemas.internal.InternalUser = Depends(get_admin_or_raise)
 ):
     """Get featured users."""
-    total = db.query(models.User).filter(models.User.is_featured == true()).count()
-    featured_users = db.query(models.User) \
-        .filter(models.User.is_featured == true()) \
+    total = db.execute(select(func.count()).where(models.User.is_featured)).scalar()
+    query = select(models.User) \
+        .where(models.User.is_featured) \
         .order_by(models.User.id.desc()) \
         .offset(page.offset) \
-        .limit(page.limit) \
-        .all()
+        .limit(page.limit)
+    featured_users = db.execute(query).scalars().all()
     return schemas.admin.Page(total=total, data=featured_users)
 
 
@@ -153,12 +154,12 @@ def get_all_posts(
     _admin: schemas.internal.InternalUser = Depends(get_admin_or_raise)
 ):
     """Get all posts."""
-    total = db.query(models.Post).count()
-    posts = db.query(models.Post) \
+    total = db.execute(select(func.count()).select_from(models.Post)).scalar()
+    query = select(models.Post) \
         .order_by(models.Post.id.desc()) \
         .offset(page.offset) \
-        .limit(page.limit) \
-        .all()
+        .limit(page.limit)
+    posts = db.execute(query).scalars().all()
     return schemas.admin.Page(total=total, data=posts)
 
 
@@ -168,9 +169,7 @@ def get_post(
     db: Session = Depends(get_db),
     _admin: schemas.internal.InternalUser = Depends(get_admin_or_raise)
 ):
-    post = db.query(models.Post) \
-        .filter(models.Post.id == post_id) \
-        .first()
+    post = db.execute(select(models.Post).where(models.Post.id == post_id)).scalars().first()
     if post is None:
         raise HTTPException(404)
     return post
@@ -184,7 +183,7 @@ def update_post(
     db: Session = Depends(get_db),
     _admin: schemas.internal.InternalUser = Depends(get_admin_or_raise)
 ):
-    post: Optional[models.Post] = db.query(models.Post).filter(models.Post.id == post_id).first()
+    post: Optional[models.Post] = db.execute(select(models.Post).where(models.Post.id == post_id)).scalars().first()
     if post is None:
         raise HTTPException(404)
     if request.content:
@@ -208,15 +207,16 @@ def get_waitlist(
     _admin: schemas.internal.InternalUser = Depends(get_admin_or_raise)
 ):
     """Get all users on the waitlist that haven't been invited yet."""
-    total = db.query(models.Waitlist) \
-        .filter(~exists().where(models.Waitlist.phone_number == models.Invite.phone_number)) \
-        .count()
-    waitlist = db.query(models.Waitlist) \
-        .filter(~exists().where(models.Waitlist.phone_number == models.Invite.phone_number)) \
+    total_query = select(func.count()) \
+        .select_from(models.Waitlist) \
+        .where(~exists().where(models.Waitlist.phone_number == models.Invite.phone_number))
+    total = db.execute(total_query).scalar()
+    query = select(models.Waitlist) \
+        .where(~exists().where(models.Waitlist.phone_number == models.Invite.phone_number)) \
         .order_by(models.Waitlist.id.desc()) \
         .offset(page.offset) \
-        .limit(page.limit) \
-        .all()
+        .limit(page.limit)
+    waitlist = db.execute(query).scalars().all()
     return schemas.admin.Page(total=total, data=waitlist)
 
 
@@ -228,15 +228,16 @@ def get_all_invites(
     _admin: schemas.internal.InternalUser = Depends(get_admin_or_raise)
 ):
     """Get invited phone numbers that haven't signed up yet."""
-    total = db.query(models.Invite) \
-        .filter(~exists().where(models.Invite.phone_number == models.User.phone_number)) \
-        .count()
-    invites = db.query(models.Invite) \
-        .filter(~exists().where(models.Invite.phone_number == models.User.phone_number)) \
+    total_query = select(func.count()) \
+        .select_from(models.Invite) \
+        .where(~exists().where(models.Invite.phone_number == models.User.phone_number))
+    total = db.execute(total_query).scalar()
+    query = select(models.Invite) \
+        .where(~exists().where(models.Invite.phone_number == models.User.phone_number)) \
         .order_by(models.Invite.id.desc()) \
         .offset(page.offset) \
-        .limit(page.limit) \
-        .all()
+        .limit(page.limit)
+    invites = db.execute(query).scalars().all()
     return schemas.admin.Page(total=total, data=invites)
 
 
@@ -263,7 +264,8 @@ def remove_invites(
     _admin: schemas.internal.InternalUser = Depends(get_admin_or_raise)
 ):
     """Remove invites."""
-    to_delete = db.query(models.Invite).filter(models.Invite.phone_number.in_(request.phone_numbers)).all()
+    query = select(models.Invite).where(models.Invite.phone_number.in_(request.phone_numbers))
+    to_delete = db.execute(query).scalars().all()
     for invite in to_delete:
         db.delete(invite)
     db.commit()
@@ -278,12 +280,12 @@ def get_post_reports(
     _admin: schemas.internal.InternalUser = Depends(get_admin_or_raise)
 ):
     """Get all post reports."""
-    total = db.query(models.PostReport).count()
-    reports = db.query(models.PostReport) \
+    total = db.execute(select(func.count()).select_from(models.PostReport)).scalar()
+    query = select(models.PostReport) \
         .order_by(models.PostReport.id.desc()) \
         .offset(page.offset) \
-        .limit(page.limit) \
-        .all()
+        .limit(page.limit)
+    reports = db.execute(query).scalars().all()
     return schemas.admin.Page(total=total, data=reports)
 
 
@@ -294,10 +296,10 @@ def get_feedback(
     _admin: schemas.internal.InternalUser = Depends(get_admin_or_raise)
 ):
     """Get all submitted feedback."""
-    total = db.query(models.Feedback).count()
-    feedback = db.query(models.Feedback) \
+    total = db.execute(select(func.count()).select_from(models.Feedback)).scalar()
+    query = select(models.Feedback) \
         .order_by(models.Feedback.id.desc()) \
         .offset(page.offset) \
-        .limit(page.limit) \
-        .all()
+        .limit(page.limit)
+    feedback = db.execute(query).scalars().all()
     return schemas.admin.Page(total=total, data=feedback)

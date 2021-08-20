@@ -3,6 +3,7 @@ from contextlib import contextmanager
 
 import pytest
 from fastapi import FastAPI
+from sqlalchemy import delete, select
 from starlette.testclient import TestClient
 
 from app import schemas
@@ -65,10 +66,10 @@ def setup_function():
 
 def teardown_function():
     with get_session() as session:
-        session.query(models.User).delete()
-        session.query(models.Waitlist).delete()
-        session.query(models.Invite).delete()
-        session.query(models.Place).delete()
+        session.execute(delete(models.User))
+        session.execute(delete(models.Waitlist))
+        session.execute(delete(models.Invite))
+        session.execute(delete(models.Place))
         session.commit()
 
 
@@ -115,7 +116,7 @@ def test_create_comment_deleted_post(app: FastAPI):
     create_comment_request = schemas.comment.CreateCommentRequest(post_id=USER_A_POST_ID, content=comment_content)
     # User A deleted their post
     with get_session() as session:
-        post = session.query(models.Post).filter_by(id=USER_A_POST_ID).first()
+        post = session.execute(select(models.Post).where(models.Post.id == USER_A_POST_ID)).scalars().first()
         post.deleted = True
         session.commit()
 
@@ -163,7 +164,7 @@ def test_get_comments_deleted_post(app: FastAPI):
     client = TestClient(app)
     # User A deleted their post
     with get_session() as session:
-        post = session.query(models.Post).filter_by(id=USER_A_POST_ID).first()
+        post = session.execute(select(models.Post).where(models.Post.id == USER_A_POST_ID)).scalars().first()
         post.deleted = True
         session.commit()
 
@@ -229,7 +230,7 @@ def test_delete_comment_deleted_post(app: FastAPI):
             "/comments", data=schemas.comment.CreateCommentRequest(post_id=USER_A_POST_ID, content="1").json()).json()
     # User A deleted their post
     with get_session() as session:
-        post = session.query(models.Post).filter_by(id=USER_A_POST_ID).first()
+        post = session.execute(select(models.Post).where(models.Post.id == USER_A_POST_ID)).scalars().first()
         post.deleted = True
         session.commit()
     with request_as(app, uid="b"):
@@ -333,7 +334,7 @@ def test_like_unlike_comment_deleted_post(app: FastAPI):
             "/comments", data=schemas.comment.CreateCommentRequest(post_id=USER_A_POST_ID, content="1").json()).json()
     # User A deleted their post
     with get_session() as session:
-        post = session.query(models.Post).filter_by(id=USER_A_POST_ID).first()
+        post = session.execute(select(models.Post).where(models.Post.id == USER_A_POST_ID)).scalars().first()
         post.deleted = True
         session.commit()
     with request_as(app, uid="b"):

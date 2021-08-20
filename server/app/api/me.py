@@ -7,7 +7,7 @@ from app.stores.user_store import UserStore
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
-from sqlalchemy import false, true, union_all, select
+from sqlalchemy import union_all, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import aliased, Session
 
@@ -140,14 +140,14 @@ def get_suggested_users(
     """Get the list of suggested jimo accounts."""
     user: schemas.internal.InternalUser = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
     RelationToCurrent = aliased(models.UserRelation)  # noqa
-    return db.query(models.User) \
+    query = select(models.User) \
         .join(RelationToCurrent,
               (RelationToCurrent.to_user_id == user.id) & (RelationToCurrent.from_user_id == models.User.id),
               isouter=True) \
-        .filter(models.User.is_featured == true(),
-                models.User.deleted == false(),
-                RelationToCurrent.relation.is_distinct_from(models.UserRelationType.blocked)) \
-        .all()
+        .where(models.User.is_featured,
+               ~models.User.deleted,
+               RelationToCurrent.relation.is_distinct_from(models.UserRelationType.blocked))
+    return db.execute(query).scalars().all()
 
 
 @router.post("/contacts", response_model=list[schemas.user.PublicUser])
@@ -182,13 +182,12 @@ def follow_many(
     followed_or_blocked_subquery = union_all(
         select(models.UserRelation.to_user_id).where(models.UserRelation.from_user_id == user.id),
         select(models.UserRelation.from_user_id).where((models.UserRelation.to_user_id == user.id) & (
-                models.UserRelation.relation == models.UserRelationType.blocked))
+            models.UserRelation.relation == models.UserRelationType.blocked))
     )
-    users_to_follow: list[models.User] = db \
-        .query(models.User) \
-        .filter(models.User.username_lower.in_(username_list), models.User.deleted == false()) \
-        .filter(models.User.id.notin_(followed_or_blocked_subquery)) \
-        .all()
+    users_to_follow_query = select(models.User) \
+        .where(models.User.username_lower.in_(username_list), ~models.User.deleted) \
+        .where(models.User.id.notin_(followed_or_blocked_subquery))
+    users_to_follow: list[models.User] = db.execute(users_to_follow_query).scalars().all()
     for to_follow in users_to_follow:
         db.add(models.UserRelation(
             from_user_id=user.id,

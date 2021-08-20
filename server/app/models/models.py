@@ -305,7 +305,7 @@ relation_alias = aliased(UserRelation)
 post_like_alias = aliased(PostLike)
 
 User.post_count = column_property(
-    select([func.count()]).where(and_(post_alias.user_id == User.id, post_alias.deleted == false())).scalar_subquery(),
+    select([func.count()]).where(and_(post_alias.user_id == User.id, ~post_alias.deleted)).scalar_subquery(),
     deferred=True)
 
 User.follower_count = column_property(
@@ -324,7 +324,7 @@ Post.like_count = column_property(
     deferred=True)
 
 Post.comment_count = column_property(select([func.count()]).select_from(Comment).where(
-    and_(Post.id == Comment.post_id, Comment.deleted == false())).scalar_subquery(), deferred=True)
+    and_(Post.id == Comment.post_id, ~Comment.deleted)).scalar_subquery(), deferred=True)
 
 # Comments
 Comment.like_count = column_property(

@@ -2,6 +2,7 @@ import uuid
 from typing import Callable, Optional
 
 from fastapi import Depends
+from sqlalchemy import select, exists, delete
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -18,12 +19,11 @@ class RelationStore:
 
     def is_blocked(self, blocked_by_user_id: uuid.UUID, blocked_user_id: uuid.UUID) -> bool:
         """Return whether `blocked_by_user_id` has blocked `blocked_user_id`."""
-        query = self.db.query(models.UserRelation) \
-            .filter(models.UserRelation.from_user_id == blocked_by_user_id,
-                    models.UserRelation.to_user_id == blocked_user_id,
-                    models.UserRelation.relation == models.UserRelationType.blocked) \
-            .exists()
-        return self.db.query(query).scalar()
+        query = select(models.UserRelation) \
+            .where(models.UserRelation.from_user_id == blocked_by_user_id,
+                   models.UserRelation.to_user_id == blocked_user_id,
+                   models.UserRelation.relation == models.UserRelationType.blocked)
+        return self.db.execute(exists(query).select()).scalar()
 
     # Operations
 
@@ -35,10 +35,10 @@ class RelationStore:
         before_commit: Callable = None
     ) -> Optional[models.UserRelationType]:
         """Try to add the relation, returning the existing relation if one already existed."""
-        existing_relation: Optional[models.UserRelation] = self.db.query(models.UserRelation) \
-            .filter(models.UserRelation.from_user_id == from_user_id,
-                    models.UserRelation.to_user_id == to_user_id) \
-            .first()
+        existing_relation_query = select(models.UserRelation) \
+            .where(models.UserRelation.from_user_id == from_user_id,
+                   models.UserRelation.to_user_id == to_user_id)
+        existing_relation: Optional[models.UserRelation] = self.db.execute(existing_relation_query).scalars().first()
         if existing_relation:
             return existing_relation.relation
         # else:
@@ -61,13 +61,14 @@ class RelationStore:
         relation: models.UserRelationType
     ) -> bool:
         """Try to remove the relation, returning true if the relation was deleted and false if it didn't exist."""
-        existing_relation = self.db.query(models.UserRelation) \
-            .filter(models.UserRelation.from_user_id == from_user_id,
-                    models.UserRelation.to_user_id == to_user_id,
-                    models.UserRelation.relation == relation) \
-            .delete()
+        existing_relation_query = delete(models.UserRelation) \
+            .where(models.UserRelation.from_user_id == from_user_id,
+                   models.UserRelation.to_user_id == to_user_id,
+                   models.UserRelation.relation == relation)
+        result = self.db.execute(existing_relation_query)
         self.db.commit()
-        return existing_relation > 0
+        existing_relation = result.rowcount > 0
+        return existing_relation
 
     def follow_user(self, from_user_id: uuid.UUID, to_user_id: uuid.UUID):
         existing = self._try_add_relation(from_user_id, to_user_id, models.UserRelationType.following)
@@ -93,11 +94,11 @@ class RelationStore:
         #  and they will be unable to unblock each other.
         # TODO: race condition 2: If B follows A after this transaction starts the follow will go through.
         def before_commit():
-            self.db.query(models.UserRelation) \
-                .filter(models.UserRelation.from_user_id == to_user_id,
-                        models.UserRelation.to_user_id == from_user_id,
-                        models.UserRelation.relation == models.UserRelationType.following) \
-                .delete()
+            query = delete(models.UserRelation) \
+                .where(models.UserRelation.from_user_id == to_user_id,
+                       models.UserRelation.to_user_id == from_user_id,
+                       models.UserRelation.relation == models.UserRelationType.following)
+            self.db.execute(query)
 
         existing = self._try_add_relation(from_user_id, to_user_id, models.UserRelationType.blocked,
                                           before_commit=before_commit)
@@ -120,11 +121,11 @@ class RelationStore:
         from_user_id: uuid.UUID,
         to_user_ids: list[uuid.UUID]
     ) -> dict[uuid.UUID, schemas.user.UserRelation]:
-        rows = self.db.query(models.UserRelation.to_user_id, models.UserRelation.relation) \
-            .filter(models.UserRelation.from_user_id == from_user_id,
-                    models.UserRelation.to_user_id.in_(to_user_ids)) \
-            .all()
+        query = select(models.UserRelation.to_user_id, models.UserRelation.relation) \
+            .where(models.UserRelation.from_user_id == from_user_id,
+                   models.UserRelation.to_user_id.in_(to_user_ids))
+        rows = self.db.execute(query).all()
         result = {}
-        for row in rows:
-            result[row[0]] = schemas.user.UserRelation[row[1].value]
+        for to_user_id, relation in rows:
+            result[to_user_id] = schemas.user.UserRelation[relation.value]
         return result

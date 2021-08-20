@@ -8,7 +8,7 @@ from app.controllers import images, utils
 from app.db.database import get_db
 from app.models import models
 from fastapi import Depends
-from sqlalchemy import select
+from sqlalchemy import select, exists
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, aliased
 
@@ -21,32 +21,30 @@ class UserStore:
 
     def is_username_taken(self, username: str) -> bool:
         """Return whether or not a user (deleted or not) with the given username exists."""
-        query = self.db.query(models.User).filter(models.User.username_lower == username.lower()).exists()
-        return self.db.query(query).scalar()
+        query = select(models.User).where(models.User.username_lower == username.lower())
+        return self.db.execute(exists(query).select()).scalar()
 
     def is_uid_taken(self, uid: str) -> bool:
         """Return whether or not a user (deleted or not) with the given uid exists."""
-        query = self.db.query(models.User).filter(models.User.uid == uid).exists()
-        return self.db.query(query).scalar()
+        query = select(models.User).where(models.User.uid == uid)
+        return self.db.execute(exists(query).select()).scalar()
 
     # Queries
 
     def get_user_by_uid(self, uid: str) -> Optional[schemas.internal.InternalUser]:
         """Return the user with the given uid or None if no such user exists or the user is deleted."""
-        user = self.db.query(models.User) \
-            .options(utils.eager_load_user_options()) \
-            .filter(models.User.uid == uid,
-                    ~models.User.deleted) \
-            .first()
+        query = select(models.User) \
+            .options(*utils.eager_load_user_options()) \
+            .where(models.User.uid == uid, ~models.User.deleted)
+        user = self.db.execute(query).scalars().first()
         return schemas.internal.InternalUser.from_orm(user) if user else None
 
     def get_user_by_username(self, username: str) -> Optional[schemas.internal.InternalUser]:
         """Return the user with the given username or None if no such user exists or the user is deleted."""
-        user = self.db.query(models.User) \
-            .options(utils.eager_load_user_options()) \
-            .filter(models.User.username_lower == username.lower(),
-                    ~models.User.deleted) \
-            .first()
+        query = select(models.User) \
+            .options(*utils.eager_load_user_options()) \
+            .where(models.User.username_lower == username.lower(), ~models.User.deleted)
+        user = self.db.execute(query).scalars().first()
         return schemas.internal.InternalUser.from_orm(user) if user else None
 
     def get_users_by_phone_number(
@@ -59,15 +57,15 @@ class UserStore:
         blocked_subquery = select(models.UserRelation.from_user_id).select_from(models.UserRelation).where(
             models.UserRelation.to_user_id == user_id,
             models.UserRelation.relation == models.UserRelationType.blocked)
-        users = self.db.query(models.User) \
+        query = select(models.User) \
             .options(*utils.eager_load_user_options()) \
             .join(models.UserPrefs) \
-            .filter(models.User.phone_number.in_(phone_numbers),
-                    models.UserPrefs.searchable_by_phone_number,
-                    models.User.id.notin_(blocked_subquery),
-                    ~models.User.deleted) \
-            .limit(limit) \
-            .all()
+            .where(models.User.phone_number.in_(phone_numbers),
+                   models.UserPrefs.searchable_by_phone_number,
+                   models.User.id.notin_(blocked_subquery),
+                   ~models.User.deleted) \
+            .limit(limit)
+        users = self.db.execute(query).scalars().all()
         return [schemas.user.PublicUser.from_orm(user) for user in users]
 
     def search_users(self, caller_user_id: uuid.UUID, query: str) -> list[schemas.user.PublicUser]:
@@ -75,22 +73,23 @@ class UserStore:
         # TODO this is inefficient, we should move to a real search engine
         relation_to_user = aliased(models.UserRelation)
         query = query.replace("\\", "\\\\").replace("_", "\\_").replace("%", "\\%")
-        db_query = self.db.query(models.User) \
+        db_query = select(models.User) \
             .join(relation_to_user,
                   (relation_to_user.from_user_id == models.User.id) & (relation_to_user.to_user_id == caller_user_id),
                   isouter=True) \
-            .filter(relation_to_user.relation.is_distinct_from(models.UserRelationType.blocked),
-                    ~models.User.deleted,
-                    ~models.User.is_admin) \
-            .filter(models.User.username.ilike(f"{query}%")
-                    | concat(models.User.first_name, " ", models.User.last_name).ilike(f"{query}%"))
+            .where(relation_to_user.relation.is_distinct_from(models.UserRelationType.blocked),
+                   ~models.User.deleted,
+                   ~models.User.is_admin) \
+            .where(models.User.username.ilike(f"{query}%")
+                   | concat(models.User.first_name, " ", models.User.last_name).ilike(f"{query}%"))
         if len(query) == 0:
             db_query = db_query.order_by(models.User.follower_count.desc())
-        users = db_query.limit(50).all()
+        users = self.db.execute(db_query.limit(50)).scalars().all()
         return [schemas.user.PublicUser.from_orm(user) for user in users]
 
     def get_user_preferences(self, user_id: uuid.UUID) -> schemas.user.UserPrefs:
-        prefs = self.db.query(models.UserPrefs).filter(models.UserPrefs.user_id == user_id).first()
+        query = select(models.UserPrefs).where(models.UserPrefs.user_id == user_id)
+        prefs = self.db.execute(query).scalars().first()
         return (schemas.user.UserPrefs.from_orm(prefs) if prefs else
                 schemas.user.UserPrefs(follow_notifications=False, comment_notifications=False,
                                        post_liked_notifications=False, comment_liked_notifications=False,
@@ -140,7 +139,8 @@ class UserStore:
         profile_picture_id: Optional[uuid.UUID] = None
     ) -> Tuple[Optional[schemas.internal.InternalUser], Optional[schemas.user.UserFieldErrors]]:
         """Update the given user with the given details."""
-        user = self.db.query(models.User).filter(models.User.id == user_id, ~models.User.deleted).first()
+        user_query = select(models.User).where(models.User.id == user_id, ~models.User.deleted)
+        user = self.db.execute(user_query).scalars().first()
         if user is None:
             return None, schemas.user.UserFieldErrors(uid="User not found")
         if profile_picture_id:
@@ -170,7 +170,8 @@ class UserStore:
 
     def update_preferences(self, user_id: uuid.UUID, request: schemas.user.UserPrefs) -> schemas.user.UserPrefs:
         """Update the given user's preferences."""
-        prefs: models.UserPrefs = self.db.query(models.UserPrefs).filter(models.UserPrefs.user_id == user_id).first()
+        query = select(models.UserPrefs).where(models.UserPrefs.user_id == user_id)
+        prefs: Optional[models.UserPrefs] = self.db.execute(query).scalars().first()
         if prefs is None:
             return request
         prefs.follow_notifications = request.follow_notifications
@@ -190,15 +191,15 @@ class UserStore:
         cursor: Optional[uuid.UUID] = None,
         limit: int = 50
     ) -> Tuple[list[schemas.user.PublicUser], Optional[uuid.UUID]]:
-        query = self.db.query(models.User, models.UserRelation.id) \
+        query = select(models.User, models.UserRelation.id) \
             .options(*utils.eager_load_user_options()) \
-            .filter(models.UserRelation.from_user_id == models.User.id,
-                    models.UserRelation.to_user_id == user_id,
-                    models.UserRelation.relation == models.UserRelationType.following,
-                    ~models.User.deleted)
+            .where(models.UserRelation.from_user_id == models.User.id,
+                   models.UserRelation.to_user_id == user_id,
+                   models.UserRelation.relation == models.UserRelationType.following,
+                   ~models.User.deleted)
         if cursor is not None:
-            query = query.filter(models.UserRelation.id < cursor)
-        rows = query.order_by(models.UserRelation.id.desc()).limit(limit).all()
+            query = query.where(models.UserRelation.id < cursor)
+        rows = self.db.execute(query.order_by(models.UserRelation.id.desc()).limit(limit)).all()
         users = [schemas.user.PublicUser.from_orm(user.User) for user in rows]
         next_cursor: Optional[uuid.UUID] = rows[-1].id if len(rows) >= limit else None
         return users, next_cursor
@@ -209,15 +210,15 @@ class UserStore:
         cursor: Optional[uuid.UUID] = None,
         limit: int = 50
     ) -> Tuple[list[schemas.user.PublicUser], Optional[uuid.UUID]]:
-        query = self.db.query(models.User, models.UserRelation.id) \
+        query = select(models.User, models.UserRelation.id) \
             .options(*utils.eager_load_user_options()) \
-            .filter(models.UserRelation.to_user_id == models.User.id,
-                    models.UserRelation.from_user_id == user_id,
-                    models.UserRelation.relation == models.UserRelationType.following,
-                    ~models.User.deleted)
+            .where(models.UserRelation.to_user_id == models.User.id,
+                   models.UserRelation.from_user_id == user_id,
+                   models.UserRelation.relation == models.UserRelationType.following,
+                   ~models.User.deleted)
         if cursor is not None:
             query = query.filter(models.UserRelation.id < cursor)
-        rows = query.order_by(models.UserRelation.id.desc()).limit(limit).all()
+        rows = self.db.execute(query.order_by(models.UserRelation.id.desc()).limit(limit)).all()
         users = [schemas.user.PublicUser.from_orm(user.User) for user in rows]
         next_cursor: Optional[uuid.UUID] = rows[-1].id if len(rows) >= limit else None
         return users, next_cursor

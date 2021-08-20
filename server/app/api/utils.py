@@ -7,11 +7,10 @@ from app.stores.post_store import PostStore
 from app.stores.relation_store import RelationStore
 from app.stores.user_store import UserStore
 from fastapi import HTTPException, UploadFile
-from sqlalchemy import false
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.controllers.firebase import FirebaseUser, FirebaseAdminProtocol
+from app.controllers.firebase import FirebaseAdminProtocol
 from app.models import models
 
 
@@ -26,14 +25,6 @@ def validate_user(
     ):
         raise HTTPException(404, detail="User not found")
     return user
-
-
-def validate_firebase_user(firebase_user: FirebaseUser, db: Session):
-    is_valid_user = db.query(models.User.id) \
-                        .filter(models.User.uid == firebase_user.uid, models.User.deleted == false()) \
-                        .count() > 0
-    if not is_valid_user:
-        raise HTTPException(403, detail="Not authorized")
 
 
 def get_user_from_uid_or_raise(user_store: UserStore, uid: str) -> schemas.internal.InternalUser:

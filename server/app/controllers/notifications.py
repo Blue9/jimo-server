@@ -1,7 +1,7 @@
 import uuid
 
 from firebase_admin.exceptions import FirebaseError, InvalidArgumentError
-from sqlalchemy import and_
+from sqlalchemy import select, exists, delete
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -12,8 +12,8 @@ from app.models import models
 
 
 def register_fcm_token(db: Session, user_id: uuid.UUID, token: str):
-    existing = db.query(models.FCMToken).filter(
-        and_(models.FCMToken.user_id == user_id, models.FCMToken.token == token)).count() > 0
+    query = select(models.FCMToken).where(models.FCMToken.user_id == user_id, models.FCMToken.token == token)
+    existing = db.execute(exists(query).select()).scalar()
     if existing:
         return
     fcm_token = models.FCMToken(user_id=user_id, token=token)
@@ -25,7 +25,8 @@ def register_fcm_token(db: Session, user_id: uuid.UUID, token: str):
 
 
 def remove_fcm_token(db: Session, user_id: uuid.UUID, token: str):
-    db.query(models.FCMToken).filter(and_(models.FCMToken.token == token, models.FCMToken.user_id == user_id)).delete()
+    query = delete(models.FCMToken).where(models.FCMToken.token == token, models.FCMToken.user_id == user_id)
+    db.execute(query)
     db.commit()
 
 
@@ -67,11 +68,11 @@ def notify_follow(db: Session, user_id: uuid.UUID, followed_by: schemas.internal
 
 
 def _send_notification(db: Session, user_id: uuid.UUID, body: str):
-    fcm_tokens = db.query(models.FCMToken) \
-        .filter(models.FCMToken.user_id == user_id) \
+    query = select(models.FCMToken) \
+        .where(models.FCMToken.user_id == user_id) \
         .order_by(models.FCMToken.id.desc()) \
-        .limit(1) \
-        .all()
+        .limit(1)
+    fcm_tokens = db.execute(query).scalars().all()
     # Only notify the latest device (temporary performance improvement, remove when moving to background service)
     for fcm_token in fcm_tokens:
         message = messaging.Message(

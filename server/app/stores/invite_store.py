@@ -1,5 +1,7 @@
 import uuid
 
+from sqlalchemy import exists, select, func
+
 from app import config, schemas
 from app.db.database import get_db
 from app.models import models
@@ -17,18 +19,20 @@ class InviteStore:
 
     def is_invited(self, phone_number: str) -> bool:
         """Return whether the phone number has been invited."""
-        query = self.db.query(models.Invite).filter(models.Invite.phone_number == phone_number).exists()
-        return self.db.query(query).scalar()
+        query = select(models.Invite.id).where(models.Invite.phone_number == phone_number)
+        invited = self.db.execute(exists(query).select()).scalar()
+        return invited
 
     def is_on_waitlist(self, phone_number: str) -> bool:
         """Return whether the phone number is on the waitlist."""
-        query = self.db.query(models.Waitlist).filter(models.Waitlist.phone_number == phone_number).exists()
-        return self.db.query(query).scalar()
+        query = select(models.Waitlist.id).where(models.Waitlist.phone_number == phone_number)
+        return self.db.execute(exists(query).select()).scalar()
 
     # Queries
 
     def num_used_invites(self, user_id: uuid.UUID) -> int:
-        return self.db.query(models.Invite).filter(models.Invite.invited_by == user_id).count()
+        query = select(func.count()).select_from(models.Invite).where(models.Invite.invited_by == user_id)
+        return self.db.execute(query).scalar()
 
     # Operations
 

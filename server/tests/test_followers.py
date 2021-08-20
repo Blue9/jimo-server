@@ -3,6 +3,7 @@ from contextlib import contextmanager
 
 import pytest
 from fastapi import FastAPI
+from sqlalchemy import delete
 from starlette.testclient import TestClient
 
 from app import schemas
@@ -46,10 +47,10 @@ def setup_function():
 
 def teardown_function():
     with get_session() as session:
-        session.query(models.User).delete()
-        session.query(models.Waitlist).delete()
-        session.query(models.Invite).delete()
-        session.query(models.Place).delete()
+        session.execute(delete(models.User))
+        session.execute(delete(models.Waitlist))
+        session.execute(delete(models.Invite))
+        session.execute(delete(models.Place))
         session.commit()
 
 

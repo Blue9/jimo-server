@@ -5,6 +5,7 @@ from unittest import mock
 import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 
 from app import api
 from app.api.admin import get_admin_or_raise
@@ -25,7 +26,7 @@ INITIAL_POST_ID = uuid.uuid4()
 @contextmanager
 def request_as_admin(uid: str = "admin_uid"):
     with get_session() as session:
-        user = session.query(models.User).filter(models.User.uid == uid).first()
+        user = session.execute(select(models.User).where(models.User.uid == uid)).scalars().first()
     mock_get_admin = mock.Mock(return_value=user)
     main_app.dependency_overrides[get_firebase_user] = lambda: FirebaseUser(shared_firebase=MockFirebaseAdmin(),
                                                                             uid=uid)

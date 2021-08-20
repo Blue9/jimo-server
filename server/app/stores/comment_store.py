@@ -2,6 +2,7 @@ import uuid
 from typing import Optional
 
 from fastapi import Depends
+from sqlalchemy import select, func, delete
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -17,7 +18,8 @@ class CommentStore:
 
     def get_like_count(self, comment_id: uuid.UUID) -> int:
         """Get the given comment's like count."""
-        return self.db.query(models.CommentLike).filter(models.CommentLike.comment_id == comment_id).count()
+        query = select(func.count()).select_from(models.CommentLike).where(models.CommentLike.comment_id == comment_id)
+        return self.db.execute(query).scalar()
 
     def get_comments(
         self,
@@ -27,12 +29,12 @@ class CommentStore:
         limit: int = 10
     ) -> schemas.comment.CommentPage:
         """Get up to the `limit` most recent comments made before `cursor`."""
-        query = self.db.query(models.Comment, utils.is_comment_liked_query(caller_user_id)) \
-            .options(utils.eager_load_comment_options()) \
-            .filter(models.Comment.post_id == post_id, ~models.Comment.deleted)
+        query = select(models.Comment, utils.is_comment_liked_query(caller_user_id)) \
+            .options(*utils.eager_load_comment_options()) \
+            .where(models.Comment.post_id == post_id, ~models.Comment.deleted)
         if cursor is not None:
-            query = query.filter(models.Comment.id < cursor)
-        rows = query.order_by(models.Comment.id.desc()).limit(limit).all()
+            query = query.where(models.Comment.id < cursor)
+        rows = self.db.execute(query.order_by(models.Comment.id.desc()).limit(limit)).all()
         comments = []
         for comment, liked in rows:
             orm_comment = schemas.comment.ORMComment.from_orm(comment)
@@ -41,9 +43,9 @@ class CommentStore:
         return schemas.comment.CommentPage(comments=comments, cursor=next_cursor)
 
     def get_comment(self, comment_id: uuid.UUID) -> Optional[schemas.internal.InternalComment]:
-        comment = self.db.query(models.Comment) \
-            .filter(models.Comment.id == comment_id, ~models.Comment.deleted) \
-            .first()
+        query = select(models.Comment) \
+            .where(models.Comment.id == comment_id, ~models.Comment.deleted)
+        comment = self.db.execute(query).scalars().first()
         if comment:
             return schemas.internal.InternalComment.from_orm(comment)
         return None
@@ -64,14 +66,14 @@ class CommentStore:
             pass
 
     def unlike_comment(self, comment_id: uuid.UUID, user_id: uuid.UUID):
-        self.db.query(models.CommentLike).filter(
-            models.CommentLike.user_id == user_id, models.CommentLike.comment_id == comment_id).delete()
+        query = delete(models.CommentLike).where(
+            models.CommentLike.user_id == user_id, models.CommentLike.comment_id == comment_id)
+        self.db.execute(query)
         self.db.commit()
 
     def delete_comment(self, comment_id: uuid.UUID):
-        comment = self.db.query(models.Comment) \
-            .filter(models.Comment.id == comment_id) \
-            .first()
+        query = select(models.Comment).where(models.Comment.id == comment_id)
+        comment = self.db.execute(query).scalars().first()
         if comment:
             comment.deleted = True
             self.db.commit()
