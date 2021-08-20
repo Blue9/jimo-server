@@ -37,7 +37,7 @@ class PlaceStore:
             .join(models.Place, models.Post.place_id == models.Place.id) \
             .join(models.User, models.Post.user_id == models.User.id) \
             .join(models.ImageUpload, models.User.profile_picture_id == models.ImageUpload.id, isouter=True) \
-            .order_by(models.Place.id, models.Post.created_at.desc()) \
+            .order_by(models.Place.id.desc(), models.Post.id.desc()) \
             .distinct(models.Place.id) \
             .limit(limit) \
             .all()
