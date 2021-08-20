@@ -1,7 +1,6 @@
 from contextlib import contextmanager
 
 from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 from starlette.requests import Request
 
@@ -33,6 +32,3 @@ def get_session():
         yield db
     finally:
         db.close()
-
-
-Base = declarative_base()

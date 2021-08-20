@@ -2,18 +2,16 @@ import uuid
 
 from sqlalchemy import exists, select, func
 
-from app import config, schemas
-from app.db.database import get_db
-from app.models import models
-from fastapi import Depends
+import schemas
+from models import models
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 
 class InviteStore:
-    def __init__(self, db: Session = Depends(get_db)):
+    def __init__(self, invites_per_user: int, db: Session):
         self.db = db
-        self.invites_per_user = config.INVITES_PER_USER
+        self.invites_per_user = invites_per_user
 
     # Scalar queries
 

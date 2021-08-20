@@ -1,19 +1,20 @@
 import uuid
 from typing import Optional
 
-from app.stores.place_store import PlaceStore
-from app.stores.post_store import PostStore
-from app.stores.relation_store import RelationStore
-from app.stores.user_store import UserStore
+from app.api.utils import get_user_store, get_post_store, get_place_store, get_relation_store, get_comment_store
+from stores.place_store import PlaceStore
+from stores.post_store import PostStore
+from stores.relation_store import RelationStore
+from stores.user_store import UserStore
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
 
-from app import schemas
+import schemas
 from app.api import utils
 from app.controllers import notifications
 from app.controllers.firebase import FirebaseUser, get_firebase_user
 from app.db.database import get_db
-from app.stores.comment_store import CommentStore
+from stores.comment_store import CommentStore
 
 router = APIRouter()
 
@@ -22,9 +23,9 @@ router = APIRouter()
 def create_post(
     request: schemas.post.CreatePostRequest,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
-    user_store: UserStore = Depends(UserStore),
-    place_store: PlaceStore = Depends(PlaceStore),
-    post_store: PostStore = Depends(PostStore)
+    user_store: UserStore = Depends(get_user_store),
+    place_store: PlaceStore = Depends(get_place_store),
+    post_store: PostStore = Depends(get_post_store)
 ):
     """Create a new post."""
     user: schemas.internal.InternalUser = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
@@ -44,8 +45,8 @@ def create_post(
 def delete_post(
     post_id: uuid.UUID,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
-    user_store: UserStore = Depends(UserStore),
-    post_store: PostStore = Depends(PostStore)
+    user_store: UserStore = Depends(get_user_store),
+    post_store: PostStore = Depends(get_post_store)
 ):
     """Delete the given post."""
     user: schemas.internal.InternalUser = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
@@ -63,9 +64,9 @@ def like_post(
     post_id: uuid.UUID,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
     db: Session = Depends(get_db),
-    user_store: UserStore = Depends(UserStore),
-    post_store: PostStore = Depends(PostStore),
-    relation_store: RelationStore = Depends(RelationStore)
+    user_store: UserStore = Depends(get_user_store),
+    post_store: PostStore = Depends(get_post_store),
+    relation_store: RelationStore = Depends(get_relation_store)
 ):
     """Like the given post if the user has not already liked the post."""
     user: schemas.internal.InternalUser = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
@@ -81,9 +82,9 @@ def like_post(
 def unlike_post(
     post_id: uuid.UUID,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
-    user_store: UserStore = Depends(UserStore),
-    post_store: PostStore = Depends(PostStore),
-    relation_store: RelationStore = Depends(RelationStore)
+    user_store: UserStore = Depends(get_user_store),
+    post_store: PostStore = Depends(get_post_store),
+    relation_store: RelationStore = Depends(get_relation_store)
 ):
     """Unlike the given post if the user has already liked the post."""
     user: schemas.internal.InternalUser = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
@@ -97,9 +98,9 @@ def report_post(
     post_id: uuid.UUID,
     request: schemas.post.ReportPostRequest,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
-    user_store: UserStore = Depends(UserStore),
-    post_store: PostStore = Depends(PostStore),
-    relation_store: RelationStore = Depends(RelationStore)
+    user_store: UserStore = Depends(get_user_store),
+    post_store: PostStore = Depends(get_post_store),
+    relation_store: RelationStore = Depends(get_relation_store)
 ):
     """Report the given post."""
     reported_by: schemas.internal.InternalUser = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
@@ -114,10 +115,10 @@ def get_comments(
     post_id: uuid.UUID,
     cursor: Optional[uuid.UUID] = None,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
-    post_store: PostStore = Depends(PostStore),
-    user_store: UserStore = Depends(UserStore),
-    comment_store: CommentStore = Depends(CommentStore),
-    relation_store: RelationStore = Depends(RelationStore)
+    post_store: PostStore = Depends(get_post_store),
+    user_store: UserStore = Depends(get_user_store),
+    comment_store: CommentStore = Depends(get_comment_store),
+    relation_store: RelationStore = Depends(get_relation_store)
 ):
     user = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
     post = utils.get_post_and_validate_or_raise(post_store, relation_store, caller_user_id=user.id, post_id=post_id)

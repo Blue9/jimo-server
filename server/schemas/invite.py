@@ -1,6 +1,6 @@
 from typing import Optional
 
-from app.schemas.base import Base, PhoneNumber
+from schemas.base import Base, PhoneNumber
 
 
 # Request types

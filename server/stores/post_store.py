@@ -1,19 +1,17 @@
 import uuid
 from typing import Optional
 
-from fastapi import Depends
 from sqlalchemy import select, exists, update, func, delete
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app import schemas
-from app.controllers import utils, categories, images
-from app.db.database import get_db
-from app.models import models
+import schemas
+from stores import utils
+from models import models
 
 
 class PostStore:
-    def __init__(self, db: Session = Depends(get_db)):
+    def __init__(self, db: Session):
         self.db = db
 
     # Scalar queries
@@ -99,10 +97,10 @@ class PostStore:
         request: schemas.post.CreatePostRequest
     ) -> schemas.post.ORMPost:
         """Try to create a post with the given details, raising a ValueError if the request is invalid."""
-        category = categories.get_category_or_raise(self.db, request.category)
+        category = self._get_category_or_raise(request.category)
         if self.already_posted(user_id, place_id):
             raise ValueError("You already posted that place.")
-        image = images.get_image_with_lock_else_throw(
+        image = utils.get_image_with_lock_else_throw(
             self.db, user_id, request.image_id) if request.image_id is not None else None
         custom_latitude = request.custom_location.latitude if request.custom_location else None
         custom_longitude = request.custom_location.longitude if request.custom_location else None
@@ -156,3 +154,11 @@ class PostStore:
         except IntegrityError:
             self.db.rollback()
             return False
+
+    def _get_category_or_raise(self, category_name: str) -> str:
+        """Get the category object for the given category name."""
+        query = select(models.Category).where(models.Category.name == category_name)
+        category = self.db.execute(exists(query).select()).scalar()
+        if not category:
+            raise ValueError("Invalid category")
+        return category_name

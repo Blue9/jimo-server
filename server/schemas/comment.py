@@ -4,8 +4,8 @@ from typing import Optional
 
 from pydantic import Field, validator
 
-from app.schemas.base import Base
-from app.schemas.user import PublicUser
+from schemas.base import Base
+from schemas.user import PublicUser
 
 
 class ORMComment(Base):

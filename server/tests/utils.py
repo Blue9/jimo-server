@@ -2,7 +2,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker
 
 from app.controllers import categories
-from app.models import models
+from models import models
 
 
 def reset_db(db_engine: Engine):

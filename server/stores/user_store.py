@@ -3,18 +3,16 @@ from typing import Optional, Tuple
 
 from sqlalchemy.sql.functions import concat
 
-from app import schemas
-from app.controllers import images, utils
-from app.db.database import get_db
-from app.models import models
-from fastapi import Depends
+import schemas
+from stores import utils
+from models import models
 from sqlalchemy import select, exists
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, aliased
 
 
 class UserStore:
-    def __init__(self, db: Session = Depends(get_db)):
+    def __init__(self, db: Session):
         self.db = db
 
     # Scalar queries
@@ -144,7 +142,7 @@ class UserStore:
         if user is None:
             return None, schemas.user.UserFieldErrors(uid="User not found")
         if profile_picture_id:
-            image = images.maybe_get_image_with_lock(self.db, user.id, profile_picture_id)
+            image = utils.maybe_get_image_with_lock(self.db, user.id, profile_picture_id)
             if image is None:
                 self.db.rollback()
                 return None, schemas.user.UserFieldErrors(other="Invalid image")

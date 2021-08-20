@@ -3,7 +3,7 @@ from typing import Optional
 
 from pydantic import Field, validator, root_validator
 
-from app.schemas.base import Base
+from schemas.base import Base
 
 
 # ORM types

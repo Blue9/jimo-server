@@ -1,8 +1,10 @@
-from app.stores.invite_store import InviteStore
-from app.stores.user_store import UserStore
+from app.api.utils import get_user_store, get_invite_store
+from stores.invite_store import InviteStore
+from stores.user_store import UserStore
 from fastapi import APIRouter, Depends, HTTPException
 
-from app import schemas, config
+from app import config
+import schemas
 from app.api import utils
 from app.controllers.firebase import FirebaseUser, get_firebase_user
 
@@ -19,7 +21,7 @@ def get_phone_number(firebase_user: FirebaseUser = Depends(get_firebase_user)) -
 @router.get("/status", response_model=schemas.invite.UserWaitlistStatus)
 def get_waitlist_status(
     phone_number: str = Depends(get_phone_number),
-    invite_store: InviteStore = Depends(InviteStore)
+    invite_store: InviteStore = Depends(get_invite_store)
 ):
     return schemas.invite.UserWaitlistStatus(
         invited=invite_store.is_invited(phone_number),
@@ -30,7 +32,7 @@ def get_waitlist_status(
 @router.post("", response_model=schemas.invite.UserWaitlistStatus)
 def join_waitlist(
     phone_number: str = Depends(get_phone_number),
-    invite_store: InviteStore = Depends(InviteStore)
+    invite_store: InviteStore = Depends(get_invite_store)
 ):
     invite_store.join_waitlist(phone_number)
     return schemas.invite.UserWaitlistStatus(invited=False, waitlisted=True)
@@ -40,8 +42,8 @@ def join_waitlist(
 def invite_user(
     request: schemas.invite.InviteUserRequest,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
-    user_store: UserStore = Depends(UserStore),
-    invite_store: InviteStore = Depends(InviteStore)
+    user_store: UserStore = Depends(get_user_store),
+    invite_store: InviteStore = Depends(get_invite_store)
 ):
     user: schemas.internal.InternalUser = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
     num_used_invites = invite_store.num_used_invites(user.id)

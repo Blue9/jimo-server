@@ -6,11 +6,11 @@ from fastapi import FastAPI
 from sqlalchemy import delete, select
 from starlette.testclient import TestClient
 
-from app import schemas
+import schemas
 from app.controllers.firebase import get_firebase_user, FirebaseUser
 from app.db.database import engine, get_session
 from app.main import app as main_app
-from app.models import models
+from models import models
 from tests.mock_firebase import MockFirebaseAdmin
 from tests.utils import init_db, reset_db
 

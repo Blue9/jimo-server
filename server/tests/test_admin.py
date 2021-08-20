@@ -12,8 +12,8 @@ from app.api.admin import get_admin_or_raise
 from app.controllers.firebase import FirebaseUser, get_firebase_user
 from app.db.database import engine, get_session
 from app.main import app as main_app
-from app.models import models
-from app.stores.user_store import UserStore
+from models import models
+from stores.user_store import UserStore
 from tests.mock_firebase import MockFirebaseAdmin
 from tests.utils import init_db, reset_db
 

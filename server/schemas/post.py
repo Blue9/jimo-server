@@ -4,9 +4,9 @@ from typing import Optional
 
 from pydantic import Field, validator, root_validator
 
-from app.schemas.base import Base
-from app.schemas.place import Place, Location, MaybeCreatePlaceRequest
-from app.schemas.user import PublicUser
+from schemas.base import Base
+from schemas.place import Place, Location, MaybeCreatePlaceRequest
+from schemas.user import PublicUser
 
 
 # ORM types

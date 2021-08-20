@@ -6,7 +6,7 @@ from alembic.config import Config
 
 from app.controllers import categories
 from app.db.database import get_session, engine
-from app.models import models
+from models import models
 
 
 def main():

@@ -3,19 +3,20 @@ from typing import Optional
 
 from sqlalchemy import select
 
-from app.stores.invite_store import InviteStore
-from app.stores.post_store import PostStore
-from app.stores.relation_store import RelationStore
-from app.stores.user_store import UserStore
+from app.api.utils import get_user_store, get_relation_store, get_post_store, get_invite_store
+from stores.invite_store import InviteStore
+from stores.post_store import PostStore
+from stores.relation_store import RelationStore
+from stores.user_store import UserStore
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app import schemas
+import schemas
 from app.api import utils
 from app.controllers import notifications
 from app.controllers.firebase import FirebaseUser, get_firebase_user
 from app.db.database import get_db
-from app.models import models
+from models import models
 
 router = APIRouter()
 
@@ -24,8 +25,8 @@ router = APIRouter()
 def create_user(
     request: schemas.user.CreateUserRequest,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
-    user_store: UserStore = Depends(UserStore),
-    invite_store: InviteStore = Depends(InviteStore)
+    user_store: UserStore = Depends(get_user_store),
+    invite_store: InviteStore = Depends(get_invite_store)
 ):
     """Create a new user."""
     phone_number: Optional[str] = firebase_user.shared_firebase.get_phone_number_from_uid(firebase_user.uid)
@@ -46,8 +47,8 @@ def create_user(
 def get_user(
     username: str,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
-    user_store: UserStore = Depends(UserStore),
-    relation_store: RelationStore = Depends(RelationStore)
+    user_store: UserStore = Depends(get_user_store),
+    relation_store: RelationStore = Depends(get_relation_store)
 ):
     """Get the given user's details."""
     caller_user: schemas.internal.InternalUser = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
@@ -60,9 +61,9 @@ def get_posts(
     username: str,
     cursor: Optional[uuid.UUID] = None,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
-    user_store: UserStore = Depends(UserStore),
-    relation_store: RelationStore = Depends(RelationStore),
-    post_store: PostStore = Depends(PostStore)
+    user_store: UserStore = Depends(get_user_store),
+    relation_store: RelationStore = Depends(get_relation_store),
+    post_store: PostStore = Depends(get_post_store)
 ):
     """Get the posts of the given user."""
     page_size = 50
@@ -81,8 +82,8 @@ def get_relation(
     username: str,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
     db: Session = Depends(get_db),
-    user_store: UserStore = Depends(UserStore),
-    relation_store: RelationStore = Depends(RelationStore)
+    user_store: UserStore = Depends(get_user_store),
+    relation_store: RelationStore = Depends(get_relation_store)
 ):
     """Get the relationship to the given user."""
     from_user: schemas.internal.InternalUser = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
@@ -99,8 +100,8 @@ def get_followers(
     username: str,
     cursor: Optional[uuid.UUID] = None,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
-    user_store: UserStore = Depends(UserStore),
-    relation_store: RelationStore = Depends(RelationStore)
+    user_store: UserStore = Depends(get_user_store),
+    relation_store: RelationStore = Depends(get_relation_store)
 ):
     """Get the followers of the given user."""
     limit = 50
@@ -120,8 +121,8 @@ def get_following(
     username: str,
     cursor: Optional[uuid.UUID] = None,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
-    user_store: UserStore = Depends(UserStore),
-    relation_store: RelationStore = Depends(RelationStore),
+    user_store: UserStore = Depends(get_user_store),
+    relation_store: RelationStore = Depends(get_relation_store),
 ):
     """Get the given user's following."""
     limit = 50
@@ -141,8 +142,8 @@ def follow_user(
     username: str,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
     db: Session = Depends(get_db),
-    user_store: UserStore = Depends(UserStore),
-    relation_store: RelationStore = Depends(RelationStore)
+    user_store: UserStore = Depends(get_user_store),
+    relation_store: RelationStore = Depends(get_relation_store)
 ):
     """Follow the given user."""
     from_user: schemas.internal.InternalUser = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
@@ -164,8 +165,8 @@ def follow_user(
 def unfollow_user(
     username: str,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
-    user_store: UserStore = Depends(UserStore),
-    relation_store: RelationStore = Depends(RelationStore)
+    user_store: UserStore = Depends(get_user_store),
+    relation_store: RelationStore = Depends(get_relation_store)
 ):
     """Unfollow the given user."""
     from_user: schemas.internal.InternalUser = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
@@ -184,8 +185,8 @@ def unfollow_user(
 def block_user(
     username: str,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
-    user_store: UserStore = Depends(UserStore),
-    relation_store: RelationStore = Depends(RelationStore)
+    user_store: UserStore = Depends(get_user_store),
+    relation_store: RelationStore = Depends(get_relation_store)
 ):
     """Block the given user."""
     from_user: schemas.internal.InternalUser = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
@@ -202,8 +203,8 @@ def block_user(
 @router.post("/{username}/unblock", response_model=schemas.base.SimpleResponse)
 def unblock_user(
     username: str, firebase_user: FirebaseUser = Depends(get_firebase_user),
-    user_store: UserStore = Depends(UserStore),
-    relation_store: RelationStore = Depends(RelationStore)
+    user_store: UserStore = Depends(get_user_store),
+    relation_store: RelationStore = Depends(get_relation_store)
 ):
     """Unblock the given user."""
     from_user: schemas.internal.InternalUser = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)

@@ -4,15 +4,16 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
 
-from app import schemas
+import schemas
 from app.api import utils
+from app.api.utils import get_user_store, get_post_store, get_comment_store, get_relation_store
 from app.controllers import notifications
 from app.controllers.firebase import FirebaseUser, get_firebase_user
 from app.db.database import get_db
-from app.stores.comment_store import CommentStore
-from app.stores.post_store import PostStore
-from app.stores.relation_store import RelationStore
-from app.stores.user_store import UserStore
+from stores.comment_store import CommentStore
+from stores.post_store import PostStore
+from stores.relation_store import RelationStore
+from stores.user_store import UserStore
 
 router = APIRouter()
 
@@ -22,10 +23,10 @@ def create_comment(
     request: schemas.comment.CreateCommentRequest,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
     db: Session = Depends(get_db),
-    post_store: PostStore = Depends(PostStore),
-    comment_store: CommentStore = Depends(CommentStore),
-    relation_store: RelationStore = Depends(RelationStore),
-    user_store: UserStore = Depends(UserStore)
+    post_store: PostStore = Depends(get_post_store),
+    comment_store: CommentStore = Depends(get_comment_store),
+    relation_store: RelationStore = Depends(get_relation_store),
+    user_store: UserStore = Depends(get_user_store)
 ):
     user = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
     post = utils.get_post_and_validate_or_raise(
@@ -48,9 +49,9 @@ def create_comment(
 def delete_comment(
     comment_id: uuid.UUID,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
-    post_store: PostStore = Depends(PostStore),
-    comment_store: CommentStore = Depends(CommentStore),
-    user_store: UserStore = Depends(UserStore)
+    post_store: PostStore = Depends(get_post_store),
+    comment_store: CommentStore = Depends(get_comment_store),
+    user_store: UserStore = Depends(get_user_store)
 ):
     user = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
     comment: Optional[schemas.internal.InternalComment] = comment_store.get_comment(comment_id)
@@ -70,9 +71,9 @@ def like_comment(
     comment_id: uuid.UUID,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
     db: Session = Depends(get_db),
-    comment_store: CommentStore = Depends(CommentStore),
-    post_store: PostStore = Depends(PostStore),
-    user_store: UserStore = Depends(UserStore)
+    comment_store: CommentStore = Depends(get_comment_store),
+    post_store: PostStore = Depends(get_post_store),
+    user_store: UserStore = Depends(get_user_store)
 ):
     user = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
     comment: Optional[schemas.internal.InternalComment] = comment_store.get_comment(comment_id)
@@ -88,9 +89,9 @@ def like_comment(
 def unlike_comment(
     comment_id: uuid.UUID,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
-    comment_store: CommentStore = Depends(CommentStore),
-    post_store: PostStore = Depends(PostStore),
-    user_store: UserStore = Depends(UserStore)
+    comment_store: CommentStore = Depends(get_comment_store),
+    post_store: PostStore = Depends(get_post_store),
+    user_store: UserStore = Depends(get_user_store)
 ):
     user = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
     comment: Optional[schemas.internal.InternalComment] = comment_store.get_comment(comment_id)

@@ -1,19 +1,17 @@
 import uuid
 from typing import Optional
 
-from fastapi import Depends
 from sqlalchemy import select, func, asc
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app import schemas
-from app.controllers import utils
-from app.db.database import get_db
-from app.models import models
+import schemas
+from stores import utils
+from models import models
 
 
 class PlaceStore:
-    def __init__(self, db: Session = Depends(get_db)):
+    def __init__(self, db: Session):
         self.db = db
 
     # Queries

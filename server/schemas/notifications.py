@@ -5,10 +5,10 @@ from datetime import datetime
 
 from pydantic import validator
 
-from app.schemas.base import Base
-from app.schemas.comment import Comment
-from app.schemas.user import PublicUser
-from app.schemas.post import Post
+from schemas.base import Base
+from schemas.comment import Comment
+from schemas.user import PublicUser
+from schemas.post import Post
 
 
 class ItemType(Enum):

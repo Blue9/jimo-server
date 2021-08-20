@@ -1,9 +1,10 @@
 import uuid
 from typing import Optional, List
 
-from app.stores.feed_store import FeedStore
-from app.stores.place_store import PlaceStore
-from app.stores.user_store import UserStore
+from app.api.utils import get_user_store, get_place_store, get_feed_store
+from stores.feed_store import FeedStore
+from stores.place_store import PlaceStore
+from stores.user_store import UserStore
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
@@ -11,12 +12,12 @@ from sqlalchemy import union_all, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import aliased, Session
 
-from app import schemas
+import schemas
 from app.api import utils
 from app.controllers import notifications
 from app.controllers.firebase import FirebaseUser, get_firebase_user
 from app.db.database import get_db
-from app.models import models
+from models import models
 
 router = APIRouter()
 
@@ -24,7 +25,7 @@ router = APIRouter()
 @router.get("", response_model=schemas.user.PublicUser)
 def get_me(
     firebase_user: FirebaseUser = Depends(get_firebase_user),
-    user_store: UserStore = Depends(UserStore)
+    user_store: UserStore = Depends(get_user_store)
 ):
     """Get the current user based on the auth details."""
     user = user_store.get_user_by_uid(firebase_user.uid)
@@ -37,7 +38,7 @@ def get_me(
 def update_user(
     request: schemas.user.UpdateProfileRequest,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
-    user_store: UserStore = Depends(UserStore)
+    user_store: UserStore = Depends(get_user_store)
 ):
     """Update the current user's profile."""
     old_user: schemas.internal.InternalUser = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
@@ -59,7 +60,7 @@ def update_user(
 @router.get("/preferences", response_model=schemas.user.UserPrefs)
 def get_preferences(
     firebase_user: FirebaseUser = Depends(get_firebase_user),
-    user_store: UserStore = Depends(UserStore)
+    user_store: UserStore = Depends(get_user_store)
 ):
     """Get the current user's preferences."""
     user: schemas.internal.InternalUser = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
@@ -70,7 +71,7 @@ def get_preferences(
 def update_preferences(
     request: schemas.user.UserPrefs,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
-    user_store: UserStore = Depends(UserStore)
+    user_store: UserStore = Depends(get_user_store)
 ):
     """Update the current user's preferences."""
     user: schemas.internal.InternalUser = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
@@ -82,7 +83,7 @@ def upload_profile_picture(
     file: UploadFile = File(...),
     firebase_user: FirebaseUser = Depends(get_firebase_user),
     db: Session = Depends(get_db),
-    user_store: UserStore = Depends(UserStore)
+    user_store: UserStore = Depends(get_user_store)
 ):
     """Set the current user's profile picture."""
     old_user: schemas.internal.InternalUser = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
@@ -100,8 +101,8 @@ def upload_profile_picture(
 def get_feed(
     cursor: Optional[uuid.UUID] = None,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
-    user_store: UserStore = Depends(UserStore),
-    feed_store: FeedStore = Depends(FeedStore)
+    user_store: UserStore = Depends(get_user_store),
+    feed_store: FeedStore = Depends(get_feed_store)
 ):
     """Get the feed for the current user."""
     user: schemas.internal.InternalUser = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
@@ -113,8 +114,8 @@ def get_feed(
 @router.get("/map", response_model=list[schemas.place.MapPin])
 def get_map(
     firebase_user: FirebaseUser = Depends(get_firebase_user),
-    user_store: UserStore = Depends(UserStore),
-    place_store: PlaceStore = Depends(PlaceStore)
+    user_store: UserStore = Depends(get_user_store),
+    place_store: PlaceStore = Depends(get_place_store)
 ):
     user: schemas.internal.InternalUser = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
     return place_store.get_map(user.id)
@@ -123,8 +124,8 @@ def get_map(
 @router.get("/discover", response_model=List[schemas.post.Post])
 def get_discover_feed(
     firebase_user: FirebaseUser = Depends(get_firebase_user),
-    user_store: UserStore = Depends(UserStore),
-    feed_store: FeedStore = Depends(FeedStore)
+    user_store: UserStore = Depends(get_user_store),
+    feed_store: FeedStore = Depends(get_feed_store)
 ):
     """Get the discover feed for the current user."""
     user: schemas.internal.InternalUser = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
@@ -135,7 +136,7 @@ def get_discover_feed(
 def get_suggested_users(
     firebase_user: FirebaseUser = Depends(get_firebase_user),
     db: Session = Depends(get_db),
-    user_store: UserStore = Depends(UserStore)
+    user_store: UserStore = Depends(get_user_store)
 ):
     """Get the list of suggested jimo accounts."""
     user: schemas.internal.InternalUser = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
@@ -154,7 +155,7 @@ def get_suggested_users(
 def get_existing_users(
     request: schemas.user.PhoneNumberList,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
-    user_store: UserStore = Depends(UserStore)
+    user_store: UserStore = Depends(get_user_store)
 ):
     """Get the existing users from the list of e164 formatted phone numbers."""
     user: schemas.internal.InternalUser = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
@@ -173,7 +174,7 @@ def follow_many(
     request: schemas.user.UsernameList,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
     db: Session = Depends(get_db),
-    user_store: UserStore = Depends(UserStore)
+    user_store: UserStore = Depends(get_user_store)
 ):
     """Follow the given users."""
     user: schemas.internal.InternalUser = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)

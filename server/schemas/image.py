@@ -1,6 +1,6 @@
 import uuid
 
-from app.schemas.base import Base
+from schemas.base import Base
 
 
 class ImageUploadResponse(Base):

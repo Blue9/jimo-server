@@ -1,12 +1,13 @@
 import uuid
 from typing import Optional
 
-from app.stores.feed_store import FeedStore
-from app.stores.user_store import UserStore
+from app.api.utils import get_user_store, get_feed_store
+from stores.feed_store import FeedStore
+from stores.user_store import UserStore
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app import schemas
+import schemas
 from app.api import utils
 from app.controllers import notifications
 from app.controllers.firebase import FirebaseUser, get_firebase_user
@@ -20,7 +21,7 @@ def register_token(
     request: schemas.user.NotificationTokenRequest,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
     db: Session = Depends(get_db),
-    user_store: UserStore = Depends(UserStore)
+    user_store: UserStore = Depends(get_user_store)
 ):
     user: schemas.internal.InternalUser = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
     notifications.register_fcm_token(db, user.id, request.token)
@@ -32,7 +33,7 @@ def remove_token(
     request: schemas.user.NotificationTokenRequest,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
     db: Session = Depends(get_db),
-    user_store: UserStore = Depends(UserStore)
+    user_store: UserStore = Depends(get_user_store)
 ):
     user: schemas.internal.InternalUser = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
     notifications.remove_fcm_token(db, user.id, request.token)
@@ -43,8 +44,8 @@ def remove_token(
 def get_notification_feed(
     cursor: Optional[uuid.UUID] = None,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
-    user_store: UserStore = Depends(UserStore),
-    feed_store: FeedStore = Depends(FeedStore)
+    user_store: UserStore = Depends(get_user_store),
+    feed_store: FeedStore = Depends(get_feed_store)
 ):
     """
     Returns the notification feed for the current user.

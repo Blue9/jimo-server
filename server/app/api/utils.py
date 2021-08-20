@@ -2,16 +2,22 @@ import imghdr
 import uuid
 from typing import Optional
 
-from app import schemas
-from app.stores.post_store import PostStore
-from app.stores.relation_store import RelationStore
-from app.stores.user_store import UserStore
-from fastapi import HTTPException, UploadFile
+import schemas
+from app import config
+from app.db.database import get_db
+from stores.comment_store import CommentStore
+from stores.feed_store import FeedStore
+from stores.invite_store import InviteStore
+from stores.place_store import PlaceStore
+from stores.post_store import PostStore
+from stores.relation_store import RelationStore
+from stores.user_store import UserStore
+from fastapi import HTTPException, UploadFile, Depends
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.controllers.firebase import FirebaseAdminProtocol
-from app.models import models
+from models import models
 
 
 def validate_user(
@@ -92,3 +98,31 @@ def get_post_and_validate_or_raise(
             relation_store.is_blocked(caller_user_id, post.user_id)):
         raise HTTPException(404, detail="Post not found")
     return post
+
+
+def get_comment_store(db: Session = Depends(get_db)):
+    return CommentStore(db=db)
+
+
+def get_feed_store(db: Session = Depends(get_db)):
+    return FeedStore(db=db)
+
+
+def get_invite_store(db: Session = Depends(get_db)):
+    return InviteStore(invites_per_user=config.INVITES_PER_USER, db=db)
+
+
+def get_place_store(db: Session = Depends(get_db)):
+    return PlaceStore(db=db)
+
+
+def get_post_store(db: Session = Depends(get_db)):
+    return PostStore(db=db)
+
+
+def get_relation_store(db: Session = Depends(get_db)):
+    return RelationStore(db=db)
+
+
+def get_user_store(db: Session = Depends(get_db)):
+    return UserStore(db=db)

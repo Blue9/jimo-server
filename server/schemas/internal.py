@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from app.schemas.base import Base
+from schemas.base import Base
 
 
 # Only use internally, do not expose via endpoint

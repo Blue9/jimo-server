@@ -8,11 +8,11 @@ from typing import Optional, TypeVar, Generic
 from pydantic import Field, validator
 from pydantic.generics import GenericModel
 
-from app import schemas
-from app.schemas import validators
-from app.schemas.base import Base, PhoneNumber
-from app.schemas.place import Place
-from app.schemas.post import ORMPost
+import schemas
+from schemas import validators
+from schemas.base import Base, PhoneNumber
+from schemas.place import Place
+from schemas.post import ORMPost
 
 
 # Base types

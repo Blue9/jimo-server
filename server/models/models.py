@@ -1,21 +1,24 @@
 import enum
 import uuid
+from typing import Any
 
 from sqlalchemy import Column, Enum, DateTime, Boolean, ForeignKey, Text, select, func, and_, Float, Computed, \
     UniqueConstraint, Index, false, true
 from geoalchemy2 import Geography
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.ext.associationproxy import association_proxy
-from sqlalchemy.orm import relationship, column_property, aliased, ColumnProperty
+from sqlalchemy.orm import relationship, column_property, aliased, ColumnProperty, declarative_base
 from sqlalchemy.sql import expression
 
-from app.db.database import Base
-from app.models.defaults import gen_ulid
+from models.defaults import gen_ulid
 
 
 class UserRelationType(enum.Enum):
     following = "following"
     blocked = "blocked"
+
+
+Base: Any = declarative_base()
 
 
 class UserRelation(Base):

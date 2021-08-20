@@ -1,4 +1,5 @@
-from app.stores.user_store import UserStore
+from app.api.utils import get_user_store
+from stores.user_store import UserStore
 from fastapi import FastAPI, Depends, UploadFile, File
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
@@ -7,7 +8,8 @@ from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
-from app import schemas, api, config
+from app import api, config
+import schemas
 from app.api import utils
 from app.controllers.firebase import FirebaseUser, get_firebase_user
 from app.db.database import get_db
@@ -68,7 +70,7 @@ def upload_image(
     file: UploadFile = File(...),
     firebase_user: FirebaseUser = Depends(get_firebase_user),
     db: Session = Depends(get_db),
-    user_store: UserStore = Depends(UserStore)
+    user_store: UserStore = Depends(get_user_store)
 ):
     """Upload the given image to Firebase if allowed, returning the image id (used for posts + profile pictures)."""
     user: schemas.internal.InternalUser = api.utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)

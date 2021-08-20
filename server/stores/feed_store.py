@@ -2,21 +2,19 @@ import datetime
 import uuid
 from typing import Optional
 
-from fastapi import Depends
 from sqlalchemy import union_all, select, exists
 from sqlalchemy.orm import Session, aliased, joinedload
 
-from app import schemas
-from app.controllers import utils
-from app.db.database import get_db
-from app.models import models
-from app.schemas.comment import ORMComment
-from app.schemas.notifications import NotificationItem, ItemType
-from app.schemas.post import ORMPost
+import schemas
+from stores import utils
+from models import models
+from schemas.comment import ORMComment
+from schemas.notifications import NotificationItem, ItemType
+from schemas.post import ORMPost
 
 
 class FeedStore:
-    def __init__(self, db: Session = Depends(get_db)):
+    def __init__(self, db: Session):
         self.db = db
 
     def get_feed(

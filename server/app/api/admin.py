@@ -3,17 +3,18 @@ import uuid
 from collections import namedtuple
 from typing import Optional
 
-from app.stores.user_store import UserStore
+from app.api.utils import get_user_store
+from stores.user_store import UserStore
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import exists, select, func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app import schemas
+import schemas
 from app.api import utils
 from app.controllers.firebase import FirebaseUser, get_firebase_user
 from app.db.database import get_db
-from app.models import models
+from models import models
 
 router = APIRouter()
 
@@ -22,7 +23,7 @@ Page = namedtuple("Page", ["offset", "limit"])
 
 def get_admin_or_raise(
     firebase_user: FirebaseUser = Depends(get_firebase_user),
-    user_store: UserStore = Depends(UserStore)
+    user_store: UserStore = Depends(get_user_store)
 ) -> schemas.internal.InternalUser:
     user: schemas.internal.InternalUser = utils.get_user_from_uid_or_raise(user_store, uid=firebase_user.uid)
     if not user.is_admin:
@@ -54,7 +55,7 @@ def get_users(
 @router.post("/users", response_model=schemas.admin.User)
 def create_user(
     request: schemas.admin.CreateUserRequest,
-    user_store: UserStore = Depends(UserStore),
+    user_store: UserStore = Depends(get_user_store),
     _admin: schemas.internal.InternalUser = Depends(get_admin_or_raise),
 ):
     """Create a user."""
