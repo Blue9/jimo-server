@@ -17,7 +17,7 @@ STORAGE_BUCKET: str = os.environ.get("STORAGE_BUCKET", "goodplaces-app.appspot.c
 # App-related configuration
 _invites_per_user: Optional[str] = os.environ.get("INVITES_PER_USER")
 
-INVITES_PER_USER: int = 5
+INVITES_PER_USER: int = 100
 if _invites_per_user:
     try:
         INVITES_PER_USER = int(_invites_per_user)
