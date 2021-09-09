@@ -3,6 +3,12 @@ name = "app"
 version = "0.1.0"
 description = ""
 authors = ["Your Name <you@example.com>"]
+packages = [
+    { include = "app" },
+    { include = "models" },
+    { include = "schemas" },
+    { include = "stores" }
+]
 
 [tool.poetry.dependencies]
 python = "^3.9"

@@ -19,6 +19,9 @@ RUN pip install "poetry==$POETRY_VERSION"
 RUN python -m venv /venv
 
 COPY /app /app
+COPY /models /models
+COPY /schemas /schemas
+COPY /stores /stores
 COPY pyproject.toml /
 COPY poetry.lock /
 
