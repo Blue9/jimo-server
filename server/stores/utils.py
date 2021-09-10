@@ -91,7 +91,7 @@ def is_unique_column_error(e: IntegrityError, column_name: str) -> bool:
 
 def get_image_with_lock_else_throw(db: Session, user_id: uuid.UUID, image_id: uuid.UUID) -> models.ImageUpload:
     """Note: This locks the image row. Make sure to unlock by calling db.commit()/db.rollback()."""
-    image = db.maybe_get_image_with_lock(user_id, image_id)
+    image = maybe_get_image_with_lock(db, user_id, image_id)
     if image is None:
         raise ValueError("Invalid image")
     return image
