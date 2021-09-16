@@ -38,6 +38,7 @@ class Region(Location):
 class Place(Base):
     id: uuid.UUID = Field(alias="placeId")
     name: str
+    region_name: Optional[str]
     location: Location
 
     @root_validator(pre=True)

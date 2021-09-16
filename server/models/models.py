@@ -135,6 +135,8 @@ class Place(Base):
     # Only set in case estimated place data is incorrect
     verified_place_data = Column(UUID(as_uuid=True), ForeignKey("place_data.id"), nullable=True)
 
+    region_name = None  # Column property
+
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
@@ -333,3 +335,11 @@ Post.comment_count = column_property(select([func.count()]).select_from(Comment)
 Comment.like_count = column_property(
     select([func.count()]).select_from(CommentLike).where(Comment.id == CommentLike.comment_id).scalar_subquery(),
     deferred=True)
+
+# Place data
+Place.region_name = column_property(
+    select([PlaceData.additional_data["locality"]])
+        .select_from(PlaceData)
+        .where((Place.id == PlaceData.place_id) & (PlaceData.additional_data["locality"].isnot(None)))
+        .limit(1)
+        .scalar_subquery(), deferred=False)
