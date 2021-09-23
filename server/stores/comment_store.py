@@ -31,8 +31,8 @@ class CommentStore:
             .options(*utils.eager_load_comment_options()) \
             .where(models.Comment.post_id == post_id, ~models.Comment.deleted)
         if cursor is not None:
-            query = query.where(models.Comment.id < cursor)
-        rows = self.db.execute(query.order_by(models.Comment.id.desc()).limit(limit)).all()
+            query = query.where(models.Comment.id > cursor)
+        rows = self.db.execute(query.order_by(models.Comment.id.asc()).limit(limit)).all()
         comments = []
         for comment, liked in rows:
             orm_comment = schemas.comment.ORMComment.from_orm(comment)
