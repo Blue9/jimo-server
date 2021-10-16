@@ -1,5 +1,5 @@
 from app.api.utils import get_user_store
-from stores.user_store import UserStore
+from shared.stores.user_store import UserStore
 from fastapi import FastAPI, Depends, UploadFile, File
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
@@ -9,7 +9,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
 from app import api, config
-import schemas
+from shared import schemas
 from app.api import utils
 from app.controllers.firebase import FirebaseUser, get_firebase_user
 from app.db.database import get_db

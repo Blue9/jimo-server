@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 from app.controllers.firebase import get_firebase_user, FirebaseUser
 from app.db.database import get_session, engine
 from app.main import app as main_app
-from models import models
+from shared.models import models
 from tests.mock_firebase import MockFirebaseAdmin
 from tests.utils import init_db, reset_db
 

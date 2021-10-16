@@ -5,9 +5,9 @@ from sqlalchemy import select, func, asc
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-import schemas
-from stores import utils
-from models import models
+from shared import schemas
+from shared.stores import utils
+from shared.models import models
 
 
 class PlaceStore:

@@ -1,12 +1,12 @@
 import uuid
 
 from app.api.utils import get_user_store, get_post_store, get_place_store
-from stores.place_store import PlaceStore
-from stores.post_store import PostStore
-from stores.user_store import UserStore
+from shared.stores.place_store import PlaceStore
+from shared.stores.post_store import PostStore
+from shared.stores.user_store import UserStore
 from fastapi import APIRouter, Depends, HTTPException
 
-import schemas
+from shared import schemas
 from app.api import utils
 from app.controllers.firebase import FirebaseUser, get_firebase_user
 

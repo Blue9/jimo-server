@@ -2,22 +2,22 @@ import imghdr
 import uuid
 from typing import Optional
 
-import schemas
+from shared import schemas
 from app import config
 from app.db.database import get_db
-from stores.comment_store import CommentStore
-from stores.feed_store import FeedStore
-from stores.invite_store import InviteStore
-from stores.place_store import PlaceStore
-from stores.post_store import PostStore
-from stores.relation_store import RelationStore
-from stores.user_store import UserStore
+from shared.stores.comment_store import CommentStore
+from shared.stores.feed_store import FeedStore
+from shared.stores.invite_store import InviteStore
+from shared.stores.place_store import PlaceStore
+from shared.stores.post_store import PostStore
+from shared.stores.relation_store import RelationStore
+from shared.stores.user_store import UserStore
 from fastapi import HTTPException, UploadFile, Depends
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.controllers.firebase import FirebaseAdminProtocol
-from models import models
+from shared.models import models
 
 
 def validate_user(

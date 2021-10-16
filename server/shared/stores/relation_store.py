@@ -5,8 +5,8 @@ from sqlalchemy import select, exists, delete
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-import schemas
-from models import models
+from shared import schemas
+from shared.models import models
 
 
 class RelationStore:

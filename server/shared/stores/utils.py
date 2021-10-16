@@ -7,8 +7,8 @@ from sqlalchemy import and_, exists, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload, undefer, Session
 
-import schemas
-from models import models
+from shared import schemas
+from shared.models import models
 
 
 def is_post_liked_query(user_id: uuid.UUID):

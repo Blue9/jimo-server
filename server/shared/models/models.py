@@ -10,7 +10,7 @@ from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.orm import relationship, column_property, aliased, ColumnProperty, declarative_base
 from sqlalchemy.sql import expression
 
-from models.defaults import gen_ulid
+from shared.models.defaults import gen_ulid
 
 
 class UserRelationType(enum.Enum):
@@ -339,7 +339,7 @@ Comment.like_count = column_property(
 # Place data
 Place.region_name = column_property(
     select([PlaceData.additional_data["locality"]])
-        .select_from(PlaceData)
-        .where((Place.id == PlaceData.place_id) & (PlaceData.additional_data["locality"].isnot(None)))
-        .limit(1)
-        .scalar_subquery(), deferred=False)
+    .select_from(PlaceData)
+    .where((Place.id == PlaceData.place_id) & (PlaceData.additional_data["locality"].isnot(None)))
+    .limit(1)
+    .scalar_subquery(), deferred=False)

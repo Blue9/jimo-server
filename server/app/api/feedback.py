@@ -1,14 +1,14 @@
 from app.api.utils import get_user_store
-from stores.user_store import UserStore
+from shared.stores.user_store import UserStore
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 
-import schemas
+from shared import schemas
 from app.api import utils
 from app.controllers.firebase import FirebaseUser, get_firebase_user
 from app.db.database import get_db
-from models import models
+from shared.models import models
 
 router = APIRouter()
 

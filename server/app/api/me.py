@@ -2,9 +2,9 @@ import uuid
 from typing import Optional, List
 
 from app.api.utils import get_user_store, get_place_store, get_feed_store
-from stores.feed_store import FeedStore
-from stores.place_store import PlaceStore
-from stores.user_store import UserStore
+from shared.stores.feed_store import FeedStore
+from shared.stores.place_store import PlaceStore
+from shared.stores.user_store import UserStore
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
@@ -12,12 +12,12 @@ from sqlalchemy import union_all, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import aliased, Session
 
-import schemas
+from shared import schemas
 from app.api import utils
 from app.controllers import notifications
 from app.controllers.firebase import FirebaseUser, get_firebase_user
 from app.db.database import get_db
-from models import models
+from shared.models import models
 
 router = APIRouter()
 

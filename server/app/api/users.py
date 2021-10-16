@@ -4,18 +4,18 @@ from typing import Optional
 from sqlalchemy import select
 
 from app.api.utils import get_user_store, get_relation_store, get_post_store
-from stores.post_store import PostStore
-from stores.relation_store import RelationStore
-from stores.user_store import UserStore
+from shared.stores.post_store import PostStore
+from shared.stores.relation_store import RelationStore
+from shared.stores.user_store import UserStore
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-import schemas
+from shared import schemas
 from app.api import utils
 from app.controllers import notifications
 from app.controllers.firebase import FirebaseUser, get_firebase_user
 from app.db.database import get_db
-from models import models
+from shared.models import models
 
 router = APIRouter()
 

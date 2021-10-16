@@ -3,9 +3,9 @@ from typing import Optional, Tuple
 
 from sqlalchemy.sql.functions import concat
 
-import schemas
-from stores import utils
-from models import models
+from shared import schemas
+from shared.stores import utils
+from shared.models import models
 from sqlalchemy import select, exists
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, aliased

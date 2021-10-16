@@ -7,8 +7,8 @@ from sqlalchemy.orm import Session
 
 from firebase_admin import messaging
 
-import schemas
-from models import models
+from shared import schemas
+from shared.models import models
 
 
 def register_fcm_token(db: Session, user_id: uuid.UUID, token: str):

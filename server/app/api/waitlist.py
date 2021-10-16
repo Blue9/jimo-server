@@ -1,10 +1,10 @@
 from app.api.utils import get_user_store, get_invite_store
-from stores.invite_store import InviteStore
-from stores.user_store import UserStore
+from shared.stores.invite_store import InviteStore
+from shared.stores.user_store import UserStore
 from fastapi import APIRouter, Depends, HTTPException
 
 from app import config
-import schemas
+from shared import schemas
 from app.api import utils
 from app.controllers.firebase import FirebaseUser, get_firebase_user
 

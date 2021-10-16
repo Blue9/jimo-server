@@ -1,6 +1,6 @@
 from pydantic import validator
 
-from schemas.base import Base
+from shared.schemas.base import Base
 
 
 class FeedbackRequest(Base):

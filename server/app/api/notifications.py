@@ -2,12 +2,12 @@ import uuid
 from typing import Optional
 
 from app.api.utils import get_user_store, get_feed_store
-from stores.feed_store import FeedStore
-from stores.user_store import UserStore
+from shared.stores.feed_store import FeedStore
+from shared.stores.user_store import UserStore
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-import schemas
+from shared import schemas
 from app.api import utils
 from app.controllers import notifications
 from app.controllers.firebase import FirebaseUser, get_firebase_user

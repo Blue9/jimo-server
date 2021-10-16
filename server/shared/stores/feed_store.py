@@ -5,12 +5,12 @@ from typing import Optional
 from sqlalchemy import union_all, select, exists
 from sqlalchemy.orm import Session, aliased, joinedload
 
-import schemas
-from stores import utils
-from models import models
-from schemas.comment import ORMComment
-from schemas.notifications import NotificationItem, ItemType
-from schemas.post import ORMPost
+from shared import schemas
+from shared.stores import utils
+from shared.models import models
+from shared.schemas.comment import ORMComment
+from shared.schemas.notifications import NotificationItem, ItemType
+from shared.schemas.post import ORMPost
 
 
 class FeedStore:

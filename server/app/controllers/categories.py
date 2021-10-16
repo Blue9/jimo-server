@@ -1,7 +1,7 @@
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 
-from models import models
+from shared.models import models
 
 
 def add_categories_to_db(db: Session):

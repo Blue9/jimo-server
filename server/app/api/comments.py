@@ -4,16 +4,16 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
 
-import schemas
+from shared import schemas
 from app.api import utils
 from app.api.utils import get_user_store, get_post_store, get_comment_store, get_relation_store
 from app.controllers import notifications
 from app.controllers.firebase import FirebaseUser, get_firebase_user
 from app.db.database import get_db
-from stores.comment_store import CommentStore
-from stores.post_store import PostStore
-from stores.relation_store import RelationStore
-from stores.user_store import UserStore
+from shared.stores.comment_store import CommentStore
+from shared.stores.post_store import PostStore
+from shared.stores.relation_store import RelationStore
+from shared.stores.user_store import UserStore
 
 router = APIRouter()
 

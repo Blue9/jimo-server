@@ -4,8 +4,8 @@ from typing import Optional
 
 from pydantic import Field, validator
 
-from schemas import validators
-from schemas.base import Base, PhoneNumber
+from shared.schemas import validators
+from shared.schemas.base import Base, PhoneNumber
 
 
 # ORM types
