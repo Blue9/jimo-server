@@ -3,8 +3,7 @@ from typing import Optional
 
 from sqlalchemy import select
 
-from app.api.utils import get_user_store, get_relation_store, get_post_store, get_invite_store
-from stores.invite_store import InviteStore
+from app.api.utils import get_user_store, get_relation_store, get_post_store
 from stores.post_store import PostStore
 from stores.relation_store import RelationStore
 from stores.user_store import UserStore
@@ -25,14 +24,13 @@ router = APIRouter()
 def create_user(
     request: schemas.user.CreateUserRequest,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
-    user_store: UserStore = Depends(get_user_store),
-    invite_store: InviteStore = Depends(get_invite_store)
+    user_store: UserStore = Depends(get_user_store)
 ):
     """Create a new user."""
     phone_number: Optional[str] = firebase_user.shared_firebase.get_phone_number_from_uid(firebase_user.uid)
-    if phone_number is None or not invite_store.is_invited(phone_number):
+    if phone_number is None:
         return schemas.user.CreateUserResponse(
-            created=None, error=schemas.user.UserFieldErrors(uid="You aren't invited yet."))
+            created=None, error=schemas.user.UserFieldErrors(uid="Invalid account information."))
     user, error = user_store.create_user(
         uid=firebase_user.uid,
         username=request.username,
