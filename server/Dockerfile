@@ -12,21 +12,20 @@ ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
 RUN apt-get update && apt-get install -y \
     build-essential \
     gcc \
+    git \
     libpq-dev \
+    openssh-client \
     && rm -rf /var/lib/apt/lists/*
 
 RUN pip install "poetry==$POETRY_VERSION"
 RUN python -m venv /venv
 
 COPY /app /app
-COPY /models /models
-COPY /schemas /schemas
-COPY /stores /stores
 COPY pyproject.toml /
 COPY poetry.lock /
 
-RUN poetry export -f requirements.txt | /venv/bin/pip install -r /dev/stdin
-RUN poetry build && /venv/bin/pip install dist/*.whl
+RUN mkdir -p -m 0600 ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
+RUN --mount=type=ssh poetry build && /venv/bin/pip install dist/*.whl
 
 # Run stage - copy venv and run
 FROM base as final
