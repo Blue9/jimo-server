@@ -2,14 +2,12 @@ import uuid
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Depends
-from sqlalchemy.orm import Session
 
 from shared import schemas
 from app.api import utils
 from app.api.utils import get_user_store, get_post_store, get_comment_store, get_relation_store
-from app.controllers import notifications
 from app.controllers.firebase import FirebaseUser, get_firebase_user
-from app.db.database import get_db
+from app.controllers.tasks import BackgroundTaskHandler, get_task_handler
 from shared.stores.comment_store import CommentStore
 from shared.stores.post_store import PostStore
 from shared.stores.relation_store import RelationStore
@@ -22,7 +20,7 @@ router = APIRouter()
 def create_comment(
     request: schemas.comment.CreateCommentRequest,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
-    db: Session = Depends(get_db),
+    task_handler: Optional[BackgroundTaskHandler] = Depends(get_task_handler),
     post_store: PostStore = Depends(get_post_store),
     comment_store: CommentStore = Depends(get_comment_store),
     relation_store: RelationStore = Depends(get_relation_store),
@@ -32,8 +30,8 @@ def create_comment(
     post = utils.get_post_and_validate_or_raise(
         post_store, relation_store, caller_user_id=user.id, post_id=request.post_id)
     comment = comment_store.create_comment(user.id, post.id, content=request.content)
-    if user.id != post.user_id and user_store.get_user_preferences(post.user_id).comment_notifications:
-        notifications.notify_comment(db, post, post_store.get_place_name(post.id), comment.content, comment_by=user)
+    if task_handler and user.id != post.user_id and user_store.get_user_preferences(post.user_id).comment_notifications:
+        task_handler.notify_comment(post, post_store.get_place_name(post.id), comment.content, comment_by=user)
     return schemas.comment.Comment(
         id=comment.id,
         user=user,
@@ -70,7 +68,7 @@ def delete_comment(
 def like_comment(
     comment_id: uuid.UUID,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
-    db: Session = Depends(get_db),
+    task_handler: Optional[BackgroundTaskHandler] = Depends(get_task_handler),
     comment_store: CommentStore = Depends(get_comment_store),
     post_store: PostStore = Depends(get_post_store),
     user_store: UserStore = Depends(get_user_store)
@@ -80,8 +78,9 @@ def like_comment(
     if comment is None or not post_store.post_exists(comment.post_id):
         raise HTTPException(404)
     comment_store.like_comment(comment_id, user.id)
-    if user.id != comment.user_id and user_store.get_user_preferences(comment.user_id).comment_liked_notifications:
-        notifications.notify_comment_liked(db, comment, liked_by=user)
+    if task_handler:
+        if user.id != comment.user_id and user_store.get_user_preferences(comment.user_id).comment_liked_notifications:
+            task_handler.notify_comment_liked(comment, liked_by=user)
     return schemas.comment.LikeCommentResponse(likes=comment_store.get_like_count(comment_id))
 
 

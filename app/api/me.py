@@ -14,8 +14,8 @@ from sqlalchemy.orm import aliased, Session
 
 from shared import schemas
 from app.api import utils
-from app.controllers import notifications
 from app.controllers.firebase import FirebaseUser, get_firebase_user
+from app.controllers.tasks import BackgroundTaskHandler, get_task_handler
 from app.db.database import get_db
 from shared.models import models
 
@@ -174,6 +174,7 @@ def follow_many(
     request: schemas.user.UsernameList,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
     db: Session = Depends(get_db),
+    task_handler: Optional[BackgroundTaskHandler] = Depends(get_task_handler),
     user_store: UserStore = Depends(get_user_store)
 ):
     """Follow the given users."""
@@ -200,7 +201,8 @@ def follow_many(
     except IntegrityError:
         raise HTTPException(400)
     # Note: This makes N+1 queries, one for each followed user and one for the current user, we can optimize this later
-    for followed in users_to_follow:
-        if user_store.get_user_preferences(followed.id).follow_notifications:
-            notifications.notify_follow(db, followed.id, followed_by=user)
+    if task_handler:
+        for followed in users_to_follow:
+            if user_store.get_user_preferences(followed.id).follow_notifications:
+                task_handler.notify_follow(followed.id, followed_by=user)
     return schemas.base.SimpleResponse(success=True)

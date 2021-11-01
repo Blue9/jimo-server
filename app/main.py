@@ -1,5 +1,6 @@
-from app.api.utils import get_user_store
 from shared.stores.user_store import UserStore
+
+from app.api.utils import get_user_store
 from fastapi import FastAPI, Depends, UploadFile, File
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError

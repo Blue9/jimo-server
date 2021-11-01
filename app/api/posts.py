@@ -7,13 +7,11 @@ from shared.stores.post_store import PostStore
 from shared.stores.relation_store import RelationStore
 from shared.stores.user_store import UserStore
 from fastapi import APIRouter, HTTPException, Depends
-from sqlalchemy.orm import Session
 
 from shared import schemas
 from app.api import utils
-from app.controllers import notifications
 from app.controllers.firebase import FirebaseUser, get_firebase_user
-from app.db.database import get_db
+from app.controllers.tasks import BackgroundTaskHandler, get_task_handler
 from shared.stores.comment_store import CommentStore
 
 router = APIRouter()
@@ -63,7 +61,7 @@ def delete_post(
 def like_post(
     post_id: uuid.UUID,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
-    db: Session = Depends(get_db),
+    task_handler: Optional[BackgroundTaskHandler] = Depends(get_task_handler),
     user_store: UserStore = Depends(get_user_store),
     post_store: PostStore = Depends(get_post_store),
     relation_store: RelationStore = Depends(get_relation_store)
@@ -73,8 +71,9 @@ def like_post(
     post = utils.get_post_and_validate_or_raise(post_store, relation_store, caller_user_id=user.id, post_id=post_id)
     post_store.like_post(user.id, post.id)
     # Notify the user that their post was liked if they aren't the current user
-    if user.id != post.user_id and user_store.get_user_preferences(post.user_id).post_liked_notifications:
-        notifications.notify_post_liked(db, post, place_name=post_store.get_place_name(post.id), liked_by=user)
+    if task_handler:
+        if user.id != post.user_id and user_store.get_user_preferences(post.user_id).post_liked_notifications:
+            task_handler.notify_post_liked(post, place_name=post_store.get_place_name(post.id), liked_by=user)
     return {"likes": post_store.get_like_count(post.id)}
 
 

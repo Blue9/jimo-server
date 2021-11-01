@@ -12,8 +12,8 @@ from sqlalchemy.orm import Session
 
 from shared import schemas
 from app.api import utils
-from app.controllers import notifications
 from app.controllers.firebase import FirebaseUser, get_firebase_user
+from app.controllers.tasks import BackgroundTaskHandler, get_task_handler
 from app.db.database import get_db
 from shared.models import models
 
@@ -139,7 +139,7 @@ def get_following(
 def follow_user(
     username: str,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
-    db: Session = Depends(get_db),
+    task_handler: Optional[BackgroundTaskHandler] = Depends(get_task_handler),
     user_store: UserStore = Depends(get_user_store),
     relation_store: RelationStore = Depends(get_relation_store)
 ):
@@ -152,8 +152,8 @@ def follow_user(
     try:
         relation_store.follow_user(from_user.id, to_user.id)
         prefs = user_store.get_user_preferences(to_user.id)
-        if prefs.follow_notifications:
-            notifications.notify_follow(db, to_user.id, followed_by=from_user)
+        if task_handler and prefs.follow_notifications:
+            task_handler.notify_follow(to_user.id, followed_by=from_user)
         return schemas.user.FollowUserResponse(followed=True, followers=to_user.follower_count + 1)
     except ValueError as e:
         raise HTTPException(400, detail=str(e))
