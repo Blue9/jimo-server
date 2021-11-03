@@ -13,4 +13,5 @@ def add_categories_to_db(db: Session):
     db.add(models.Category(name="attraction"))
     db.add(models.Category(name="lodging"))
     db.add(models.Category(name="shopping"))
+    db.add(models.Category(name="nightlife"))
     db.commit()
