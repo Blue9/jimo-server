@@ -1,10 +1,10 @@
 from shared.stores.user_store import UserStore
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.utils import get_user_store
 from fastapi import FastAPI, Depends, UploadFile, File
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
-from sqlalchemy.orm import Session
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
@@ -43,10 +43,11 @@ async def db_session_middleware(request: Request, call_next):
     try:
         response = await call_next(request)
     except Exception as e:
-        print(f"Exception when handling request {request.url}", e)
+        raise e
+        # print(f"Exception when handling request {request.url}", e)
     finally:
         if request.state.db is not None:
-            request.state.db.close()
+            await request.state.db.close()
     return response
 
 
@@ -62,20 +63,20 @@ async def validation_exception_handler(_request: Request, exc: RequestValidation
 
 
 @app.get("/")
-def index():
+async def index():
     return {"success": True}
 
 
 @app.post("/images", response_model=schemas.image.ImageUploadResponse)
-def upload_image(
+async def upload_image(
     file: UploadFile = File(...),
     firebase_user: FirebaseUser = Depends(get_firebase_user),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     user_store: UserStore = Depends(get_user_store)
 ):
     """Upload the given image to Firebase if allowed, returning the image id (used for posts + profile pictures)."""
-    user: schemas.internal.InternalUser = api.utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
-    image_upload = utils.upload_image(file, user, firebase_user.shared_firebase, db)
+    user: schemas.internal.InternalUser = await api.utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
+    image_upload = await utils.upload_image(file, user, firebase_user.shared_firebase, db)
     return schemas.image.ImageUploadResponse(image_id=image_upload.id)
 
 

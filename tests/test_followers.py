@@ -2,79 +2,51 @@ import uuid
 from contextlib import contextmanager
 
 import pytest
-from fastapi import FastAPI
-from sqlalchemy import delete
-from starlette.testclient import TestClient
 
 from shared import schemas
 from app.controllers.firebase import get_firebase_user, FirebaseUser
-from app.db.database import engine, get_session
 from app.main import app as main_app
 from shared.models import models
 from tests.mock_firebase import MockFirebaseAdmin
-from tests.utils import init_db, reset_db
 
+pytestmark = pytest.mark.asyncio
 USER_A_ID = uuid.uuid4()
 USER_B_ID = uuid.uuid4()
 
 
-@pytest.fixture
-def app() -> FastAPI:
-    return main_app
+@pytest.fixture(autouse=True, scope="function")
+async def setup_fixture(session):
+    user_a = models.User(id=USER_A_ID, uid="a", username="a", first_name="a", last_name="a")
+    user_b = models.User(id=USER_B_ID, uid="b", username="b", first_name="b", last_name="b")
+    session.add(user_a)
+    session.add(user_b)
+    await session.commit()
 
-
-def setup_module():
-    init_db(engine)
-
-
-def teardown_module():
-    reset_db(engine)
-
-
-def setup_function():
-    with get_session() as session:
-        user_a = models.User(id=USER_A_ID, uid="a", username="a", first_name="a", last_name="a")
-        user_b = models.User(id=USER_B_ID, uid="b", username="b", first_name="b", last_name="b")
-        session.add(user_a)
-        session.add(user_b)
-        session.commit()
-
-        a_follows_b = models.UserRelation(from_user_id=USER_A_ID, to_user_id=USER_B_ID,
-                                          relation=models.UserRelationType.following)
-        session.add(a_follows_b)
-        session.commit()
-
-
-def teardown_function():
-    with get_session() as session:
-        session.execute(delete(models.User))
-        session.execute(delete(models.Waitlist))
-        session.execute(delete(models.Invite))
-        session.execute(delete(models.Place))
-        session.commit()
+    a_follows_b = models.UserRelation(from_user_id=USER_A_ID, to_user_id=USER_B_ID,
+                                      relation=models.UserRelationType.following)
+    session.add(a_follows_b)
+    await session.commit()
 
 
 @contextmanager
-def request_as(app: FastAPI, uid: str):
-    app.dependency_overrides[get_firebase_user] = lambda: FirebaseUser(MockFirebaseAdmin(), uid=uid)
+def request_as(uid: str):
+    main_app.dependency_overrides[get_firebase_user] = lambda: FirebaseUser(MockFirebaseAdmin(), uid=uid)
     yield
-    app.dependency_overrides = {}
+    main_app.dependency_overrides = {}
 
 
-def test_get_followers_list_empty(app: FastAPI):
-    client = TestClient(app)
-    with request_as(app, uid="b"):
-        response = client.get("/users/a/followers")
+async def test_get_followers_list_empty(client):
+    with request_as(uid="b"):
+        response = await client.get("/users/a/followers")
         assert response.status_code == 200
         parsed = schemas.user.FollowFeedResponse.parse_obj(response.json())
         assert len(parsed.users) == 0
         assert parsed.cursor is None
 
 
-def test_get_followers_list_one_follower(app: FastAPI):
-    client = TestClient(app)
-    with request_as(app, uid="b"):
-        response = client.get("/users/b/followers")
+async def test_get_followers_list_one_follower(client):
+    with request_as(uid="b"):
+        response = await client.get("/users/b/followers")
         assert response.status_code == 200
         parsed = schemas.user.FollowFeedResponse.parse_obj(response.json())
         assert len(parsed.users) == 1
@@ -83,38 +55,33 @@ def test_get_followers_list_one_follower(app: FastAPI):
         assert parsed.cursor is None
 
 
-def test_get_followers_list_blocked(app: FastAPI):
-    client = TestClient(app)
+async def test_get_followers_list_blocked(session, client):
+    b_blocks_a = models.UserRelation(from_user_id=USER_B_ID, to_user_id=USER_A_ID,
+                                     relation=models.UserRelationType.blocked)
+    session.add(b_blocks_a)
+    await session.commit()
 
-    with get_session() as session:
-        b_blocks_a = models.UserRelation(from_user_id=USER_B_ID, to_user_id=USER_A_ID,
-                                         relation=models.UserRelationType.blocked)
-        session.add(b_blocks_a)
-        session.commit()
-
-    with request_as(app, uid="a"):
-        response = client.get("/users/b/followers")
+    with request_as(uid="a"):
+        response = await client.get("/users/b/followers")
         assert response.status_code == 404
 
-    with request_as(app, uid="b"):
-        response = client.get("/users/a/followers")
+    with request_as(uid="b"):
+        response = await client.get("/users/a/followers")
         assert response.status_code == 200
 
 
-def test_get_following_list_empty(app: FastAPI):
-    client = TestClient(app)
-    with request_as(app, uid="a"):
-        response = client.get("/users/b/following")
+async def test_get_following_list_empty(client):
+    with request_as(uid="a"):
+        response = await client.get("/users/b/following")
         assert response.status_code == 200
         parsed = schemas.user.FollowFeedResponse.parse_obj(response.json())
         assert len(parsed.users) == 0
         assert parsed.cursor is None
 
 
-def test_get_following_list_one_follower(app: FastAPI):
-    client = TestClient(app)
-    with request_as(app, uid="a"):
-        response = client.get("/users/a/following")
+async def test_get_following_list_one_follower(client):
+    with request_as(uid="a"):
+        response = await client.get("/users/a/following")
         assert response.status_code == 200
         parsed = schemas.user.FollowFeedResponse.parse_obj(response.json())
         assert len(parsed.users) == 1
@@ -123,19 +90,16 @@ def test_get_following_list_one_follower(app: FastAPI):
         assert parsed.cursor is None
 
 
-def test_get_following_list_blocked(app: FastAPI):
-    client = TestClient(app)
+async def test_get_following_list_blocked(session, client):
+    b_blocks_a = models.UserRelation(from_user_id=USER_B_ID, to_user_id=USER_A_ID,
+                                     relation=models.UserRelationType.blocked)
+    session.add(b_blocks_a)
+    await session.commit()
 
-    with get_session() as session:
-        b_blocks_a = models.UserRelation(from_user_id=USER_B_ID, to_user_id=USER_A_ID,
-                                         relation=models.UserRelationType.blocked)
-        session.add(b_blocks_a)
-        session.commit()
-
-    with request_as(app, uid="a"):
-        response = client.get("/users/b/following")
+    with request_as(uid="a"):
+        response = await client.get("/users/b/following")
         assert response.status_code == 404
 
-    with request_as(app, uid="b"):
-        response = client.get("/users/a/following")
+    with request_as(uid="b"):
+        response = await client.get("/users/a/following")
         assert response.status_code == 200

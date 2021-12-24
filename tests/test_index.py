@@ -1,11 +1,9 @@
-from fastapi.testclient import TestClient
+import pytest
 
-from app.main import app
-
-client = TestClient(app)
+pytestmark = pytest.mark.asyncio
 
 
-def test_index():
-    response = client.get("/")
+async def test_index(client):
+    response = await client.get("/")
     assert response.status_code == 200
     assert response.json() == {"success": True}

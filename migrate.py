@@ -1,12 +1,25 @@
 import io
 from typing import Optional
 
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
 from alembic import command
 from alembic.config import Config
 
+from app.config import SQLALCHEMY_DATABASE_URL
 from app.controllers import categories
-from app.db.database import get_session, engine
 from shared.models import models
+
+engine = create_engine(
+    f"postgresql://{SQLALCHEMY_DATABASE_URL.split('://')[1]}",
+    pool_size=6,
+    max_overflow=0,
+    pool_timeout=15,  # seconds
+    pool_recycle=1800,
+    echo=False
+)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
 def main():
@@ -17,7 +30,7 @@ def init_db():
     with engine.connect() as connection:
         connection.execute("""CREATE EXTENSION IF NOT EXISTS postgis""")
     models.Base.metadata.create_all(bind=engine)
-    with get_session() as session:
+    with SessionLocal() as session:
         categories.add_categories_to_db(session)
 
 

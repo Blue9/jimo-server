@@ -14,25 +14,25 @@ router = APIRouter()
 
 
 @router.get("/{place_id}/icon", response_model=schemas.place.MapPinIcon)
-def get_place_icon(
+async def get_place_icon(
     place_id: uuid.UUID,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
     user_store: UserStore = Depends(get_user_store),
     place_store: PlaceStore = Depends(get_place_store)
 ):
-    user: schemas.internal.InternalUser = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
-    return place_store.get_place_icon(user.id, place_id)
+    user: schemas.internal.InternalUser = await utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
+    return await place_store.get_place_icon(user.id, place_id)
 
 
 @router.get("/{place_id}/mutualPosts", response_model=list[schemas.post.Post])
-def get_mutual_posts(
+async def get_mutual_posts(
     place_id: uuid.UUID,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
     user_store: UserStore = Depends(get_user_store),
     post_store: PostStore = Depends(get_post_store)
 ):
-    user: schemas.internal.InternalUser = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
-    mutual_posts = post_store.get_mutual_posts(user.id, place_id)
+    user: schemas.internal.InternalUser = await utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
+    mutual_posts = await post_store.get_mutual_posts(user.id, place_id)
     if mutual_posts is None:
         raise HTTPException(404)
     return mutual_posts

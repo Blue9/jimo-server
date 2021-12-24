@@ -3,11 +3,12 @@ from logging.config import fileConfig
 from alembic import context
 
 from app.config import SQLALCHEMY_DATABASE_URL
-from app.db.database import engine
 from shared.models.models import Base
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
+from migrate import engine
+
 config = context.config
 
 # Interpret the config file for Python logging.

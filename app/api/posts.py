@@ -18,7 +18,7 @@ router = APIRouter()
 
 
 @router.post("", response_model=schemas.post.Post)
-def create_post(
+async def create_post(
     request: schemas.post.CreatePostRequest,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
     user_store: UserStore = Depends(get_user_store),
@@ -26,13 +26,14 @@ def create_post(
     post_store: PostStore = Depends(get_post_store)
 ):
     """Create a new post."""
-    user: schemas.internal.InternalUser = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
+    user: schemas.internal.InternalUser = await utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
     try:
-        place = place_store.get_place(request.place)
+        place = await place_store.get_place(request.place)
         if place is None:
-            place = place_store.create_place(request.place)
-        place_store.create_or_update_place_data(user.id, place.id, request.place.region, request.place.additional_data)
-        post: schemas.post.ORMPost = post_store.create_post(user.id, place.id, request)
+            place = await place_store.create_place(request.place)
+        await place_store.create_or_update_place_data(
+            user.id, place.id, request.place.region, request.place.additional_data)
+        post: schemas.post.ORMPost = await post_store.create_post(user.id, place.id, request)
         return schemas.post.Post(**post.dict(), liked=False)
     except ValueError as e:
         print(e)
@@ -40,25 +41,25 @@ def create_post(
 
 
 @router.delete("/{post_id}", response_model=schemas.post.DeletePostResponse)
-def delete_post(
+async def delete_post(
     post_id: uuid.UUID,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
     user_store: UserStore = Depends(get_user_store),
     post_store: PostStore = Depends(get_post_store)
 ):
     """Delete the given post."""
-    user: schemas.internal.InternalUser = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
-    post: Optional[schemas.internal.InternalPost] = post_store.get_post(post_id)
+    user: schemas.internal.InternalUser = await utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
+    post: Optional[schemas.internal.InternalPost] = await post_store.get_post(post_id)
     if post is not None and post.user_id == user.id:
-        post_store.delete_post(post.id)
+        await post_store.delete_post(post.id)
         if post.image_blob_name is not None:
-            firebase_user.shared_firebase.make_image_private(post.image_blob_name)
+            await firebase_user.shared_firebase.make_image_private(post.image_blob_name)
         return schemas.post.DeletePostResponse(deleted=True)
     return schemas.post.DeletePostResponse(deleted=False)
 
 
 @router.post("/{post_id}/likes", response_model=schemas.post.LikePostResponse)
-def like_post(
+async def like_post(
     post_id: uuid.UUID,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
     task_handler: Optional[BackgroundTaskHandler] = Depends(get_task_handler),
@@ -67,18 +68,21 @@ def like_post(
     relation_store: RelationStore = Depends(get_relation_store)
 ):
     """Like the given post if the user has not already liked the post."""
-    user: schemas.internal.InternalUser = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
-    post = utils.get_post_and_validate_or_raise(post_store, relation_store, caller_user_id=user.id, post_id=post_id)
-    post_store.like_post(user.id, post.id)
+    user: schemas.internal.InternalUser = await utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
+    post = await utils.get_post_and_validate_or_raise(
+        post_store, relation_store, caller_user_id=user.id, post_id=post_id)
+    await post_store.like_post(user.id, post.id)
     # Notify the user that their post was liked if they aren't the current user
     if task_handler:
-        if user.id != post.user_id and user_store.get_user_preferences(post.user_id).post_liked_notifications:
-            task_handler.notify_post_liked(post, place_name=post_store.get_place_name(post.id), liked_by=user)
-    return {"likes": post_store.get_like_count(post.id)}
+        prefs = await user_store.get_user_preferences(post.user_id)
+        if user.id != post.user_id and prefs.post_liked_notifications:
+            place_name = await post_store.get_place_name(post.id)
+            await task_handler.notify_post_liked(post, place_name=place_name, liked_by=user)
+    return {"likes": await post_store.get_like_count(post.id)}
 
 
 @router.delete("/{post_id}/likes", response_model=schemas.post.LikePostResponse)
-def unlike_post(
+async def unlike_post(
     post_id: uuid.UUID,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
     user_store: UserStore = Depends(get_user_store),
@@ -86,14 +90,15 @@ def unlike_post(
     relation_store: RelationStore = Depends(get_relation_store)
 ):
     """Unlike the given post if the user has already liked the post."""
-    user: schemas.internal.InternalUser = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
-    post = utils.get_post_and_validate_or_raise(post_store, relation_store, caller_user_id=user.id, post_id=post_id)
-    post_store.unlike_post(user.id, post.id)
-    return {"likes": post_store.get_like_count(post.id)}
+    user: schemas.internal.InternalUser = await utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
+    post = await utils.get_post_and_validate_or_raise(
+        post_store, relation_store, caller_user_id=user.id, post_id=post_id)
+    await post_store.unlike_post(user.id, post.id)
+    return {"likes": await post_store.get_like_count(post.id)}
 
 
 @router.post("/{post_id}/report", response_model=schemas.base.SimpleResponse)
-def report_post(
+async def report_post(
     post_id: uuid.UUID,
     request: schemas.post.ReportPostRequest,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
@@ -102,15 +107,15 @@ def report_post(
     relation_store: RelationStore = Depends(get_relation_store)
 ):
     """Report the given post."""
-    reported_by: schemas.internal.InternalUser = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
-    post = utils.get_post_and_validate_or_raise(
+    reported_by: schemas.internal.InternalUser = await utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
+    post = await utils.get_post_and_validate_or_raise(
         post_store, relation_store, caller_user_id=reported_by.id, post_id=post_id)
-    success = post_store.report_post(post.id, reported_by.id, details=request.details)
+    success = await post_store.report_post(post.id, reported_by.id, details=request.details)
     return schemas.base.SimpleResponse(success=success)
 
 
 @router.get("/{post_id}/comments", response_model=schemas.comment.CommentPage)
-def get_comments(
+async def get_comments(
     post_id: uuid.UUID,
     cursor: Optional[uuid.UUID] = None,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
@@ -119,6 +124,7 @@ def get_comments(
     comment_store: CommentStore = Depends(get_comment_store),
     relation_store: RelationStore = Depends(get_relation_store)
 ):
-    user = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
-    post = utils.get_post_and_validate_or_raise(post_store, relation_store, caller_user_id=user.id, post_id=post_id)
-    return comment_store.get_comments(caller_user_id=user.id, post_id=post.id, cursor=cursor)
+    user = await utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
+    post = await utils.get_post_and_validate_or_raise(
+        post_store, relation_store, caller_user_id=user.id, post_id=post_id)
+    return await comment_store.get_comments(caller_user_id=user.id, post_id=post.id, cursor=cursor)

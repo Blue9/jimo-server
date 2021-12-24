@@ -17,7 +17,7 @@ router = APIRouter()
 
 
 @router.post("", response_model=schemas.comment.Comment)
-def create_comment(
+async def create_comment(
     request: schemas.comment.CreateCommentRequest,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
     task_handler: Optional[BackgroundTaskHandler] = Depends(get_task_handler),
@@ -26,12 +26,14 @@ def create_comment(
     relation_store: RelationStore = Depends(get_relation_store),
     user_store: UserStore = Depends(get_user_store)
 ):
-    user = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
-    post = utils.get_post_and_validate_or_raise(
+    user = await utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
+    post = await utils.get_post_and_validate_or_raise(
         post_store, relation_store, caller_user_id=user.id, post_id=request.post_id)
-    comment = comment_store.create_comment(user.id, post.id, content=request.content)
-    if task_handler and user.id != post.user_id and user_store.get_user_preferences(post.user_id).comment_notifications:
-        task_handler.notify_comment(post, post_store.get_place_name(post.id), comment.content, comment_by=user)
+    comment = await comment_store.create_comment(user.id, post.id, content=request.content)
+    prefs = await user_store.get_user_preferences(post.user_id)
+    if task_handler and user.id != post.user_id and prefs.comment_notifications:
+        place_name = await post_store.get_place_name(post.id)
+        await task_handler.notify_comment(post, place_name, comment.content, comment_by=user)
     return schemas.comment.Comment(
         id=comment.id,
         user=user,
@@ -44,28 +46,28 @@ def create_comment(
 
 
 @router.delete("/{comment_id}", response_model=schemas.base.SimpleResponse)
-def delete_comment(
+async def delete_comment(
     comment_id: uuid.UUID,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
     post_store: PostStore = Depends(get_post_store),
     comment_store: CommentStore = Depends(get_comment_store),
     user_store: UserStore = Depends(get_user_store)
 ):
-    user = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
-    comment: Optional[schemas.internal.InternalComment] = comment_store.get_comment(comment_id)
+    user = await utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
+    comment: Optional[schemas.internal.InternalComment] = await comment_store.get_comment(comment_id)
     if comment is None:
         raise HTTPException(404)
-    post: Optional[schemas.internal.InternalPost] = post_store.get_post(comment.post_id)
+    post: Optional[schemas.internal.InternalPost] = await post_store.get_post(comment.post_id)
     if post is None:
         raise HTTPException(404)
     if user.id != comment.user_id and user.id != post.user_id:
         raise HTTPException(403)
-    comment_store.delete_comment(comment.id)
+    await comment_store.delete_comment(comment.id)
     return schemas.base.SimpleResponse(success=True)
 
 
 @router.post("/{comment_id}/likes", response_model=schemas.comment.LikeCommentResponse)
-def like_comment(
+async def like_comment(
     comment_id: uuid.UUID,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
     task_handler: Optional[BackgroundTaskHandler] = Depends(get_task_handler),
@@ -73,28 +75,29 @@ def like_comment(
     post_store: PostStore = Depends(get_post_store),
     user_store: UserStore = Depends(get_user_store)
 ):
-    user = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
-    comment: Optional[schemas.internal.InternalComment] = comment_store.get_comment(comment_id)
-    if comment is None or not post_store.post_exists(comment.post_id):
+    user = await utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
+    comment: Optional[schemas.internal.InternalComment] = await comment_store.get_comment(comment_id)
+    if comment is None or not (await post_store.post_exists(comment.post_id)):
         raise HTTPException(404)
-    comment_store.like_comment(comment_id, user.id)
-    if task_handler:
-        if user.id != comment.user_id and user_store.get_user_preferences(comment.user_id).comment_liked_notifications:
-            task_handler.notify_comment_liked(comment, liked_by=user)
-    return schemas.comment.LikeCommentResponse(likes=comment_store.get_like_count(comment_id))
+    await comment_store.like_comment(comment_id, user.id)
+    if task_handler and user.id != comment.user_id:
+        prefs = await user_store.get_user_preferences(comment.user_id)
+        if prefs.comment_liked_notifications:
+            await task_handler.notify_comment_liked(comment, liked_by=user)
+    return schemas.comment.LikeCommentResponse(likes=await comment_store.get_like_count(comment_id))
 
 
 @router.delete("/{comment_id}/likes", response_model=schemas.comment.LikeCommentResponse)
-def unlike_comment(
+async def unlike_comment(
     comment_id: uuid.UUID,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
     comment_store: CommentStore = Depends(get_comment_store),
     post_store: PostStore = Depends(get_post_store),
     user_store: UserStore = Depends(get_user_store)
 ):
-    user = utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
-    comment: Optional[schemas.internal.InternalComment] = comment_store.get_comment(comment_id)
-    if comment is None or not post_store.post_exists(comment.post_id):
+    user = await utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
+    comment: Optional[schemas.internal.InternalComment] = await comment_store.get_comment(comment_id)
+    if comment is None or not (await post_store.post_exists(comment.post_id)):
         raise HTTPException(404)
-    comment_store.unlike_comment(comment_id, user.id)
-    return schemas.comment.LikeCommentResponse(likes=comment_store.get_like_count(comment_id))
+    await comment_store.unlike_comment(comment_id, user.id)
+    return schemas.comment.LikeCommentResponse(likes=await comment_store.get_like_count(comment_id))

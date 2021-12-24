@@ -1,59 +1,53 @@
+import pytest
 from fastapi import HTTPException
-from fastapi.testclient import TestClient
 
 from app.controllers.firebase import FirebaseUser, get_firebase_user
-from app.db.database import engine, get_session
-from app.main import app
+from app.main import app as main_app
 from shared.models import models
 from tests.mock_firebase import MockFirebaseAdmin
-from tests.utils import init_db, reset_db
 
-client = TestClient(app)
-
-
-def setup_module():
-    init_db(engine)
-    with get_session() as session:
-        user = models.User(uid="uid", username="user", first_name="first", last_name="last",
-                           phone_number="+18005551234")
-        deleted_user = models.User(uid="deleted_uid", username="deleted_user", first_name="first", last_name="last",
-                                   phone_number="+18005551235", deleted=True)
-        session.add(user)
-        session.add(deleted_user)
-        session.commit()
-        user_prefs = models.UserPrefs(user_id=user.id, follow_notifications=True, post_liked_notifications=True)
-        session.add(user_prefs)
-        session.commit()
+pytestmark = pytest.mark.asyncio
 
 
-def teardown_module():
-    reset_db(engine)
+@pytest.fixture(autouse=True, scope="function")
+async def setup_fixture(session):
+    user = models.User(uid="uid", username="user", first_name="first", last_name="last",
+                       phone_number="+18005551234")
+    deleted_user = models.User(uid="deleted_uid", username="deleted_user", first_name="first", last_name="last",
+                               phone_number="+18005551235", deleted=True)
+    session.add(user)
+    session.add(deleted_user)
+    await session.commit()
+    await session.refresh(user)
+    user_prefs = models.UserPrefs(user_id=user.id, follow_notifications=True, post_liked_notifications=True)
+    session.add(user_prefs)
+    await session.commit()
 
 
-def test_me_not_authenticated():
+async def test_me_not_authenticated(client):
     def mock_get_firebase_user():
         raise HTTPException(401)
 
-    app.dependency_overrides[get_firebase_user] = mock_get_firebase_user
-    response = client.get("/me")
+    main_app.dependency_overrides[get_firebase_user] = mock_get_firebase_user
+    response = await client.get("/me")
     assert response.status_code == 401
 
 
-def test_me_nonexistent_user():
+async def test_me_nonexistent_user(client):
     def mock_get_firebase_user():
         return FirebaseUser(shared_firebase=MockFirebaseAdmin(), uid="fake_uid")
 
-    app.dependency_overrides[get_firebase_user] = mock_get_firebase_user
-    response = client.get("/me")
+    main_app.dependency_overrides[get_firebase_user] = mock_get_firebase_user
+    response = await client.get("/me")
     assert response.status_code == 404
 
 
-def test_me_user_exists():
+async def test_me_user_exists(client):
     def mock_get_firebase_user():
         return FirebaseUser(shared_firebase=MockFirebaseAdmin(), uid="uid")
 
-    app.dependency_overrides[get_firebase_user] = mock_get_firebase_user
-    response = client.get("/me")
+    main_app.dependency_overrides[get_firebase_user] = mock_get_firebase_user
+    response = await client.get("/me")
     assert response.status_code == 200
     user = response.json()
     assert "userId" in user
@@ -69,10 +63,10 @@ def test_me_user_exists():
     }
 
 
-def test_me_deleted_user():
+async def test_me_deleted_user(client):
     def mock_get_firebase_user():
         return FirebaseUser(shared_firebase=MockFirebaseAdmin(), uid="deleted_uid")
 
-    app.dependency_overrides[get_firebase_user] = mock_get_firebase_user
-    response = client.get("/me")
+    main_app.dependency_overrides[get_firebase_user] = mock_get_firebase_user
+    response = await client.get("/me")
     assert response.status_code == 404

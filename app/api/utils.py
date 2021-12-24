@@ -3,6 +3,8 @@ import uuid
 from typing import Optional
 
 from shared import schemas
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app import config
 from app.db.database import get_db
 from shared.stores.comment_store import CommentStore
@@ -14,18 +16,17 @@ from shared.stores.relation_store import RelationStore
 from shared.stores.user_store import UserStore
 from fastapi import HTTPException, UploadFile, Depends
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
 
 from app.controllers.firebase import FirebaseAdminProtocol
 from shared.models import models
 
 
-def validate_user(
+async def validate_user(
     relation_store: RelationStore,
     caller_user_id: uuid.UUID,
     user: Optional[schemas.internal.InternalUser]
 ) -> schemas.internal.InternalUser:
-    if user is None or user.deleted or relation_store.is_blocked(
+    if user is None or user.deleted or await relation_store.is_blocked(
         blocked_by_user_id=user.id,
         blocked_user_id=caller_user_id
     ):
@@ -33,14 +34,14 @@ def validate_user(
     return user
 
 
-def get_user_from_uid_or_raise(user_store: UserStore, uid: str) -> schemas.internal.InternalUser:
-    user: Optional[schemas.internal.InternalUser] = user_store.get_user_by_uid(uid)
+async def get_user_from_uid_or_raise(user_store: UserStore, uid: str) -> schemas.internal.InternalUser:
+    user: Optional[schemas.internal.InternalUser] = await user_store.get_user_by_uid(uid)
     if user is None or user.deleted:
         raise HTTPException(403)
     return user
 
 
-def check_valid_image(file: UploadFile):
+async def check_valid_image(file: UploadFile):
     if file.content_type != "image/jpeg" or imghdr.what(file.file) != "jpeg":
         raise HTTPException(400, detail="File must be a jpeg")
     file_size = 0
@@ -51,35 +52,37 @@ def check_valid_image(file: UploadFile):
     file.file.seek(0)
 
 
-def upload_image(
+async def upload_image(
     file: UploadFile,
     user: schemas.internal.InternalUser,
     firebase_admin: FirebaseAdminProtocol,
-    db: Session
+    db: AsyncSession
 ) -> models.ImageUpload:
-    check_valid_image(file)
+    await check_valid_image(file)
     # Set override_used to True if you plan to immediately use the image in a profile picture or post (as opposed to
     # returning the image ID to the user).
     image_upload: models.ImageUpload = models.ImageUpload(user_id=user.id, used=False)
     try:
         db.add(image_upload)
-        db.commit()
+        await db.commit()
+        await db.refresh(image_upload)
     except IntegrityError:
         # Right now this only happens in the case of a UUID collision which should be almost impossible
         raise HTTPException(400, detail="Could not upload image")
-    response = firebase_admin.upload_image(user.uid, image_id=image_upload.id, file_obj=file.file)
+    response = await firebase_admin.upload_image(user.uid, image_id=image_upload.id, file_obj=file.file)
     if response is None:
-        db.delete(image_upload)
-        db.commit()
+        await db.delete(image_upload)
+        await db.commit()
         raise HTTPException(500, detail="Failed to upload image")
     blob_name, url = response
     image_upload.firebase_blob_name = blob_name
     image_upload.firebase_public_url = url
-    db.commit()
+    await db.commit()
+    await db.refresh(image_upload)
     return image_upload
 
 
-def get_post_and_validate_or_raise(
+async def get_post_and_validate_or_raise(
     post_store: PostStore,
     relation_store: RelationStore,
     caller_user_id: uuid.UUID,
@@ -91,38 +94,39 @@ def get_post_and_validate_or_raise(
     Note: if the user is not authorized (the author blocked the caller user or has been blocked by the caller user),
     a 404 will be returned because they shouldn't even know that the post exists.
     """
-    post: Optional[schemas.internal.InternalPost] = post_store.get_post(post_id)
+    post: Optional[schemas.internal.InternalPost] = await post_store.get_post(post_id)
     if post is None:
         raise HTTPException(404, detail="Post not found")
-    if (relation_store.is_blocked(post.user_id, caller_user_id) or
-            relation_store.is_blocked(caller_user_id, post.user_id)):
+    if await relation_store.is_blocked(post.user_id, caller_user_id):
+        raise HTTPException(404, detail="Post not found")
+    if await relation_store.is_blocked(caller_user_id, post.user_id):
         raise HTTPException(404, detail="Post not found")
     return post
 
 
-def get_comment_store(db: Session = Depends(get_db)):
+def get_comment_store(db: AsyncSession = Depends(get_db)):
     return CommentStore(db=db)
 
 
-def get_feed_store(db: Session = Depends(get_db)):
+def get_feed_store(db: AsyncSession = Depends(get_db)):
     return FeedStore(db=db)
 
 
-def get_invite_store(db: Session = Depends(get_db)):
+def get_invite_store(db: AsyncSession = Depends(get_db)):
     return InviteStore(invites_per_user=config.INVITES_PER_USER, db=db)
 
 
-def get_place_store(db: Session = Depends(get_db)):
+def get_place_store(db: AsyncSession = Depends(get_db)):
     return PlaceStore(db=db)
 
 
-def get_post_store(db: Session = Depends(get_db)):
+def get_post_store(db: AsyncSession = Depends(get_db)):
     return PostStore(db=db)
 
 
-def get_relation_store(db: Session = Depends(get_db)):
+def get_relation_store(db: AsyncSession = Depends(get_db)):
     return RelationStore(db=db)
 
 
-def get_user_store(db: Session = Depends(get_db)):
+def get_user_store(db: AsyncSession = Depends(get_db)):
     return UserStore(db=db)
