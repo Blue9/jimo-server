@@ -823,7 +823,7 @@ ulid-py = "^1.1.0"
 type = "git"
 url = "git@github.com:Blue9/jimo-shared.git"
 reference = "async"
-resolved_reference = "af2c9a2aaf85df3e4a3c6ad1ee14dcecf21c6558"
+resolved_reference = "6e1e75d8d74afd53a978ce644079f1f081e08b6b"
 
 [[package]]
 name = "six"

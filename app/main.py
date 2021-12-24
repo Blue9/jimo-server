@@ -43,8 +43,7 @@ async def db_session_middleware(request: Request, call_next):
     try:
         response = await call_next(request)
     except Exception as e:
-        raise e
-        # print(f"Exception when handling request {request.url}", e)
+        print(f"Exception when handling request {request.url}", e)
     finally:
         if request.state.db is not None:
             await request.state.db.close()
