@@ -5,6 +5,7 @@ from typing import Optional
 
 import shared.stores.utils
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload, undefer
 
 from app.api.utils import get_user_store
 from shared.stores.user_store import UserStore
@@ -316,6 +317,10 @@ async def get_post_reports(
     total_query = await db.execute(select(func.count()).select_from(models.PostReport))
     total = total_query.scalar()
     query = select(models.PostReport) \
+        .options(joinedload(models.PostReport.post, innerjoin=True)
+                 .options(*shared.stores.utils.eager_load_post_options()),
+                 joinedload(models.PostReport.reported_by, innerjoin=True)
+                 .options(*shared.stores.utils.eager_load_user_options())) \
         .order_by(models.PostReport.id.desc()) \
         .offset(page.offset) \
         .limit(page.limit)
@@ -333,6 +338,8 @@ async def get_feedback(
     total_query = await db.execute(select(func.count()).select_from(models.Feedback))
     total = total_query.scalar()
     query = select(models.Feedback) \
+        .options(joinedload(models.Feedback.user, innerjoin=True)
+                 .options(*shared.stores.utils.eager_load_user_options())) \
         .order_by(models.Feedback.id.desc()) \
         .offset(page.offset) \
         .limit(page.limit)
