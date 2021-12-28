@@ -15,7 +15,7 @@ grpcio = "^1.38.0"
 python-multipart = "^0.0.5"
 alembic = "^1.5.8"
 mypy = "^0.812"
-shared = { git = "git@github.com:Blue9/jimo-shared.git", branch = "async" }
+shared = { git = "git@github.com:Blue9/jimo-shared.git", branch = "main" }
 google-cloud-tasks = "^2.6.0"
 pyparsing = "<3.0.0"
 asyncpg = "^0.25.0"
