@@ -4,8 +4,9 @@ from collections import namedtuple
 from typing import Optional
 
 import shared.stores.utils
+from shared.caching.users import UserCache
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload, undefer
+from sqlalchemy.orm import joinedload
 
 from app.api.utils import get_user_store
 from shared.stores.user_store import UserStore
@@ -15,6 +16,7 @@ from sqlalchemy.exc import IntegrityError
 
 from shared import schemas
 from app.api import utils
+from app.controllers.dependencies import get_user_cache
 from app.controllers.firebase import FirebaseUser, get_firebase_user
 from app.db.database import get_db
 from shared.models import models
@@ -36,6 +38,16 @@ async def get_admin_or_raise(
 
 def get_page(page: int = Query(1, gt=0), limit: int = Query(100, gt=0, le=1000)) -> Page:
     return Page(offset=(page - 1) * limit, limit=limit)
+
+
+@router.post("/cache/flush", response_model=schemas.base.SimpleResponse)
+async def flush_cache(
+    user_cache: UserCache = Depends(get_user_cache),
+    _admin: schemas.internal.InternalUser = Depends(get_admin_or_raise)
+):
+    """Flush the cache."""
+    await user_cache.clear()
+    return schemas.base.SimpleResponse(success=True)
 
 
 # User endpoints

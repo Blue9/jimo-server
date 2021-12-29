@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from shared import schemas
 from app.api import utils
 from app.api.utils import get_user_store, get_post_store, get_comment_store, get_relation_store
-from app.controllers.firebase import FirebaseUser, get_firebase_user
+from app.controllers.dependencies import WrappedUser, get_caller_user
 from app.controllers.tasks import BackgroundTaskHandler, get_task_handler
 from shared.stores.comment_store import CommentStore
 from shared.stores.post_store import PostStore
@@ -19,14 +19,14 @@ router = APIRouter()
 @router.post("", response_model=schemas.comment.Comment)
 async def create_comment(
     request: schemas.comment.CreateCommentRequest,
-    firebase_user: FirebaseUser = Depends(get_firebase_user),
     task_handler: Optional[BackgroundTaskHandler] = Depends(get_task_handler),
     post_store: PostStore = Depends(get_post_store),
     comment_store: CommentStore = Depends(get_comment_store),
     relation_store: RelationStore = Depends(get_relation_store),
-    user_store: UserStore = Depends(get_user_store)
+    user_store: UserStore = Depends(get_user_store),
+    wrapped_user: WrappedUser = Depends(get_caller_user)
 ):
-    user = await utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
+    user = wrapped_user.user
     post = await utils.get_post_and_validate_or_raise(
         post_store, relation_store, caller_user_id=user.id, post_id=request.post_id)
     comment = await comment_store.create_comment(user.id, post.id, content=request.content)
@@ -48,12 +48,11 @@ async def create_comment(
 @router.delete("/{comment_id}", response_model=schemas.base.SimpleResponse)
 async def delete_comment(
     comment_id: uuid.UUID,
-    firebase_user: FirebaseUser = Depends(get_firebase_user),
     post_store: PostStore = Depends(get_post_store),
     comment_store: CommentStore = Depends(get_comment_store),
-    user_store: UserStore = Depends(get_user_store)
+    wrapped_user: WrappedUser = Depends(get_caller_user)
 ):
-    user = await utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
+    user = wrapped_user.user
     comment: Optional[schemas.internal.InternalComment] = await comment_store.get_comment(comment_id)
     if comment is None:
         raise HTTPException(404)
@@ -69,13 +68,13 @@ async def delete_comment(
 @router.post("/{comment_id}/likes", response_model=schemas.comment.LikeCommentResponse)
 async def like_comment(
     comment_id: uuid.UUID,
-    firebase_user: FirebaseUser = Depends(get_firebase_user),
     task_handler: Optional[BackgroundTaskHandler] = Depends(get_task_handler),
     comment_store: CommentStore = Depends(get_comment_store),
     post_store: PostStore = Depends(get_post_store),
-    user_store: UserStore = Depends(get_user_store)
+    user_store: UserStore = Depends(get_user_store),
+    wrapped_user: WrappedUser = Depends(get_caller_user)
 ):
-    user = await utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
+    user = wrapped_user.user
     comment: Optional[schemas.internal.InternalComment] = await comment_store.get_comment(comment_id)
     if comment is None or not (await post_store.post_exists(comment.post_id)):
         raise HTTPException(404)
@@ -90,12 +89,11 @@ async def like_comment(
 @router.delete("/{comment_id}/likes", response_model=schemas.comment.LikeCommentResponse)
 async def unlike_comment(
     comment_id: uuid.UUID,
-    firebase_user: FirebaseUser = Depends(get_firebase_user),
     comment_store: CommentStore = Depends(get_comment_store),
     post_store: PostStore = Depends(get_post_store),
-    user_store: UserStore = Depends(get_user_store)
+    wrapped_user: WrappedUser = Depends(get_caller_user)
 ):
-    user = await utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
+    user = wrapped_user.user
     comment: Optional[schemas.internal.InternalComment] = await comment_store.get_comment(comment_id)
     if comment is None or not (await post_store.post_exists(comment.post_id)):
         raise HTTPException(404)

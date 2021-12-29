@@ -1,6 +1,7 @@
 import asyncio
 
 import pytest
+from aioredis import Redis
 from httpx import AsyncClient
 from sqlalchemy import text
 from sqlalchemy.engine import make_url
@@ -9,10 +10,16 @@ from sqlalchemy.future import Connection
 from sqlalchemy.orm import sessionmaker
 
 from app import config
+from app.config import REDIS_URL
 from app.controllers import categories
 from shared.models import models
 
 TEST_DATABASE_NAME = "jimo_test_db"
+
+
+@pytest.fixture(autouse=True, scope="module")
+async def reset_redis():
+    await Redis.from_url(REDIS_URL).flushdb()
 
 
 @pytest.fixture(scope="session")

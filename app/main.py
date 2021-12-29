@@ -1,7 +1,5 @@
-from shared.stores.user_store import UserStore
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.utils import get_user_store
 from fastapi import FastAPI, Depends, UploadFile, File
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
@@ -12,6 +10,7 @@ from starlette.responses import JSONResponse, Response
 from app import api, config
 from shared import schemas
 from app.api import utils
+from app.controllers.dependencies import WrappedUser, get_caller_user
 from app.controllers.firebase import FirebaseUser, get_firebase_user
 from app.db.database import get_db
 
@@ -43,7 +42,8 @@ async def db_session_middleware(request: Request, call_next):
     try:
         response = await call_next(request)
     except Exception as e:
-        print(f"Exception when handling request {request.url}", e)
+        raise e
+        # print(f"Exception when handling request {request.url}", e)
     finally:
         if request.state.db is not None:
             await request.state.db.close()
@@ -71,10 +71,10 @@ async def upload_image(
     file: UploadFile = File(...),
     firebase_user: FirebaseUser = Depends(get_firebase_user),
     db: AsyncSession = Depends(get_db),
-    user_store: UserStore = Depends(get_user_store)
+    wrapped_user: WrappedUser = Depends(get_caller_user)
 ):
     """Upload the given image to Firebase if allowed, returning the image id (used for posts + profile pictures)."""
-    user: schemas.internal.InternalUser = await api.utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
+    user: schemas.internal.InternalUser = wrapped_user.user
     image_upload = await utils.upload_image(file, user, firebase_user.shared_firebase, db)
     return schemas.image.ImageUploadResponse(image_id=image_upload.id)
 

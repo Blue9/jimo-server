@@ -2,6 +2,7 @@ import uuid
 from typing import Optional, List
 
 import shared.stores.utils
+from shared.caching.users import UserCache
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.utils import get_user_store, get_place_store, get_feed_store
@@ -17,6 +18,7 @@ from sqlalchemy.orm import aliased
 
 from shared import schemas
 from app.api import utils
+from app.controllers.dependencies import get_caller_user, WrappedUser, get_user_cache
 from app.controllers.firebase import FirebaseUser, get_firebase_user
 from app.controllers.tasks import BackgroundTaskHandler, get_task_handler
 from app.db.database import get_db
@@ -28,12 +30,21 @@ router = APIRouter()
 @router.get("", response_model=schemas.user.PublicUser)
 async def get_me(
     firebase_user: FirebaseUser = Depends(get_firebase_user),
-    user_store: UserStore = Depends(get_user_store)
+    user_store: UserStore = Depends(get_user_store),
+    user_cache: UserCache = Depends(get_user_cache),
+    task_handler: Optional[BackgroundTaskHandler] = Depends(get_task_handler)
 ):
     """Get the current user based on the auth details."""
+    maybe_user = await user_cache.get_user_by_uid(firebase_user.uid)
+    if maybe_user:
+        print("Got cached user")
+        return maybe_user
     user = await user_store.get_user_by_uid(firebase_user.uid)
     if user is None:
         raise HTTPException(404, "User not found")
+    if task_handler:
+        await task_handler.cache_user(user)
+    print("Wrote user to cache")
     return user
 
 
@@ -41,10 +52,12 @@ async def get_me(
 async def update_user(
     request: schemas.user.UpdateProfileRequest,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
-    user_store: UserStore = Depends(get_user_store)
+    user_store: UserStore = Depends(get_user_store),
+    wrapped_user: WrappedUser = Depends(get_caller_user),
+    task_handler: Optional[BackgroundTaskHandler] = Depends(get_task_handler)
 ):
     """Update the current user's profile."""
-    old_user: schemas.internal.InternalUser = await utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
+    old_user: schemas.internal.InternalUser = wrapped_user.user
     updated_user, error = await user_store.update_user(
         old_user.id,
         username=request.username,
@@ -57,27 +70,29 @@ async def update_user(
             # Remove the old image
             await firebase_user.shared_firebase.delete_image(old_user.profile_picture_blob_name)
     response = schemas.user.UpdateProfileResponse(user=updated_user, error=error)
+    if task_handler:
+        await task_handler.cache_user(updated_user, old_user=old_user)
     return response
 
 
 @router.get("/preferences", response_model=schemas.user.UserPrefs)
 async def get_preferences(
-    firebase_user: FirebaseUser = Depends(get_firebase_user),
-    user_store: UserStore = Depends(get_user_store)
+    user_store: UserStore = Depends(get_user_store),
+    wrapped_user: WrappedUser = Depends(get_caller_user)
 ):
     """Get the current user's preferences."""
-    user: schemas.internal.InternalUser = await utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
+    user: schemas.internal.InternalUser = wrapped_user.user
     return await user_store.get_user_preferences(user.id)
 
 
 @router.post("/preferences", response_model=schemas.user.UserPrefs, response_model_exclude_none=True)
 async def update_preferences(
     request: schemas.user.UserPrefs,
-    firebase_user: FirebaseUser = Depends(get_firebase_user),
-    user_store: UserStore = Depends(get_user_store)
+    user_store: UserStore = Depends(get_user_store),
+    wrapped_user: WrappedUser = Depends(get_caller_user)
 ):
     """Update the current user's preferences."""
-    user: schemas.internal.InternalUser = await utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
+    user: schemas.internal.InternalUser = wrapped_user.user
     return await user_store.update_preferences(user.id, request)
 
 
@@ -86,15 +101,20 @@ async def upload_profile_picture(
     file: UploadFile = File(...),
     firebase_user: FirebaseUser = Depends(get_firebase_user),
     db: AsyncSession = Depends(get_db),
-    user_store: UserStore = Depends(get_user_store)
+    user_store: UserStore = Depends(get_user_store),
+    wrapped_user: WrappedUser = Depends(get_caller_user),
+    task_handler: Optional[BackgroundTaskHandler] = Depends(get_task_handler)
 ):
     """Set the current user's profile picture."""
-    old_user: schemas.internal.InternalUser = await utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
+    old_user: schemas.internal.InternalUser = wrapped_user.user
     image_upload = await utils.upload_image(file, old_user, firebase_user.shared_firebase, db)
     new_user, errors = await user_store.update_user(old_user.id, profile_picture_id=image_upload.id)
     if old_user.profile_picture_blob_name:
         await firebase_user.shared_firebase.delete_image(old_user.profile_picture_blob_name)
+
     if new_user is not None:
+        if task_handler:
+            await task_handler.cache_user(new_user, old_user=old_user)
         return new_user
     else:
         raise HTTPException(400, detail=errors.dict() if errors else None)
@@ -103,12 +123,11 @@ async def upload_profile_picture(
 @router.get("/feed", response_model=schemas.post.Feed)
 async def get_feed(
     cursor: Optional[uuid.UUID] = None,
-    firebase_user: FirebaseUser = Depends(get_firebase_user),
-    user_store: UserStore = Depends(get_user_store),
-    feed_store: FeedStore = Depends(get_feed_store)
+    feed_store: FeedStore = Depends(get_feed_store),
+    wrapped_user: WrappedUser = Depends(get_caller_user)
 ):
     """Get the feed for the current user."""
-    user: schemas.internal.InternalUser = await utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
+    user: schemas.internal.InternalUser = wrapped_user.user
     feed = await feed_store.get_feed(user.id, cursor)
     next_cursor: Optional[uuid.UUID] = min(post.id for post in feed) if len(feed) >= 50 else None
     return schemas.post.Feed(posts=feed, cursor=next_cursor)
@@ -116,33 +135,30 @@ async def get_feed(
 
 @router.get("/map", response_model=list[schemas.place.MapPin])
 async def get_map(
-    firebase_user: FirebaseUser = Depends(get_firebase_user),
-    user_store: UserStore = Depends(get_user_store),
-    place_store: PlaceStore = Depends(get_place_store)
+    place_store: PlaceStore = Depends(get_place_store),
+    wrapped_user: WrappedUser = Depends(get_caller_user)
 ):
-    user: schemas.internal.InternalUser = await utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
+    user: schemas.internal.InternalUser = wrapped_user.user
     return await place_store.get_map(user.id)
 
 
 @router.get("/discover", response_model=List[schemas.post.Post])
 async def get_discover_feed(
-    firebase_user: FirebaseUser = Depends(get_firebase_user),
-    user_store: UserStore = Depends(get_user_store),
-    feed_store: FeedStore = Depends(get_feed_store)
+    feed_store: FeedStore = Depends(get_feed_store),
+    wrapped_user: WrappedUser = Depends(get_caller_user)
 ):
     """Get the discover feed for the current user."""
-    user: schemas.internal.InternalUser = await utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
+    user: schemas.internal.InternalUser = wrapped_user.user
     return JSONResponse(content=jsonable_encoder(await feed_store.get_discover_feed(user.id)))
 
 
 @router.get("/suggested", response_model=List[schemas.user.PublicUser])
 async def get_suggested_users(
-    firebase_user: FirebaseUser = Depends(get_firebase_user),
     db: AsyncSession = Depends(get_db),
-    user_store: UserStore = Depends(get_user_store)
+    wrapped_user: WrappedUser = Depends(get_caller_user)
 ):
     """Get the list of suggested jimo accounts."""
-    user: schemas.internal.InternalUser = await utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
+    user: schemas.internal.InternalUser = wrapped_user.user
     RelationToCurrent = aliased(models.UserRelation)  # noqa
     query = select(models.User) \
         .options(*shared.stores.utils.eager_load_user_options()) \
@@ -158,11 +174,11 @@ async def get_suggested_users(
 @router.post("/contacts", response_model=list[schemas.user.PublicUser])
 async def get_existing_users(
     request: schemas.user.PhoneNumberList,
-    firebase_user: FirebaseUser = Depends(get_firebase_user),
-    user_store: UserStore = Depends(get_user_store)
+    user_store: UserStore = Depends(get_user_store),
+    wrapped_user: WrappedUser = Depends(get_caller_user)
 ):
     """Get the existing users from the list of e164 formatted phone numbers."""
-    user: schemas.internal.InternalUser = await utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
+    user: schemas.internal.InternalUser = wrapped_user.user
     if user.phone_number is not None:
         phone_numbers = [number for number in request.phone_numbers if number != user.phone_number]
     else:
@@ -176,13 +192,13 @@ async def get_existing_users(
 @router.post("/following", response_model=schemas.base.SimpleResponse)
 async def follow_many(
     request: schemas.user.UsernameList,
-    firebase_user: FirebaseUser = Depends(get_firebase_user),
     db: AsyncSession = Depends(get_db),
     task_handler: Optional[BackgroundTaskHandler] = Depends(get_task_handler),
-    user_store: UserStore = Depends(get_user_store)
+    user_store: UserStore = Depends(get_user_store),
+    wrapped_user: WrappedUser = Depends(get_caller_user)
 ):
     """Follow the given users."""
-    user: schemas.internal.InternalUser = await utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
+    user: schemas.internal.InternalUser = wrapped_user.user
     username_list = [username.lower() for username in request.usernames if username.lower() != user.username_lower]
     # Users to follow = all the existing users in the list that do not block us and that we do not follow or block
     followed_or_blocked_subquery = union_all(
@@ -204,6 +220,13 @@ async def follow_many(
         await db.commit()
     except IntegrityError:
         raise HTTPException(400)
+
+    if task_handler:
+        num_followed = len(users_to_follow)
+        await task_handler.increment_user_cache_field(user.id, "followingCount", delta=num_followed)
+        for followed in users_to_follow:
+            await task_handler.increment_user_cache_field(followed, "followerCount")
+
     # Note: This makes N+1 queries, one for each followed user and one for the current user, we can optimize this later
     if task_handler:
         for followed in users_to_follow:

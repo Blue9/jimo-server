@@ -10,6 +10,7 @@ from fastapi import APIRouter, HTTPException, Depends
 
 from shared import schemas
 from app.api import utils
+from app.controllers.dependencies import WrappedUser, get_caller_user
 from app.controllers.firebase import FirebaseUser, get_firebase_user
 from app.controllers.tasks import BackgroundTaskHandler, get_task_handler
 from shared.stores.comment_store import CommentStore
@@ -20,13 +21,13 @@ router = APIRouter()
 @router.post("", response_model=schemas.post.Post)
 async def create_post(
     request: schemas.post.CreatePostRequest,
-    firebase_user: FirebaseUser = Depends(get_firebase_user),
-    user_store: UserStore = Depends(get_user_store),
     place_store: PlaceStore = Depends(get_place_store),
-    post_store: PostStore = Depends(get_post_store)
+    post_store: PostStore = Depends(get_post_store),
+    task_handler: Optional[BackgroundTaskHandler] = Depends(get_task_handler),
+    wrapped_user: WrappedUser = Depends(get_caller_user)
 ):
     """Create a new post."""
-    user: schemas.internal.InternalUser = await utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
+    user: schemas.internal.InternalUser = wrapped_user.user
     try:
         place = await place_store.get_place(request.place)
         if place is None:
@@ -34,6 +35,8 @@ async def create_post(
         await place_store.create_or_update_place_data(
             user.id, place.id, request.place.region, request.place.additional_data)
         post: schemas.post.ORMPost = await post_store.create_post(user.id, place.id, request)
+        if task_handler:
+            await task_handler.increment_user_cache_field(user.id, "postCount")
         return schemas.post.Post(**post.dict(), liked=False)
     except ValueError as e:
         print(e)
@@ -44,16 +47,19 @@ async def create_post(
 async def delete_post(
     post_id: uuid.UUID,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
-    user_store: UserStore = Depends(get_user_store),
-    post_store: PostStore = Depends(get_post_store)
+    post_store: PostStore = Depends(get_post_store),
+    wrapped_user: WrappedUser = Depends(get_caller_user),
+    task_handler: Optional[BackgroundTaskHandler] = Depends(get_task_handler)
 ):
     """Delete the given post."""
-    user: schemas.internal.InternalUser = await utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
+    user: schemas.internal.InternalUser = wrapped_user.user
     post: Optional[schemas.internal.InternalPost] = await post_store.get_post(post_id)
     if post is not None and post.user_id == user.id:
         await post_store.delete_post(post.id)
         if post.image_blob_name is not None:
             await firebase_user.shared_firebase.make_image_private(post.image_blob_name)
+        if task_handler:
+            await task_handler.increment_user_cache_field(user.id, "postCount", delta=-1)
         return schemas.post.DeletePostResponse(deleted=True)
     return schemas.post.DeletePostResponse(deleted=False)
 
@@ -61,14 +67,14 @@ async def delete_post(
 @router.post("/{post_id}/likes", response_model=schemas.post.LikePostResponse)
 async def like_post(
     post_id: uuid.UUID,
-    firebase_user: FirebaseUser = Depends(get_firebase_user),
     task_handler: Optional[BackgroundTaskHandler] = Depends(get_task_handler),
     user_store: UserStore = Depends(get_user_store),
     post_store: PostStore = Depends(get_post_store),
-    relation_store: RelationStore = Depends(get_relation_store)
+    relation_store: RelationStore = Depends(get_relation_store),
+    wrapped_user: WrappedUser = Depends(get_caller_user)
 ):
     """Like the given post if the user has not already liked the post."""
-    user: schemas.internal.InternalUser = await utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
+    user: schemas.internal.InternalUser = wrapped_user.user
     post = await utils.get_post_and_validate_or_raise(
         post_store, relation_store, caller_user_id=user.id, post_id=post_id)
     await post_store.like_post(user.id, post.id)
@@ -84,13 +90,12 @@ async def like_post(
 @router.delete("/{post_id}/likes", response_model=schemas.post.LikePostResponse)
 async def unlike_post(
     post_id: uuid.UUID,
-    firebase_user: FirebaseUser = Depends(get_firebase_user),
-    user_store: UserStore = Depends(get_user_store),
     post_store: PostStore = Depends(get_post_store),
-    relation_store: RelationStore = Depends(get_relation_store)
+    relation_store: RelationStore = Depends(get_relation_store),
+    wrapped_user: WrappedUser = Depends(get_caller_user)
 ):
     """Unlike the given post if the user has already liked the post."""
-    user: schemas.internal.InternalUser = await utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
+    user: schemas.internal.InternalUser = wrapped_user.user
     post = await utils.get_post_and_validate_or_raise(
         post_store, relation_store, caller_user_id=user.id, post_id=post_id)
     await post_store.unlike_post(user.id, post.id)
@@ -101,13 +106,12 @@ async def unlike_post(
 async def report_post(
     post_id: uuid.UUID,
     request: schemas.post.ReportPostRequest,
-    firebase_user: FirebaseUser = Depends(get_firebase_user),
-    user_store: UserStore = Depends(get_user_store),
     post_store: PostStore = Depends(get_post_store),
-    relation_store: RelationStore = Depends(get_relation_store)
+    relation_store: RelationStore = Depends(get_relation_store),
+    wrapped_user: WrappedUser = Depends(get_caller_user)
 ):
     """Report the given post."""
-    reported_by: schemas.internal.InternalUser = await utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
+    reported_by: schemas.internal.InternalUser = wrapped_user.user
     post = await utils.get_post_and_validate_or_raise(
         post_store, relation_store, caller_user_id=reported_by.id, post_id=post_id)
     success = await post_store.report_post(post.id, reported_by.id, details=request.details)
@@ -118,13 +122,12 @@ async def report_post(
 async def get_comments(
     post_id: uuid.UUID,
     cursor: Optional[uuid.UUID] = None,
-    firebase_user: FirebaseUser = Depends(get_firebase_user),
     post_store: PostStore = Depends(get_post_store),
-    user_store: UserStore = Depends(get_user_store),
     comment_store: CommentStore = Depends(get_comment_store),
-    relation_store: RelationStore = Depends(get_relation_store)
+    relation_store: RelationStore = Depends(get_relation_store),
+    wrapped_user: WrappedUser = Depends(get_caller_user)
 ):
-    user = await utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
+    user = wrapped_user.user
     post = await utils.get_post_and_validate_or_raise(
         post_store, relation_store, caller_user_id=user.id, post_id=post_id)
     return await comment_store.get_comments(caller_user_id=user.id, post_id=post.id, cursor=cursor)

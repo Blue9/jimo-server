@@ -7,6 +7,8 @@ from app.controllers.tasks import CloudTasksConfig
 
 SQLALCHEMY_DATABASE_URL: str = os.environ["DATABASE_URL"]
 
+REDIS_URL: str = os.environ["REDIS_URL"]
+
 # Allow requests from this origin
 ALLOW_ORIGIN: Optional[str] = os.environ.get("ALLOW_ORIGIN")
 

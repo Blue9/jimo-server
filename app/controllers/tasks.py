@@ -6,7 +6,6 @@ from typing import Optional
 from cachetools.func import lru_cache
 from google.cloud import tasks_v2
 
-# Create a client.
 from pydantic import BaseModel
 from shared import schemas
 from shared.schemas import internal
@@ -73,6 +72,16 @@ class BackgroundTaskHandler:
     async def notify_follow(self, user_id: uuid.UUID, followed_by: internal.InternalUser):
         path = "notifications/follow"
         request = schemas.notifications.FollowNotification(user_id=user_id, followed_by=followed_by)
+        return await self._send_task(path, request.json())
+
+    async def cache_user(self, user: internal.InternalUser, old_user: Optional[internal.InternalUser] = None):
+        path = "cache/users"
+        request = schemas.caching.CacheUserRequest(user=user, old_user=old_user)
+        return await self._send_task(path, request.json())
+
+    async def increment_user_cache_field(self, user_id: uuid.UUID, field: str, delta: int = 1):
+        path = f"cache/users/{field}"
+        request = schemas.caching.IncrementFieldRequest(id=user_id, delta=delta)
         return await self._send_task(path, request.json())
 
 

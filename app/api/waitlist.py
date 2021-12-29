@@ -1,11 +1,10 @@
-from app.api.utils import get_user_store, get_invite_store
+from app.api.utils import get_invite_store
 from shared.stores.invite_store import InviteStore
-from shared.stores.user_store import UserStore
 from fastapi import APIRouter, Depends, HTTPException
 
 from app import config
 from shared import schemas
-from app.api import utils
+from app.controllers.dependencies import WrappedUser, get_caller_user
 from app.controllers.firebase import FirebaseUser, get_firebase_user
 
 router = APIRouter()
@@ -41,11 +40,10 @@ async def join_waitlist(
 @router.post("/invites", response_model=schemas.invite.UserInviteStatus)
 async def invite_user(
     request: schemas.invite.InviteUserRequest,
-    firebase_user: FirebaseUser = Depends(get_firebase_user),
-    user_store: UserStore = Depends(get_user_store),
-    invite_store: InviteStore = Depends(get_invite_store)
+    invite_store: InviteStore = Depends(get_invite_store),
+    wrapped_user: WrappedUser = Depends(get_caller_user)
 ):
-    user: schemas.internal.InternalUser = await utils.get_user_from_uid_or_raise(user_store, firebase_user.uid)
+    user: schemas.internal.InternalUser = wrapped_user.user
     num_used_invites = await invite_store.num_used_invites(user.id)
     if num_used_invites >= config.INVITES_PER_USER:
         return schemas.invite.UserInviteStatus(invited=False, message="Reached invite limit.")
