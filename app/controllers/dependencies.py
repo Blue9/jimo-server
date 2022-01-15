@@ -5,10 +5,12 @@ from typing import Optional
 import aioredis
 from fastapi import Depends, HTTPException
 from shared import schemas
+from shared.caching.lists import UserPostsCache
 from shared.caching.users import UserCache
+from shared.stores.post_store import PostStore
 from shared.stores.user_store import UserStore
 
-from app.api.utils import get_user_store
+from app.api.utils import get_user_store, get_post_store
 
 from app.config import REDIS_URL
 from app.controllers.firebase import FirebaseUser, get_firebase_user
@@ -19,10 +21,6 @@ from app.controllers.tasks import BackgroundTaskHandler, get_task_handler
 class WrappedUser:
     user: schemas.internal.InternalUser
     is_cached: bool
-    _user_cache: UserCache
-
-    def cache(self):
-        self._user_cache.write_user(user=self.user)
 
 
 @lru_cache(maxsize=1)
@@ -30,8 +28,12 @@ def get_redis():
     return aioredis.from_url(REDIS_URL, decode_responses=True)
 
 
-async def get_user_cache():
-    return UserCache(redis=get_redis())
+async def get_user_cache(user_store: UserStore = Depends(get_user_store)):
+    return UserCache(redis=get_redis(), user_store=user_store)
+
+
+async def get_user_posts_cache(post_store: PostStore = Depends(get_post_store)):
+    return UserPostsCache(redis=get_redis(), post_store=post_store)
 
 
 async def get_caller_user(
@@ -48,8 +50,8 @@ async def get_caller_user(
     if user is None or user.deleted:
         raise HTTPException(403)
     if task_handler is not None and not is_cached:
-        await task_handler.cache_user(user)
-    return WrappedUser(user=user, is_cached=is_cached, _user_cache=user_cache)
+        await task_handler.cache_objects(user_ids=[user.id])
+    return WrappedUser(user=user, is_cached=is_cached)
 
 
 async def get_requested_user(
@@ -66,5 +68,5 @@ async def get_requested_user(
     if user is None or user.deleted:
         raise HTTPException(404)
     if task_handler is not None and not is_cached:
-        await task_handler.cache_user(user)
-    return WrappedUser(user=user, is_cached=is_cached, _user_cache=user_cache)
+        await task_handler.cache_objects(user_ids=[user.id])
+    return WrappedUser(user=user, is_cached=is_cached)

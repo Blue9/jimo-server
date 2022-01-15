@@ -36,7 +36,9 @@ async def create_post(
             user.id, place.id, request.place.region, request.place.additional_data)
         post: schemas.post.ORMPost = await post_store.create_post(user.id, place.id, request)
         if task_handler:
-            await task_handler.increment_user_cache_field(user.id, "postCount")
+            await task_handler.refresh_user_field(user.id, "post_count")
+            # Just recompute the entire list of posts (more expensive but easier to deal with)
+            await task_handler.cache_user_posts(user_id=user.id)
         return schemas.post.Post(**post.dict(), liked=False)
     except ValueError as e:
         print(e)
@@ -59,7 +61,8 @@ async def delete_post(
         if post.image_blob_name is not None:
             await firebase_user.shared_firebase.make_image_private(post.image_blob_name)
         if task_handler:
-            await task_handler.increment_user_cache_field(user.id, "postCount", delta=-1)
+            await task_handler.refresh_user_field(user.id, "post_count")
+            await task_handler.delete_objects(post_ids=[post.id])
         return schemas.post.DeletePostResponse(deleted=True)
     return schemas.post.DeletePostResponse(deleted=False)
 

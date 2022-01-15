@@ -4,6 +4,7 @@ from collections import namedtuple
 from typing import Optional
 
 import shared.stores.utils
+from shared.caching.lists import UserPostsCache
 from shared.caching.users import UserCache
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
@@ -16,7 +17,7 @@ from sqlalchemy.exc import IntegrityError
 
 from shared import schemas
 from app.api import utils
-from app.controllers.dependencies import get_user_cache
+from app.controllers.dependencies import get_user_cache, get_user_posts_cache
 from app.controllers.firebase import FirebaseUser, get_firebase_user
 from app.db.database import get_db
 from shared.models import models
@@ -106,6 +107,7 @@ async def update_user(
     username: str,
     request: schemas.admin.UpdateUserRequest,
     db: AsyncSession = Depends(get_db),
+    user_cache: UserCache = Depends(get_user_cache),
     admin: schemas.internal.InternalUser = Depends(get_admin_or_raise)
 ):
     """Update the given user."""
@@ -132,6 +134,7 @@ async def update_user(
     except IntegrityError:
         raise HTTPException(400)
     await db.refresh(to_update)
+    await user_cache.update_user(user_id=to_update.id)
     return to_update
 
 
@@ -218,6 +221,8 @@ async def update_post(
     request: schemas.admin.UpdatePostRequest,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
     db: AsyncSession = Depends(get_db),
+    user_cache: UserCache = Depends(get_user_cache),
+    user_posts_cache: UserPostsCache = Depends(get_user_posts_cache),
     _admin: schemas.internal.InternalUser = Depends(get_admin_or_raise)
 ):
     query = select(models.Post) \
@@ -225,6 +230,7 @@ async def update_post(
         .where(models.Post.id == post_id)
     rows = await db.execute(query)
     post: Optional[models.Post] = rows.scalars().first()
+    post_was_deleted = post.deleted
     if post is None:
         raise HTTPException(404)
     if request.content:
@@ -239,6 +245,12 @@ async def update_post(
             await firebase_user.shared_firebase.make_image_private(updated_post.image_blob_name)
         else:
             await firebase_user.shared_firebase.make_image_public(updated_post.image_blob_name)
+    if not post_was_deleted and updated_post.deleted:
+        await user_cache.refresh_field(user_id=updated_post.user_id, field="post_count")
+        await user_posts_cache.remove_post(user_id=updated_post.user_id, post_id=updated_post.id)
+    if post_was_deleted and not updated_post.deleted:
+        await user_cache.refresh_field(user_id=updated_post.user_id, field="post_count")
+        await user_posts_cache.write_posts(user_id=updated_post.user_id)
     return updated_post
 
 
