@@ -83,7 +83,7 @@ async def get_posts(
         post_ids = await post_store.get_post_ids(user.id, cursor=cursor, limit=page_size)
         if len(post_ids) == 0:
             return schemas.post.Feed(posts=[], cursor=None)
-        else:
+        elif task_handler is not None:
             # Feed is non-empty and not cached
             await task_handler.cache_user_posts(user_id=user.id)
     # Step 2: Get posts

@@ -230,9 +230,9 @@ async def update_post(
         .where(models.Post.id == post_id)
     rows = await db.execute(query)
     post: Optional[models.Post] = rows.scalars().first()
-    post_was_deleted = post.deleted
     if post is None:
         raise HTTPException(404)
+    post_was_deleted = post.deleted
     if request.content:
         post.content = request.content
     if request.deleted is not None:

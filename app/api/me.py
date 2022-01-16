@@ -6,7 +6,7 @@ from shared.caching.users import UserCache
 from shared.stores.post_store import PostStore
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.utils import get_user_store, get_place_store, get_feed_store, get_post_store
+from app.api.utils import get_user_store, get_place_store, get_feed_store, get_post_store, get_posts_from_post_ids
 from shared.stores.feed_store import FeedStore
 from shared.stores.place_store import PlaceStore
 from shared.stores.user_store import UserStore
@@ -138,35 +138,15 @@ async def get_feed(
     post_ids = await feed_store.get_feed_ids(user.id, cursor=cursor, limit=page_size)
     if len(post_ids) == 0:
         return schemas.post.Feed(posts=[], cursor=None)
-    # Step 2: Get posts
-    internal_posts = await post_store.get_posts(post_ids)
-    # Step 3: Get places
-    place_ids = set(post.place_id for post in internal_posts)
-    places = await place_store.get_places(place_ids)
-    # Step 4: Get like statuses for each post
-    liked_post_ids = await post_store.get_liked_posts(user.id, post_ids)
-    # Step 5: Get users for each post
-    user_ids = list(set(post.user_id for post in internal_posts))
-    users: dict[uuid.UUID, schemas.internal.InternalUser] = await user_cache.get_users_by_ids(user_ids)
-    not_cached_users = [user_id for user_id in user_ids if user_id not in users.keys()]
-    # TODO(open-question): do we want to cache not_cached_users?
-    users.update(await user_store.get_users(user_ids=not_cached_users))
-
-    feed = []
-    for post in internal_posts:
-        public_post = schemas.post.Post(
-            id=post.id,
-            place=places[post.place_id],
-            category=post.category,
-            content=post.content,
-            image_url=post.image_url,
-            created_at=post.created_at,
-            like_count=post.like_count,
-            comment_count=post.comment_count,
-            user=users[post.user_id],
-            liked=post.id in liked_post_ids
-        )
-        feed.append(public_post)
+    # Step 2: Convert to posts
+    feed = await get_posts_from_post_ids(
+        current_user=user,
+        post_ids=post_ids,
+        post_store=post_store,
+        place_store=place_store,
+        user_store=user_store,
+        user_cache=user_cache
+    )
     next_cursor: Optional[uuid.UUID] = min(post.id for post in feed) if len(feed) >= 50 else None
     return schemas.post.Feed(posts=feed, cursor=next_cursor)
 
@@ -178,6 +158,30 @@ async def get_map(
 ):
     user: schemas.internal.InternalUser = wrapped_user.user
     return await place_store.get_map(user.id)
+
+
+@router.get("/mapV2", response_model=list[schemas.post.Post])
+async def get_map_v2(
+    feed_store: FeedStore = Depends(get_feed_store),
+    post_store: PostStore = Depends(get_post_store),
+    place_store: PlaceStore = Depends(get_place_store),
+    wrapped_user: WrappedUser = Depends(get_caller_user),
+    user_store: UserStore = Depends(get_user_store),
+    user_cache: UserCache = Depends(get_user_cache)
+):
+    user: schemas.internal.InternalUser = wrapped_user.user
+    # New map endpoint returns same info as feed for now
+    post_ids = await feed_store.get_feed_ids(user.id, cursor=None, limit=500)
+    if len(post_ids) == 0:
+        return schemas.post.Feed(posts=[], cursor=None)
+    return await get_posts_from_post_ids(
+        current_user=user,
+        post_ids=post_ids,
+        post_store=post_store,
+        place_store=place_store,
+        user_store=user_store,
+        user_cache=user_cache
+    )
 
 
 @router.get("/discover", response_model=List[schemas.post.Post])

@@ -3,6 +3,7 @@ import uuid
 from typing import Optional
 
 from shared import schemas
+from shared.caching.users import UserCache
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import config
@@ -50,6 +51,46 @@ async def check_valid_image(file: UploadFile):
         if file_size > 2 * 1024 * 1024:
             raise HTTPException(400, detail="Max file size is 2MB")
     file.file.seek(0)
+
+
+async def get_posts_from_post_ids(
+    current_user: schemas.internal.InternalUser,
+    post_ids: list[uuid.UUID],
+    post_store: PostStore,
+    place_store: PlaceStore,
+    user_store: UserStore,
+    user_cache: UserCache,
+) -> list[schemas.post.Post]:
+    # Step 1: Get internal posts
+    internal_posts = await post_store.get_posts(post_ids)
+    # Step 2: Get places
+    place_ids = set(post.place_id for post in internal_posts)
+    places = await place_store.get_places(place_ids)
+    # Step 3: Get like statuses for each post
+    liked_post_ids = await post_store.get_liked_posts(current_user.id, post_ids)
+    # Step 4: Get users for each post
+    user_ids = list(set(post.user_id for post in internal_posts))
+    users: dict[uuid.UUID, schemas.internal.InternalUser] = await user_cache.get_users_by_ids(user_ids)
+    not_cached_users = [user_id for user_id in user_ids if user_id not in users.keys()]
+    # TODO(open-question): do we want to cache not_cached_users?
+    users.update(await user_store.get_users(user_ids=not_cached_users))
+
+    posts = []
+    for post in internal_posts:
+        public_post = schemas.post.Post(
+            id=post.id,
+            place=places[post.place_id],
+            category=post.category,
+            content=post.content,
+            image_url=post.image_url,
+            created_at=post.created_at,
+            like_count=post.like_count,
+            comment_count=post.comment_count,
+            user=users[post.user_id],
+            liked=post.id in liked_post_ids
+        )
+        posts.append(public_post)
+    return posts
 
 
 async def upload_image(

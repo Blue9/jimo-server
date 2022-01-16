@@ -111,12 +111,12 @@ class BackgroundTaskHandler:
         return await self._send_task(path, request.json())
 
     async def refresh_user_field(self, user_id: uuid.UUID, field: str):
-        path = f"cache/users/field"
+        path = "cache/users/field"
         request = schemas.caching.RefreshUserFieldRequest(id=user_id, field=field)
         return await self._send_task(path, request.json())
 
     async def cache_user_posts(self, user_id: uuid.UUID):
-        path = f"cache/users/posts"
+        path = "cache/users/posts"
         request = schemas.caching.CacheListRequest(user_id=user_id)
         return await self._send_task(path, request.json())
 
