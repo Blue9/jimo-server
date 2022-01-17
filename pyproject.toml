@@ -20,6 +20,7 @@ google-cloud-tasks = "^2.6.0"
 pyparsing = "<3.0.0"
 asyncpg = "^0.25.0"
 aioredis = "^2.0.0"
+slowapi = "^0.1.5"
 
 [tool.poetry.dev-dependencies]
 flake8 = "^3.9.0"

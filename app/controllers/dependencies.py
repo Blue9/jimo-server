@@ -3,7 +3,7 @@ from functools import lru_cache
 from typing import Optional
 
 import aioredis
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, Request
 from shared import schemas
 from shared.caching.lists import UserPostsCache
 from shared.caching.users import UserCache
@@ -26,6 +26,14 @@ class WrappedUser:
 @lru_cache(maxsize=1)
 def get_redis():
     return aioredis.from_url(REDIS_URL, decode_responses=True)
+
+
+def get_authorization_header(request: Request) -> str:
+    """Used for rate limiting."""
+    authorization = request.headers.get("authorization")
+    if authorization is None or not authorization.startswith("Bearer "):
+        return "default"
+    return authorization[7:]
 
 
 async def get_user_cache(user_store: UserStore = Depends(get_user_store)):

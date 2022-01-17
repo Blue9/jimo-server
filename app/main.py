@@ -1,3 +1,6 @@
+from slowapi import Limiter
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from fastapi import FastAPI, Depends, UploadFile, File
@@ -10,7 +13,7 @@ from starlette.responses import JSONResponse, Response
 from app import api, config
 from shared import schemas
 from app.api import utils
-from app.controllers.dependencies import WrappedUser, get_caller_user
+from app.controllers.dependencies import WrappedUser, get_caller_user, get_authorization_header
 from app.controllers.firebase import FirebaseUser, get_firebase_user
 from app.db.database import get_db
 
@@ -29,6 +32,12 @@ def get_app() -> FastAPI:
             allow_methods=["*"],
             allow_headers=["*"],
         )
+    _app.state.limiter = Limiter(
+        key_func=get_authorization_header,
+        default_limits=[config.RATE_LIMIT_CONFIG],
+        storage_uri=config.REDIS_URL
+    )
+    _app.add_middleware(SlowAPIMiddleware)
     return _app
 
 
@@ -58,6 +67,11 @@ async def validation_exception_handler(_request: Request, exc: RequestValidation
         errors[error["loc"][-1]] = error["msg"]
     print(errors)
     return JSONResponse(status_code=400, content=jsonable_encoder(errors))
+
+
+@app.exception_handler(RateLimitExceeded)
+def rate_limit_exceeded_handler(_request: Request, _exc: RateLimitExceeded) -> Response:
+    return JSONResponse({"error": "You are going too fast"}, status_code=429)
 
 
 @app.get("/")
