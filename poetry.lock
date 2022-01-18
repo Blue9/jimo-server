@@ -446,7 +446,7 @@ python-versions = ">=3.6"
 
 [[package]]
 name = "httpcore"
-version = "0.14.4"
+version = "0.14.5"
 description = "A minimal low-level HTTP client."
 category = "dev"
 optional = false
@@ -460,6 +460,7 @@ sniffio = ">=1.0.0,<2.0.0"
 
 [package.extras]
 http2 = ["h2 (>=3,<5)"]
+socks = ["socksio (>=1.0.0,<2.0.0)"]
 
 [[package]]
 name = "httplib2"
@@ -869,7 +870,7 @@ ulid-py = "^1.1.0"
 type = "git"
 url = "git@github.com:Blue9/jimo-shared.git"
 reference = "main"
-resolved_reference = "df1ea97f32426488efe377b23ea51de1549140cc"
+resolved_reference = "751b1dbe9969603c24b1221bac24469506e2025c"
 
 [[package]]
 name = "six"
@@ -1391,8 +1392,8 @@ h11 = [
     {file = "h11-0.12.0.tar.gz", hash = "sha256:47222cb6067e4a307d535814917cd98fd0a57b6788ce715755fa2b6c28b56042"},
 ]
 httpcore = [
-    {file = "httpcore-0.14.4-py3-none-any.whl", hash = "sha256:9410fe352bea732311f2b2bee0555c8cc5e62b9a73b9d3272fe125a2aa6eb28e"},
-    {file = "httpcore-0.14.4.tar.gz", hash = "sha256:d4305811f604d3c2e22869147392f134796976ff946c96a8cfba87f4e0171d83"},
+    {file = "httpcore-0.14.5-py3-none-any.whl", hash = "sha256:2621ee769d0236574df51b305c5f4c69ca8f0c7b215221ad247b1ee42a9a9de1"},
+    {file = "httpcore-0.14.5.tar.gz", hash = "sha256:435ab519628a6e2393f67812dea3ca5c6ad23b457412cd119295d9f906d96a2b"},
 ]
 httplib2 = [
     {file = "httplib2-0.20.2-py3-none-any.whl", hash = "sha256:6b937120e7d786482881b44b8eec230c1ee1c5c1d06bce8cc865f25abbbf713b"},

@@ -9,7 +9,7 @@ SQLALCHEMY_DATABASE_URL: str = os.environ["DATABASE_URL"]
 
 REDIS_URL: str = os.environ["REDIS_URL"]
 
-RATE_LIMIT_CONFIG: str = os.environ.get("RATE_LIMIT_CONFIG", "200/minute")
+RATE_LIMIT_CONFIG: str = os.environ.get("RATE_LIMIT_CONFIG", "2/second")
 
 # Allow requests from this origin
 ALLOW_ORIGIN: Optional[str] = os.environ.get("ALLOW_ORIGIN")

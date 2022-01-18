@@ -151,7 +151,7 @@ async def get_feed(
     return schemas.post.Feed(posts=feed, cursor=next_cursor)
 
 
-@router.get("/map", response_model=list[schemas.place.MapPin])
+@router.get("/map", response_model=list[schemas.map.MapPin])
 async def get_map(
     place_store: PlaceStore = Depends(get_place_store),
     wrapped_user: WrappedUser = Depends(get_caller_user)
@@ -160,7 +160,7 @@ async def get_map(
     return await place_store.get_map(user.id)
 
 
-@router.get("/mapV2", response_model=list[schemas.post.Post])
+@router.get("/mapV2", response_model=schemas.map.MapResponse)
 async def get_map_v2(
     feed_store: FeedStore = Depends(get_feed_store),
     post_store: PostStore = Depends(get_post_store),
@@ -174,7 +174,7 @@ async def get_map_v2(
     post_ids = await feed_store.get_feed_ids(user.id, cursor=None, limit=500)
     if len(post_ids) == 0:
         return schemas.post.Feed(posts=[], cursor=None)
-    return await get_posts_from_post_ids(
+    posts = await get_posts_from_post_ids(
         current_user=user,
         post_ids=post_ids,
         post_store=post_store,
@@ -182,6 +182,13 @@ async def get_map_v2(
         user_store=user_store,
         user_cache=user_cache
     )
+    # Post cursors should be the minimum post id for each user, aka the earliest post id.
+    post_cursors_by_user: dict[uuid.UUID, uuid.UUID] = {}
+    for post in posts[::-1]:
+        user_id = post.user.id
+        if user_id not in post_cursors_by_user:
+            post_cursors_by_user[user_id] = post.id
+    return schemas.map.MapResponse(posts=posts, post_cursors_by_user=post_cursors_by_user)
 
 
 @router.get("/discover", response_model=List[schemas.post.Post])

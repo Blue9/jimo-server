@@ -11,7 +11,7 @@ from app.controllers.dependencies import WrappedUser, get_caller_user
 router = APIRouter()
 
 
-@router.get("/{place_id}/icon", response_model=schemas.place.MapPinIcon)
+@router.get("/{place_id}/icon", response_model=schemas.map.MapPinIcon)
 async def get_place_icon(
     place_id: uuid.UUID,
     place_store: PlaceStore = Depends(get_place_store),
