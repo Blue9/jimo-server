@@ -173,7 +173,7 @@ async def get_map_v2(
     # New map endpoint returns same info as feed for now
     post_ids = await feed_store.get_feed_ids(user.id, cursor=None, limit=500)
     if len(post_ids) == 0:
-        return schemas.post.Feed(posts=[], cursor=None)
+        return schemas.map.MapResponse(posts=[], post_cursors_by_user={})
     posts = await get_posts_from_post_ids(
         current_user=user,
         post_ids=post_ids,
