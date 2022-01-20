@@ -62,6 +62,7 @@ async def get_user(
 @router.get("/{username}/posts", response_model=schemas.post.Feed)
 async def get_posts(
     cursor: Optional[uuid.UUID] = None,
+    limit: Optional[int] = 50,
     relation_store: RelationStore = Depends(get_relation_store),
     post_store: PostStore = Depends(get_post_store),
     place_store: PlaceStore = Depends(get_place_store),
@@ -71,7 +72,9 @@ async def get_posts(
     task_handler: Optional[BackgroundTaskHandler] = Depends(get_task_handler)
 ):
     """Get the posts of the given user."""
-    page_size = 50
+    if limit not in [50, 100]:
+        raise HTTPException(400)
+    page_size = limit
     caller_user: schemas.internal.InternalUser = wrapped_user.user
     maybe_user = requested_user.user
     user = await utils.validate_user(relation_store, caller_user_id=caller_user.id, user=maybe_user)
