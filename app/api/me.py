@@ -1,5 +1,5 @@
 import uuid
-from typing import Optional, List
+from typing import Optional
 
 import shared.stores.utils
 from shared.caching.users import UserCache
@@ -191,17 +191,34 @@ async def get_map_v2(
     return schemas.map.MapResponse(posts=posts, post_cursors_by_user=post_cursors_by_user)
 
 
-@router.get("/discover", response_model=List[schemas.post.Post])
+@router.get("/discover", response_model=list[schemas.post.Post])
 async def get_discover_feed(
     feed_store: FeedStore = Depends(get_feed_store),
-    wrapped_user: WrappedUser = Depends(get_caller_user)
+    post_store: PostStore = Depends(get_post_store),
+    place_store: PlaceStore = Depends(get_place_store),
+    wrapped_user: WrappedUser = Depends(get_caller_user),
+    user_store: UserStore = Depends(get_user_store),
+    user_cache: UserCache = Depends(get_user_cache)
 ):
     """Get the discover feed for the current user."""
     user: schemas.internal.InternalUser = wrapped_user.user
-    return JSONResponse(content=jsonable_encoder(await feed_store.get_discover_feed(user.id)))
+    # Step 1: Get post ids
+    post_ids = await feed_store.get_discover_feed_ids(user.id)
+    if len(post_ids) == 0:
+        return []
+    # Step 2: Convert to posts
+    feed = await get_posts_from_post_ids(
+        current_user=user,
+        post_ids=post_ids,
+        post_store=post_store,
+        place_store=place_store,
+        user_store=user_store,
+        user_cache=user_cache
+    )
+    return JSONResponse(content=jsonable_encoder(feed))
 
 
-@router.get("/suggested", response_model=List[schemas.user.PublicUser])
+@router.get("/suggested", response_model=list[schemas.user.PublicUser])
 async def get_suggested_users(
     db: AsyncSession = Depends(get_db),
     wrapped_user: WrappedUser = Depends(get_caller_user)
