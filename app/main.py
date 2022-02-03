@@ -16,14 +16,20 @@ from app.api import utils
 from app.controllers.dependencies import WrappedUser, get_caller_user, get_authorization_header
 from app.controllers.firebase import FirebaseUser, get_firebase_user
 from app.db.database import get_db
+from app.utils import get_logger
+
+log = get_logger(__name__)
 
 
 def get_app() -> FastAPI:
+    log.info("Initializing server")
     if config.ENABLE_DOCS:
+        log.warn("Enabling docs")
         _app = FastAPI()
     else:
         _app = FastAPI(openapi_url=None)
     if config.ALLOW_ORIGIN:
+        log.warn("Setting allow origin to %s", config.ALLOW_ORIGIN)
         origins = [config.ALLOW_ORIGIN]
         _app.add_middleware(
             CORSMiddleware,
@@ -32,6 +38,7 @@ def get_app() -> FastAPI:
             allow_methods=["*"],
             allow_headers=["*"],
         )
+    log.warn("Rate limiting to %s", config.RATE_LIMIT_CONFIG)
     _app.state.limiter = Limiter(
         key_func=get_authorization_header,
         default_limits=[config.RATE_LIMIT_CONFIG],
@@ -50,8 +57,8 @@ async def db_session_middleware(request: Request, call_next):
     request.state.db = None
     try:
         response = await call_next(request)
-    except Exception as e:
-        print(f"Exception when handling request {request.url}", e)
+    except Exception:  # noqa
+        log.exception("Exception when handling request %s", request.url)
     finally:
         if request.state.db is not None:
             await request.state.db.close()
@@ -65,7 +72,7 @@ async def validation_exception_handler(_request: Request, exc: RequestValidation
         if "loc" not in error or "msg" not in error:
             continue
         errors[error["loc"][-1]] = error["msg"]
-    print(errors)
+    log.info("Request validation error %s", errors)
     return JSONResponse(status_code=400, content=jsonable_encoder(errors))
 
 

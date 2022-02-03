@@ -13,6 +13,9 @@ from firebase_admin.exceptions import FirebaseError
 from google.cloud.exceptions import GoogleCloudError
 
 from app import config
+from app.utils import get_logger
+
+log = get_logger(__name__)
 
 
 class FirebaseAdminProtocol(Protocol):
@@ -45,8 +48,8 @@ class FirebaseAdmin(FirebaseAdminProtocol):
             return decoded_token.get("uid")
         except (ValueError, InvalidIdTokenError, ExpiredIdTokenError, RevokedIdTokenError, CertificateFetchError):
             return None
-        except Exception as e:
-            print("Unexpected exception:", e)
+        except Exception:  # noqa
+            log.exception("Unexpected exception")
             return None
 
     async def get_phone_number_from_uid(self, uid: str) -> Optional[str]:
@@ -77,8 +80,8 @@ class FirebaseAdmin(FirebaseAdminProtocol):
         try:
             await loop.run_in_executor(
                 None, functools.partial(blob.upload_from_file, file_obj, content_type="image/jpeg"))
-        except GoogleCloudError as e:
-            print("Failed to upload image", e)
+        except GoogleCloudError:
+            log.exception("Failed to upload image")
             return None
         await loop.run_in_executor(None, blob.make_public)
         return blob.name, blob.public_url

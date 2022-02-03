@@ -11,8 +11,10 @@ from shared import schemas
 from shared.schemas import internal
 
 from app import config
+from app.utils import get_logger
 
 client = tasks_v2.CloudTasksClient()
+log = get_logger(__name__)
 
 
 class CloudTasksConfig(BaseModel):
@@ -31,7 +33,7 @@ class BackgroundTaskHandler:
         self.url = conf.url
         self.service_account_email = conf.service_account_email
         self.queue_name = client.queue_path(self.project, self.location, self.queue)
-        print("Initialized background task handler")
+        log.info("Initialized background task handler")
 
     async def _send_task(self, url_path: str, request: str):
         loop = get_event_loop()

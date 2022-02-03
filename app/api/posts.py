@@ -15,7 +15,10 @@ from app.controllers.firebase import FirebaseUser, get_firebase_user
 from app.controllers.tasks import BackgroundTaskHandler, get_task_handler
 from shared.stores.comment_store import CommentStore
 
+from app.utils import get_logger
+
 router = APIRouter()
+log = get_logger(__name__)
 
 
 @router.post("", response_model=schemas.post.Post)
@@ -36,7 +39,7 @@ async def create_post(
         post: schemas.post.ORMPost = await post_store.create_post(user.id, place.id, request)
         return schemas.post.Post(**post.dict(), liked=False)
     except ValueError as e:
-        print(e)
+        log.info("Could not create post. User-facing message: %s", str(e))
         raise HTTPException(400, detail=str(e))
 
 

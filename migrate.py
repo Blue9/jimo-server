@@ -11,6 +11,8 @@ from app.config import SQLALCHEMY_DATABASE_URL
 from app.controllers import categories
 from shared.models import models
 
+from app.utils import get_logger
+
 engine = create_engine(
     f"postgresql://{SQLALCHEMY_DATABASE_URL.split('://')[1]}",
     pool_size=6,
@@ -20,6 +22,7 @@ engine = create_engine(
     echo=False
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+log = get_logger(__name__)
 
 
 def main():
@@ -35,18 +38,18 @@ def init_db():
 
 
 def run_migrations():
-    print("Running db migrations")
+    log.info("Running db migrations")
     alembic_cfg = Config("alembic.ini")
     current_revision = get_current_revision()
     if current_revision is None:
         # If alembic_version table doesn't exist, init db and stamp it with the most recent revision
-        print("Creating tables and stamping version")
+        log.info("Creating tables and stamping version")
         init_db()
         command.stamp(alembic_cfg, "head")
     else:
-        print("Migrating")
+        log.info("Migrating")
         command.upgrade(alembic_cfg, "head")
-    print("Ran db migrations")
+    log.info("Ran db migrations")
 
 
 def get_current_revision() -> Optional[str]:
