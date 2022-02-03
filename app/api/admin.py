@@ -4,8 +4,6 @@ from collections import namedtuple
 from typing import Optional
 
 import shared.stores.utils
-from shared.caching.lists import UserPostsCache
-from shared.caching.users import UserCache
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
@@ -17,7 +15,7 @@ from sqlalchemy.exc import IntegrityError
 
 from shared import schemas
 from app.api import utils
-from app.controllers.dependencies import get_user_cache, get_user_posts_cache
+from app.controllers.dependencies import get_redis
 from app.controllers.firebase import FirebaseUser, get_firebase_user
 from app.db.database import get_db
 from shared.models import models
@@ -43,11 +41,10 @@ def get_page(page: int = Query(1, gt=0), limit: int = Query(100, gt=0, le=1000))
 
 @router.post("/cache/flush", response_model=schemas.base.SimpleResponse)
 async def flush_cache(
-    user_cache: UserCache = Depends(get_user_cache),
     _admin: schemas.internal.InternalUser = Depends(get_admin_or_raise)
 ):
     """Flush the cache."""
-    await user_cache.clear()
+    await get_redis().flushdb()
     return schemas.base.SimpleResponse(success=True)
 
 
@@ -107,7 +104,6 @@ async def update_user(
     username: str,
     request: schemas.admin.UpdateUserRequest,
     db: AsyncSession = Depends(get_db),
-    user_cache: UserCache = Depends(get_user_cache),
     admin: schemas.internal.InternalUser = Depends(get_admin_or_raise)
 ):
     """Update the given user."""
@@ -134,7 +130,6 @@ async def update_user(
     except IntegrityError:
         raise HTTPException(400)
     await db.refresh(to_update)
-    await user_cache.update_user(user_id=to_update.id)
     return to_update
 
 
@@ -221,8 +216,6 @@ async def update_post(
     request: schemas.admin.UpdatePostRequest,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
     db: AsyncSession = Depends(get_db),
-    user_cache: UserCache = Depends(get_user_cache),
-    user_posts_cache: UserPostsCache = Depends(get_user_posts_cache),
     _admin: schemas.internal.InternalUser = Depends(get_admin_or_raise)
 ):
     query = select(models.Post) \
@@ -232,7 +225,6 @@ async def update_post(
     post: Optional[models.Post] = rows.scalars().first()
     if post is None:
         raise HTTPException(404)
-    post_was_deleted = post.deleted
     if request.content:
         post.content = request.content
     if request.deleted is not None:
@@ -245,12 +237,6 @@ async def update_post(
             await firebase_user.shared_firebase.make_image_private(updated_post.image_blob_name)
         else:
             await firebase_user.shared_firebase.make_image_public(updated_post.image_blob_name)
-    if not post_was_deleted and updated_post.deleted:
-        await user_cache.refresh_field(user_id=updated_post.user_id, field="post_count")
-        await user_posts_cache.remove_post(user_id=updated_post.user_id, post_id=updated_post.id)
-    if post_was_deleted and not updated_post.deleted:
-        await user_cache.refresh_field(user_id=updated_post.user_id, field="post_count")
-        await user_posts_cache.write_posts(user_id=updated_post.user_id)
     return updated_post
 
 

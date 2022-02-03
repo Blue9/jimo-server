@@ -3,7 +3,6 @@ import uuid
 from typing import Optional
 
 from shared import schemas
-from shared.caching.users import UserCache
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import config
@@ -59,7 +58,6 @@ async def get_posts_from_post_ids(
     post_store: PostStore,
     place_store: PlaceStore,
     user_store: UserStore,
-    user_cache: UserCache,
 ) -> list[schemas.post.Post]:
     # Step 1: Get internal posts
     internal_posts = await post_store.get_posts(post_ids)
@@ -70,10 +68,7 @@ async def get_posts_from_post_ids(
     liked_post_ids = await post_store.get_liked_posts(current_user.id, post_ids)
     # Step 4: Get users for each post
     user_ids = list(set(post.user_id for post in internal_posts))
-    users: dict[uuid.UUID, schemas.internal.InternalUser] = await user_cache.get_users_by_ids(user_ids)
-    not_cached_users = [user_id for user_id in user_ids if user_id not in users.keys()]
-    # TODO(open-question): do we want to cache not_cached_users?
-    users.update(await user_store.get_users(user_ids=not_cached_users))
+    users: dict[uuid.UUID, schemas.internal.InternalUser] = await user_store.get_users(user_ids=user_ids)
 
     posts = []
     for post in internal_posts:

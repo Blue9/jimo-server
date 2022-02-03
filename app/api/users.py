@@ -1,7 +1,6 @@
 import uuid
 from typing import Optional
 
-from shared.caching.lists import UserPostsCache
 from shared.stores.place_store import PlaceStore
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,7 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from shared import schemas
 from app.api import utils
-from app.controllers.dependencies import WrappedUser, get_caller_user, get_requested_user, get_user_posts_cache
+from app.controllers.dependencies import WrappedUser, get_caller_user, get_requested_user
 from app.controllers.firebase import FirebaseUser, get_firebase_user
 from app.controllers.tasks import BackgroundTaskHandler, get_task_handler
 from app.db.database import get_db
@@ -27,8 +26,7 @@ router = APIRouter()
 async def create_user(
     request: schemas.user.CreateUserRequest,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
-    user_store: UserStore = Depends(get_user_store),
-    task_handler: Optional[BackgroundTaskHandler] = Depends(get_task_handler)
+    user_store: UserStore = Depends(get_user_store)
 ):
     """Create a new user."""
     phone_number: Optional[str] = await firebase_user.shared_firebase.get_phone_number_from_uid(firebase_user.uid)
@@ -42,8 +40,6 @@ async def create_user(
         last_name=request.last_name,
         phone_number=phone_number
     )
-    if task_handler:
-        await task_handler.cache_objects(user_ids=[user.id])
     return schemas.user.CreateUserResponse(created=user, error=error)
 
 
@@ -68,7 +64,6 @@ async def get_posts(
     place_store: PlaceStore = Depends(get_place_store),
     wrapped_user: WrappedUser = Depends(get_caller_user),
     requested_user: WrappedUser = Depends(get_requested_user),
-    user_posts_cache: UserPostsCache = Depends(get_user_posts_cache),
     task_handler: Optional[BackgroundTaskHandler] = Depends(get_task_handler)
 ):
     """Get the posts of the given user."""
@@ -81,14 +76,9 @@ async def get_posts(
     if await relation_store.is_blocked(blocked_by_user_id=caller_user.id, blocked_user_id=user.id):
         raise HTTPException(403)
     # Step 1: Get post ids
-    post_ids: list[uuid.UUID] = await user_posts_cache.get_post_ids(user.id, cursor=cursor, limit=page_size)
+    post_ids = await post_store.get_post_ids(user.id, cursor=cursor, limit=page_size)
     if len(post_ids) == 0:
-        post_ids = await post_store.get_post_ids(user.id, cursor=cursor, limit=page_size)
-        if len(post_ids) == 0:
-            return schemas.post.Feed(posts=[], cursor=None)
-        elif task_handler is not None:
-            # Feed is non-empty and not cached
-            await task_handler.cache_user_posts(user_id=user.id)
+        return schemas.post.Feed(posts=[], cursor=None)
     # Step 2: Get posts
     internal_posts = await post_store.get_posts(post_ids)
     # Step 3: Get places
@@ -189,9 +179,6 @@ async def follow_user(
         raise HTTPException(400, "Cannot follow yourself")
     try:
         await relation_store.follow_user(from_user.id, to_user.id)
-        if task_handler:
-            await task_handler.refresh_user_field(user_id=from_user.id, field="following_count")
-            await task_handler.refresh_user_field(user_id=to_user.id, field="follower_count")
         prefs = await user_store.get_user_preferences(to_user.id)
         if task_handler and prefs.follow_notifications:
             await task_handler.notify_follow(to_user.id, followed_by=from_user)
@@ -204,8 +191,7 @@ async def follow_user(
 async def unfollow_user(
     relation_store: RelationStore = Depends(get_relation_store),
     wrapped_user: WrappedUser = Depends(get_caller_user),
-    requested_user: WrappedUser = Depends(get_requested_user),
-    task_handler: Optional[BackgroundTaskHandler] = Depends(get_task_handler)
+    requested_user: WrappedUser = Depends(get_requested_user)
 ):
     """Unfollow the given user."""
     from_user: schemas.internal.InternalUser = wrapped_user.user
@@ -215,9 +201,6 @@ async def unfollow_user(
         raise HTTPException(400, "Cannot follow yourself")
     try:
         await relation_store.unfollow_user(from_user.id, to_user.id)
-        if task_handler:
-            await task_handler.refresh_user_field(user_id=from_user.id, field="following_count")
-            await task_handler.refresh_user_field(user_id=to_user.id, field="follower_count")
         return schemas.user.FollowUserResponse(followed=False, followers=to_user.follower_count - 1)
     except ValueError as e:
         raise HTTPException(400, str(e))

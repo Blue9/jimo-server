@@ -63,7 +63,8 @@ async def test_get_map(session, client):
         response = await client.get("/me/mapV2")
         assert response.status_code == 200
         response_json = response.json()
-        posts = [schemas.post.Post.parse_obj(post) for post in response_json]
+        map_response = schemas.map.MapResponse.parse_obj(response_json)
+        posts = map_response.posts
         assert len(posts) == 1
         assert posts[0].id == USER_B_POST_ID
     session.add(models.UserRelation(from_user_id=USER_B_ID, to_user_id=USER_A_ID, relation="following"))
@@ -72,5 +73,6 @@ async def test_get_map(session, client):
         response = await client.get("/me/mapV2")
         assert response.status_code == 200
         response_json = response.json()
-        posts = [schemas.post.Post.parse_obj(post) for post in response_json]
+        map_response = schemas.map.MapResponse.parse_obj(response_json)
+        posts = map_response.posts
         assert len(posts) == 2

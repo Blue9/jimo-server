@@ -23,7 +23,6 @@ async def create_post(
     request: schemas.post.CreatePostRequest,
     place_store: PlaceStore = Depends(get_place_store),
     post_store: PostStore = Depends(get_post_store),
-    task_handler: Optional[BackgroundTaskHandler] = Depends(get_task_handler),
     wrapped_user: WrappedUser = Depends(get_caller_user)
 ):
     """Create a new post."""
@@ -35,10 +34,6 @@ async def create_post(
         await place_store.create_or_update_place_data(
             user.id, place.id, request.place.region, request.place.additional_data)
         post: schemas.post.ORMPost = await post_store.create_post(user.id, place.id, request)
-        if task_handler:
-            await task_handler.refresh_user_field(user.id, "post_count")
-            # Just recompute the entire list of posts (more expensive but easier to deal with)
-            await task_handler.cache_user_posts(user_id=user.id)
         return schemas.post.Post(**post.dict(), liked=False)
     except ValueError as e:
         print(e)
@@ -50,8 +45,7 @@ async def delete_post(
     post_id: uuid.UUID,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
     post_store: PostStore = Depends(get_post_store),
-    wrapped_user: WrappedUser = Depends(get_caller_user),
-    task_handler: Optional[BackgroundTaskHandler] = Depends(get_task_handler)
+    wrapped_user: WrappedUser = Depends(get_caller_user)
 ):
     """Delete the given post."""
     user: schemas.internal.InternalUser = wrapped_user.user
@@ -60,9 +54,6 @@ async def delete_post(
         await post_store.delete_post(post.id)
         if post.image_blob_name is not None:
             await firebase_user.shared_firebase.make_image_private(post.image_blob_name)
-        if task_handler:
-            await task_handler.refresh_user_field(user.id, "post_count")
-            await task_handler.delete_objects(post_ids=[post.id])
         return schemas.post.DeletePostResponse(deleted=True)
     return schemas.post.DeletePostResponse(deleted=False)
 

@@ -74,52 +74,6 @@ class BackgroundTaskHandler:
         request = schemas.notifications.FollowNotification(user_id=user_id, followed_by=followed_by)
         return await self._send_task(path, request.json())
 
-    # Caching
-
-    async def cache_objects(
-        self,
-        user_ids: Optional[list[uuid.UUID]] = None,
-        post_ids: Optional[list[uuid.UUID]] = None,
-        place_ids: Optional[list[uuid.UUID]] = None,
-        comment_ids: Optional[list[uuid.UUID]] = None
-    ):
-        """Cache the given objects (if there are a lot of objects to cache split up into multiple calls)."""
-        path = "cache/"
-        request = schemas.caching.CacheRequest(
-            user_ids=user_ids,
-            post_ids=post_ids,
-            place_ids=place_ids,
-            comment_ids=comment_ids
-        )
-        return await self._send_task(path, request.json())
-
-    async def delete_objects(
-        self,
-        user_ids: Optional[list[uuid.UUID]] = None,
-        post_ids: Optional[list[uuid.UUID]] = None,
-        place_ids: Optional[list[uuid.UUID]] = None,
-        comment_ids: Optional[list[uuid.UUID]] = None
-    ):
-        """Delete the given objects (if there are a lot of objects to delete split up into multiple calls)."""
-        path = "cache/delete"
-        request = schemas.caching.CacheRequest(
-            user_ids=user_ids,
-            post_ids=post_ids,
-            place_ids=place_ids,
-            comment_ids=comment_ids
-        )
-        return await self._send_task(path, request.json())
-
-    async def refresh_user_field(self, user_id: uuid.UUID, field: str):
-        path = "cache/users/field"
-        request = schemas.caching.RefreshUserFieldRequest(id=user_id, field=field)
-        return await self._send_task(path, request.json())
-
-    async def cache_user_posts(self, user_id: uuid.UUID):
-        path = "cache/users/posts"
-        request = schemas.caching.CacheListRequest(user_id=user_id)
-        return await self._send_task(path, request.json())
-
 
 @lru_cache(maxsize=1)
 def get_task_handler() -> Optional[BackgroundTaskHandler]:
