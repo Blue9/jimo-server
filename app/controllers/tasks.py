@@ -76,6 +76,11 @@ class BackgroundTaskHandler:
         request = schemas.notifications.FollowNotification(user_id=user_id, followed_by=followed_by)
         return await self._send_task(path, request.json())
 
+    async def clear_badge(self, user_id: uuid.UUID):
+        path = "notifications/clear-badge"
+        request = schemas.notifications.ClearBadgeRequest(user_id=user_id)
+        return await self._send_task(path, request.json())
+
 
 @lru_cache(maxsize=1)
 def get_task_handler() -> Optional[BackgroundTaskHandler]:

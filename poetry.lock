@@ -464,7 +464,7 @@ socks = ["socksio (>=1.0.0,<2.0.0)"]
 
 [[package]]
 name = "httplib2"
-version = "0.20.2"
+version = "0.20.4"
 description = "A comprehensive HTTP client library."
 category = "main"
 optional = false
@@ -870,7 +870,7 @@ ulid-py = "^1.1.0"
 type = "git"
 url = "git@github.com:Blue9/jimo-shared.git"
 reference = "main"
-resolved_reference = "12eba7e21dc672ce0a3b4a83e94b77aed38e3566"
+resolved_reference = "f942cc5ed65ca3227eaf00b53b5910669ce3c61a"
 
 [[package]]
 name = "six"
@@ -1396,8 +1396,8 @@ httpcore = [
     {file = "httpcore-0.14.6.tar.gz", hash = "sha256:d1ba9926a7b761bfb92d171df81ac9f87f549533cc8fcbcffca6943d3fccabf7"},
 ]
 httplib2 = [
-    {file = "httplib2-0.20.2-py3-none-any.whl", hash = "sha256:6b937120e7d786482881b44b8eec230c1ee1c5c1d06bce8cc865f25abbbf713b"},
-    {file = "httplib2-0.20.2.tar.gz", hash = "sha256:e404681d2fbcec7506bcb52c503f2b021e95bee0ef7d01e5c221468a2406d8dc"},
+    {file = "httplib2-0.20.4-py3-none-any.whl", hash = "sha256:8b6a905cb1c79eefd03f8669fd993c36dc341f7c558f056cb5a33b5c2f458543"},
+    {file = "httplib2-0.20.4.tar.gz", hash = "sha256:58a98e45b4b1a48273073f905d2961666ecf0fbac4250ea5b47aef259eb5c585"},
 ]
 httptools = [
     {file = "httptools-0.1.2-cp35-cp35m-macosx_10_14_x86_64.whl", hash = "sha256:1e35aa179b67086cc600a984924a88589b90793c9c1b260152ca4908786e09df"},

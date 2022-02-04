@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends
 from shared import schemas
 from app.controllers import notifications
 from app.controllers.dependencies import get_caller_user, WrappedUser
+from app.controllers.tasks import get_task_handler, BackgroundTaskHandler
 from app.db.database import get_db
 
 router = APIRouter()
@@ -41,7 +42,8 @@ async def remove_token(
 async def get_notification_feed(
     cursor: Optional[uuid.UUID] = None,
     feed_store: FeedStore = Depends(get_feed_store),
-    wrapped_user: WrappedUser = Depends(get_caller_user)
+    wrapped_user: WrappedUser = Depends(get_caller_user),
+    task_handler: Optional[BackgroundTaskHandler] = Depends(get_task_handler)
 ):
     """
     Returns the notification feed for the current user.
@@ -51,6 +53,8 @@ async def get_notification_feed(
     user: schemas.internal.InternalUser = wrapped_user.user
     feed = await feed_store.get_notification_feed(user.id, cursor, limit=page_limit)
     next_cursor = min(item.item_id for item in feed) if len(feed) >= page_limit else None
+    if task_handler is not None:
+        await task_handler.clear_badge(user.id)
     return schemas.notifications.NotificationFeedResponse(
         notifications=feed,
         cursor=next_cursor
