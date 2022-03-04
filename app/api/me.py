@@ -182,7 +182,7 @@ async def get_discover_feed(
     """Get the discover feed for the current user."""
     user: schemas.internal.InternalUser = wrapped_user.user
     # Step 1: Get post ids
-    post_ids = await feed_store.get_discover_feed_ids(user.id)
+    post_ids = await feed_store.get_discover_feed_ids(user.id, limit=99)  # Prevent additional row on iOS
     if len(post_ids) == 0:
         return []
     # Step 2: Convert to posts
