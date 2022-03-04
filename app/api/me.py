@@ -2,6 +2,7 @@ import uuid
 from typing import Optional
 
 import shared.stores.utils
+from shared.schemas.map import MapLoadStrategy
 from shared.stores.post_store import PostStore
 from sqlalchemy.ext.asyncio import AsyncSession
 

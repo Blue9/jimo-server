@@ -100,6 +100,7 @@ async def upload_image(
 
 
 app.include_router(api.me.router, prefix="/me")
+app.include_router(api.mapV3.router, prefix="/map")
 app.include_router(api.notifications.router, prefix="/notifications")
 app.include_router(api.users.router, prefix="/users")
 app.include_router(api.comments.router, prefix="/comments")
