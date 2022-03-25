@@ -21,6 +21,41 @@ router = APIRouter()
 log = get_logger(__name__)
 
 
+@router.get("/{post_id}", response_model=schemas.post.Post)
+async def get_post(
+    post_id: uuid.UUID,
+    user_store: UserStore = Depends(get_user_store),
+    place_store: PlaceStore = Depends(get_place_store),
+    post_store: PostStore = Depends(get_post_store),
+    wrapped_user: WrappedUser = Depends(get_caller_user)
+):
+    """Get the given post."""
+    current_user: schemas.internal.InternalUser = wrapped_user.user
+    post: Optional[schemas.internal.InternalPost] = await post_store.get_post(post_id)
+    if post is None:
+        raise HTTPException(404)
+    place = await place_store.get_place_by_id(post.place_id)
+    if place is None:
+        log.error("Expected place to exist, found None", post.place_id)
+        raise HTTPException(404)
+    post_author: Optional[schemas.internal.InternalUser] = await user_store.get_user(post.user_id)
+    if post_author is None:
+        log.error("Expected user to exist, found None", post.user_id)
+        raise HTTPException(404)
+    return schemas.post.Post(
+        id=post.id,
+        place=place,
+        category=post.category,
+        content=post.content,
+        image_url=post.image_url,
+        created_at=post.created_at,
+        like_count=post.like_count,
+        comment_count=post.comment_count,
+        user=post_author,
+        liked=await post_store.is_post_liked(post_id, by_user=current_user.id)
+    )
+
+
 @router.post("", response_model=schemas.post.Post)
 async def create_post(
     request: schemas.post.CreatePostRequest,
