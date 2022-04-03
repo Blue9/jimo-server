@@ -10,7 +10,6 @@ from fastapi import APIRouter, Depends
 from shared import schemas
 from app.controllers import notifications
 from app.controllers.dependencies import get_caller_user, WrappedUser
-from app.controllers.tasks import get_task_handler, BackgroundTaskHandler
 from app.db.database import get_db
 
 router = APIRouter()

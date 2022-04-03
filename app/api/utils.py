@@ -77,6 +77,7 @@ async def get_posts_from_post_ids(
             place=places[post.place_id],
             category=post.category,
             content=post.content,
+            image_id=post.image_id,
             image_url=post.image_url,
             created_at=post.created_at,
             like_count=post.like_count,
@@ -86,6 +87,19 @@ async def get_posts_from_post_ids(
         )
         posts.append(public_post)
     return posts
+
+
+async def get_or_create_place(
+    user_id: uuid.UUID,
+    request: schemas.place.MaybeCreatePlaceRequest,
+    place_store: PlaceStore
+) -> uuid.UUID:
+    place = await place_store.get_or_create_place(request)
+    # Update place data
+    region = request.region
+    additional_data = request.additional_data
+    await place_store.create_or_update_place_data(user_id, place.id, region, additional_data)
+    return place.id
 
 
 async def upload_image(

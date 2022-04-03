@@ -63,8 +63,7 @@ async def get_posts(
     post_store: PostStore = Depends(get_post_store),
     place_store: PlaceStore = Depends(get_place_store),
     wrapped_user: WrappedUser = Depends(get_caller_user),
-    requested_user: WrappedUser = Depends(get_requested_user),
-    task_handler: Optional[BackgroundTaskHandler] = Depends(get_task_handler)
+    requested_user: WrappedUser = Depends(get_requested_user)
 ):
     """Get the posts of the given user."""
     if limit not in [50, 100]:
@@ -94,6 +93,7 @@ async def get_posts(
             place=places[post.place_id],
             category=post.category,
             content=post.content,
+            image_id=post.image_id,
             image_url=post.image_url,
             created_at=post.created_at,
             like_count=post.like_count,
