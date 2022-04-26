@@ -49,7 +49,7 @@ async def get_all_posts_for_place(
 ):
     """Get the list of posts for the given place, using the given strategy."""
     user: schemas.internal.InternalUser = wrapped_user.user
-    post_ids: Optional[list[uuid.UUID]] = await post_store.get_mutual_posts_v3(
+    post_ids: list[uuid.UUID] = await post_store.get_mutual_posts_v3(
         user.id,
         place_id,
         user_filter=MapLoadStrategy.everyone,
@@ -75,7 +75,7 @@ async def get_friend_posts_for_place(
 ):
     """Get the list of posts for the given place, using the given strategy."""
     user: schemas.internal.InternalUser = wrapped_user.user
-    post_ids: Optional[list[uuid.UUID]] = await post_store.get_mutual_posts_v3(
+    post_ids: list[uuid.UUID] = await post_store.get_mutual_posts_v3(
         user.id,
         place_id,
         user_filter=MapLoadStrategy.following,
@@ -101,7 +101,7 @@ async def get_custom_posts_for_place(
 ):
     """Get the list of posts for the given place, using the given strategy."""
     user: schemas.internal.InternalUser = wrapped_user.user
-    post_ids: Optional[list[uuid.UUID]] = await post_store.get_mutual_posts_v3(
+    post_ids: list[uuid.UUID] = await post_store.get_mutual_posts_v3(
         user.id,
         place_id,
         user_filter=request.users,
