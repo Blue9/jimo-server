@@ -27,11 +27,13 @@ async def get_post(
     user_store: UserStore = Depends(get_user_store),
     place_store: PlaceStore = Depends(get_place_store),
     post_store: PostStore = Depends(get_post_store),
+    relation_store: RelationStore = Depends(get_relation_store),
     wrapped_user: WrappedUser = Depends(get_caller_user)
 ):
     """Get the given post."""
     current_user: schemas.internal.InternalUser = wrapped_user.user
-    post: Optional[schemas.internal.InternalPost] = await post_store.get_post(post_id)
+    post: Optional[schemas.internal.InternalPost] = await utils.get_post_and_validate_or_raise(
+        post_store, relation_store, current_user.id, post_id)
     if post is None:
         raise HTTPException(404)
     place = await place_store.get_place_by_id(post.place_id)
