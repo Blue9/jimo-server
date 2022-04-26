@@ -58,23 +58,57 @@ async def get_post(
 
 @router.post("", response_model=schemas.post.Post)
 async def create_post(
-    request: schemas.post.CreatePostRequest,
+    req: schemas.post.CreatePostRequest,
     place_store: PlaceStore = Depends(get_place_store),
     post_store: PostStore = Depends(get_post_store),
     wrapped_user: WrappedUser = Depends(get_caller_user)
 ):
     """Create a new post."""
-    user: schemas.internal.InternalUser = wrapped_user.user
     try:
-        place = await place_store.get_place(request.place)
-        if place is None:
-            place = await place_store.create_place(request.place)
-        await place_store.create_or_update_place_data(
-            user.id, place.id, request.place.region, request.place.additional_data)
-        post: schemas.post.ORMPost = await post_store.create_post(user.id, place.id, request)
+        user: schemas.internal.InternalUser = wrapped_user.user
+        place_id = req.place_id or await utils.get_or_create_place(user.id, req.place, place_store)
+        post: schemas.post.ORMPost = await post_store.create_post(
+            user.id,
+            place_id,
+            req.category,
+            req.content,
+            req.image_id
+        )
         return schemas.post.Post(**post.dict(), liked=False)
     except ValueError as e:
-        log.info("Could not create post. User-facing message: %s", str(e))
+        raise HTTPException(400, detail=str(e))
+
+
+@router.put("/{post_id}", response_model=schemas.post.Post)
+async def update_post(
+    post_id: uuid.UUID,
+    req: schemas.post.CreatePostRequest,
+    firebase_user: FirebaseUser = Depends(get_firebase_user),
+    place_store: PlaceStore = Depends(get_place_store),
+    post_store: PostStore = Depends(get_post_store),
+    wrapped_user: WrappedUser = Depends(get_caller_user)
+):
+    """Update the given post."""
+    try:
+        user: schemas.internal.InternalUser = wrapped_user.user
+        old_post: Optional[schemas.internal.InternalPost] = await post_store.get_post(post_id)
+        if old_post is None:
+            raise HTTPException(404)
+        if old_post.user_id != user.id:
+            raise HTTPException(403)
+        place_id = req.place_id or await utils.get_or_create_place(user.id, req.place, place_store)
+        updated_post = await post_store.update_post(
+            post_id,
+            place_id,
+            req.category,
+            req.content,
+            req.image_id
+        )
+        if old_post.image_id and old_post.image_id != updated_post.image_id:
+            # Delete old image
+            await firebase_user.shared_firebase.delete_image(old_post.image_blob_name)
+        return schemas.post.Post(**updated_post.dict(), liked=await post_store.is_post_liked(post_id, user.id))
+    except ValueError as e:
         raise HTTPException(400, detail=str(e))
 
 

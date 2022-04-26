@@ -24,12 +24,12 @@ log = get_logger(__name__)
 def get_app() -> FastAPI:
     log.info("Initializing server")
     if config.ENABLE_DOCS:
-        log.warn("Enabling docs")
+        log.warning("Enabling docs")
         _app = FastAPI()
     else:
         _app = FastAPI(openapi_url=None)
     if config.ALLOW_ORIGIN:
-        log.warn("Setting allow origin to %s", config.ALLOW_ORIGIN)
+        log.warning("Setting allow origin to %s", config.ALLOW_ORIGIN)
         origins = [config.ALLOW_ORIGIN]
         _app.add_middleware(
             CORSMiddleware,
@@ -38,7 +38,7 @@ def get_app() -> FastAPI:
             allow_methods=["*"],
             allow_headers=["*"],
         )
-    log.warn("Rate limiting to %s", config.RATE_LIMIT_CONFIG)
+    log.warning("Rate limiting to %s", config.RATE_LIMIT_CONFIG)
     _app.state.limiter = Limiter(
         key_func=get_authorization_header,
         default_limits=[config.RATE_LIMIT_CONFIG],
@@ -71,7 +71,10 @@ async def validation_exception_handler(_request: Request, exc: RequestValidation
     for error in exc.errors():
         if "loc" not in error or "msg" not in error:
             continue
-        errors[error["loc"][-1]] = error["msg"]
+        key = error["loc"][-1]
+        if key == "__root__":
+            key = "root"
+        errors[key] = error["msg"]
     log.info("Request validation error %s", errors)
     return JSONResponse(status_code=400, content=jsonable_encoder(errors))
 
