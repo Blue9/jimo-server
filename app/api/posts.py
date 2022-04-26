@@ -32,10 +32,8 @@ async def get_post(
 ):
     """Get the given post."""
     current_user: schemas.internal.InternalUser = wrapped_user.user
-    post: Optional[schemas.internal.InternalPost] = await utils.get_post_and_validate_or_raise(
+    post: schemas.internal.InternalPost = await utils.get_post_and_validate_or_raise(
         post_store, relation_store, current_user.id, post_id)
-    if post is None:
-        raise HTTPException(404)
     place = await place_store.get_place_by_id(post.place_id)
     if place is None:
         log.error("Expected place to exist, found None", post.place_id)
