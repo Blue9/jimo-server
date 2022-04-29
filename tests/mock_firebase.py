@@ -14,6 +14,9 @@ class MockFirebaseAdmin(FirebaseAdminProtocol):
     async def get_phone_number_from_uid(self, uid: str) -> Optional[str]:
         return None
 
+    async def get_email_from_uid(self, uid: str) -> Optional[str]:
+        return None
+
     async def get_uid_from_auth_header(self, authorization: Optional[str]) -> Optional[str]:
         return None
 

@@ -23,6 +23,8 @@ class FirebaseAdminProtocol(Protocol):
 
     async def get_phone_number_from_uid(self, uid: str) -> Optional[str]: ...
 
+    async def get_email_from_uid(self, uid: str) -> Optional[str]: ...
+
     async def get_uid_from_auth_header(self, authorization: Optional[str]) -> Optional[str]: ...
 
     async def upload_image(self, user_uid: str, image_id: uuid.UUID, file_obj: IO) -> Optional[Tuple[str, str]]: ...
@@ -57,6 +59,14 @@ class FirebaseAdmin(FirebaseAdminProtocol):
         try:
             firebase_user = await loop.run_in_executor(None, auth.get_user, uid, self._app)
             return firebase_user.phone_number
+        except (ValueError, UserNotFoundError, FirebaseError):
+            return None
+
+    async def get_email_from_uid(self, uid: str) -> Optional[str]:
+        loop = get_event_loop()
+        try:
+            firebase_user = await loop.run_in_executor(None, auth.get_user, uid, self._app)
+            return firebase_user.email
         except (ValueError, UserNotFoundError, FirebaseError):
             return None
 

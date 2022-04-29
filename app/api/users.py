@@ -31,8 +31,10 @@ async def create_user(
     """Create a new user."""
     phone_number: Optional[str] = await firebase_user.shared_firebase.get_phone_number_from_uid(firebase_user.uid)
     if phone_number is None:
-        return schemas.user.CreateUserResponse(
-            created=None, error=schemas.user.UserFieldErrors(uid="Invalid account information."))
+        email: Optional[str] = await firebase_user.shared_firebase.get_email_from_uid(firebase_user.uid)
+        if email is None or not email.endswith("@jimoapp.com"):
+            return schemas.user.CreateUserResponse(
+                created=None, error=schemas.user.UserFieldErrors(uid="Invalid account information."))
     user, error = await user_store.create_user(
         uid=firebase_user.uid,
         username=request.username,
