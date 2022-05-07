@@ -13,7 +13,7 @@ from starlette.responses import JSONResponse, Response
 from app import api, config
 from shared import schemas
 from app.api import utils
-from app.controllers.dependencies import WrappedUser, get_caller_user, get_authorization_header
+from app.controllers.dependencies import JimoUser, get_caller_user, get_authorization_header
 from app.controllers.firebase import FirebaseUser, get_firebase_user
 from app.db.database import get_db
 from app.utils import get_logger
@@ -94,7 +94,7 @@ async def upload_image(
     file: UploadFile = File(...),
     firebase_user: FirebaseUser = Depends(get_firebase_user),
     db: AsyncSession = Depends(get_db),
-    wrapped_user: WrappedUser = Depends(get_caller_user)
+    wrapped_user: JimoUser = Depends(get_caller_user)
 ):
     """Upload the given image to Firebase if allowed, returning the image id (used for posts + profile pictures)."""
     user: schemas.internal.InternalUser = wrapped_user.user

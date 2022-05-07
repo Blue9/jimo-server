@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app import config
 from shared import schemas
-from app.controllers.dependencies import WrappedUser, get_caller_user
+from app.controllers.dependencies import JimoUser, get_caller_user
 from app.controllers.firebase import FirebaseUser, get_firebase_user
 
 router = APIRouter()
@@ -41,7 +41,7 @@ async def join_waitlist(
 async def invite_user(
     request: schemas.invite.InviteUserRequest,
     invite_store: InviteStore = Depends(get_invite_store),
-    wrapped_user: WrappedUser = Depends(get_caller_user)
+    wrapped_user: JimoUser = Depends(get_caller_user)
 ):
     user: schemas.internal.InternalUser = wrapped_user.user
     num_used_invites = await invite_store.num_used_invites(user.id)

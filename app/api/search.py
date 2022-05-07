@@ -3,7 +3,7 @@ from shared.stores.user_store import UserStore
 from fastapi import APIRouter, Depends
 
 from shared import schemas
-from app.controllers.dependencies import WrappedUser, get_caller_user
+from app.controllers.dependencies import JimoUser, get_caller_user
 
 router = APIRouter()
 
@@ -12,7 +12,7 @@ router = APIRouter()
 async def search_users(
     q: str,
     user_store: UserStore = Depends(get_user_store),
-    wrapped_user: WrappedUser = Depends(get_caller_user)
+    wrapped_user: JimoUser = Depends(get_caller_user)
 ):
     """Search for users with the given query."""
     user: schemas.internal.InternalUser = wrapped_user.user

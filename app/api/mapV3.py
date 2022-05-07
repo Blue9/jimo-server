@@ -4,7 +4,7 @@ from shared.schemas.map import MapResponseV3, MapLoadStrategy, CustomMapRequest,
 from shared.stores.place_store import PlaceStore
 
 from app.api.utils import get_place_store
-from app.controllers.dependencies import get_caller_user, WrappedUser
+from app.controllers.dependencies import get_caller_user, JimoUser
 
 router = APIRouter()
 
@@ -13,7 +13,7 @@ router = APIRouter()
 async def get_global_map(
     request: GetMapRequest,
     place_store: PlaceStore = Depends(get_place_store),
-    wrapped_user: WrappedUser = Depends(get_caller_user)
+    wrapped_user: JimoUser = Depends(get_caller_user)
 ):
     """Get a map of all users."""
     user: InternalUser = wrapped_user.user
@@ -31,7 +31,7 @@ async def get_global_map(
 async def get_following_map(
     request: GetMapRequest,
     place_store: PlaceStore = Depends(get_place_store),
-    wrapped_user: WrappedUser = Depends(get_caller_user)
+    wrapped_user: JimoUser = Depends(get_caller_user)
 ):
     """Get a map of all users."""
     user: InternalUser = wrapped_user.user
@@ -49,7 +49,7 @@ async def get_following_map(
 async def get_custom_map(
     request: CustomMapRequest,
     place_store: PlaceStore = Depends(get_place_store),
-    wrapped_user: WrappedUser = Depends(get_caller_user)
+    wrapped_user: JimoUser = Depends(get_caller_user)
 ):
     """Get a map of all users."""
     user: InternalUser = wrapped_user.user
