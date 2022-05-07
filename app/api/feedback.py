@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.exc import SQLAlchemyError
 
 from shared import schemas
-from app.controllers.dependencies import WrappedUser, get_caller_user
+from app.controllers.dependencies import JimoUser, get_caller_user
 from app.db.database import get_db
 from shared.models import models
 
@@ -15,7 +15,7 @@ router = APIRouter()
 async def submit_feedback(
     request: schemas.feedback.FeedbackRequest,
     db: AsyncSession = Depends(get_db),
-    wrapped_user: WrappedUser = Depends(get_caller_user)
+    wrapped_user: JimoUser = Depends(get_caller_user)
 ):
     user: schemas.internal.InternalUser = wrapped_user.user
     feedback = models.Feedback(user_id=user.id, contents=request.contents, follow_up=request.follow_up)

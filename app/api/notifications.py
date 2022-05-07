@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends
 
 from shared import schemas
 from app.controllers import notifications
-from app.controllers.dependencies import get_caller_user, WrappedUser
+from app.controllers.dependencies import get_caller_user, JimoUser
 from app.db.database import get_db
 
 router = APIRouter()
@@ -19,7 +19,7 @@ router = APIRouter()
 async def register_token(
     request: schemas.user.NotificationTokenRequest,
     db: AsyncSession = Depends(get_db),
-    wrapped_user: WrappedUser = Depends(get_caller_user)
+    wrapped_user: JimoUser = Depends(get_caller_user)
 ):
     user: schemas.internal.InternalUser = wrapped_user.user
     await notifications.register_fcm_token(db, user.id, request.token)
@@ -30,7 +30,7 @@ async def register_token(
 async def remove_token(
     request: schemas.user.NotificationTokenRequest,
     db: AsyncSession = Depends(get_db),
-    wrapped_user: WrappedUser = Depends(get_caller_user)
+    wrapped_user: JimoUser = Depends(get_caller_user)
 ):
     user: schemas.internal.InternalUser = wrapped_user.user
     await notifications.remove_fcm_token(db, user.id, request.token)
@@ -41,7 +41,7 @@ async def remove_token(
 async def get_notification_feed(
     cursor: Optional[uuid.UUID] = None,
     feed_store: FeedStore = Depends(get_feed_store),
-    wrapped_user: WrappedUser = Depends(get_caller_user)
+    wrapped_user: JimoUser = Depends(get_caller_user)
 ):
     """
     Returns the notification feed for the current user.

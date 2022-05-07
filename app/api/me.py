@@ -18,7 +18,7 @@ from sqlalchemy.orm import aliased
 
 from shared import schemas
 from app.api import utils
-from app.controllers.dependencies import get_caller_user, WrappedUser
+from app.controllers.dependencies import get_caller_user, JimoUser
 from app.controllers.firebase import FirebaseUser, get_firebase_user
 from app.controllers.tasks import BackgroundTaskHandler, get_task_handler
 from app.db.database import get_db
@@ -44,7 +44,7 @@ async def update_user(
     request: schemas.user.UpdateProfileRequest,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
     user_store: UserStore = Depends(get_user_store),
-    wrapped_user: WrappedUser = Depends(get_caller_user)
+    wrapped_user: JimoUser = Depends(get_caller_user)
 ):
     """Update the current user's profile."""
     old_user: schemas.internal.InternalUser = wrapped_user.user
@@ -66,7 +66,7 @@ async def update_user(
 @router.get("/preferences", response_model=schemas.user.UserPrefs)
 async def get_preferences(
     user_store: UserStore = Depends(get_user_store),
-    wrapped_user: WrappedUser = Depends(get_caller_user)
+    wrapped_user: JimoUser = Depends(get_caller_user)
 ):
     """Get the current user's preferences."""
     user: schemas.internal.InternalUser = wrapped_user.user
@@ -77,7 +77,7 @@ async def get_preferences(
 async def update_preferences(
     request: schemas.user.UserPrefs,
     user_store: UserStore = Depends(get_user_store),
-    wrapped_user: WrappedUser = Depends(get_caller_user)
+    wrapped_user: JimoUser = Depends(get_caller_user)
 ):
     """Update the current user's preferences."""
     user: schemas.internal.InternalUser = wrapped_user.user
@@ -90,7 +90,7 @@ async def upload_profile_picture(
     firebase_user: FirebaseUser = Depends(get_firebase_user),
     db: AsyncSession = Depends(get_db),
     user_store: UserStore = Depends(get_user_store),
-    wrapped_user: WrappedUser = Depends(get_caller_user)
+    wrapped_user: JimoUser = Depends(get_caller_user)
 ):
     """Set the current user's profile picture."""
     old_user: schemas.internal.InternalUser = wrapped_user.user
@@ -110,7 +110,7 @@ async def get_feed(
     feed_store: FeedStore = Depends(get_feed_store),
     post_store: PostStore = Depends(get_post_store),
     place_store: PlaceStore = Depends(get_place_store),
-    wrapped_user: WrappedUser = Depends(get_caller_user),
+    wrapped_user: JimoUser = Depends(get_caller_user),
     user_store: UserStore = Depends(get_user_store)
 ):
     """Get the feed for the current user."""
@@ -135,7 +135,7 @@ async def get_feed(
 @router.get("/map", response_model=list[schemas.map.MapPin])
 async def get_map(
     place_store: PlaceStore = Depends(get_place_store),
-    wrapped_user: WrappedUser = Depends(get_caller_user)
+    wrapped_user: JimoUser = Depends(get_caller_user)
 ):
     user: schemas.internal.InternalUser = wrapped_user.user
     return await place_store.get_map(user.id)
@@ -146,7 +146,7 @@ async def get_map_v2(
     feed_store: FeedStore = Depends(get_feed_store),
     post_store: PostStore = Depends(get_post_store),
     place_store: PlaceStore = Depends(get_place_store),
-    wrapped_user: WrappedUser = Depends(get_caller_user),
+    wrapped_user: JimoUser = Depends(get_caller_user),
     user_store: UserStore = Depends(get_user_store)
 ):
     user: schemas.internal.InternalUser = wrapped_user.user
@@ -175,7 +175,7 @@ async def get_discover_feed(
     feed_store: FeedStore = Depends(get_feed_store),
     post_store: PostStore = Depends(get_post_store),
     place_store: PlaceStore = Depends(get_place_store),
-    wrapped_user: WrappedUser = Depends(get_caller_user),
+    wrapped_user: JimoUser = Depends(get_caller_user),
     user_store: UserStore = Depends(get_user_store)
 ):
     """Get the discover feed for the current user."""
@@ -198,7 +198,7 @@ async def get_discover_feed(
 @router.get("/suggested", response_model=list[schemas.user.PublicUser])
 async def get_suggested_users(
     db: AsyncSession = Depends(get_db),
-    wrapped_user: WrappedUser = Depends(get_caller_user)
+    wrapped_user: JimoUser = Depends(get_caller_user)
 ):
     """Get the list of suggested jimo accounts."""
     user: schemas.internal.InternalUser = wrapped_user.user
@@ -218,7 +218,7 @@ async def get_suggested_users(
 async def get_existing_users(
     request: schemas.user.PhoneNumberList,
     user_store: UserStore = Depends(get_user_store),
-    wrapped_user: WrappedUser = Depends(get_caller_user)
+    wrapped_user: JimoUser = Depends(get_caller_user)
 ):
     """Get the existing users from the list of e164 formatted phone numbers."""
     user: schemas.internal.InternalUser = wrapped_user.user
@@ -238,7 +238,7 @@ async def follow_many(
     db: AsyncSession = Depends(get_db),
     task_handler: Optional[BackgroundTaskHandler] = Depends(get_task_handler),
     user_store: UserStore = Depends(get_user_store),
-    wrapped_user: WrappedUser = Depends(get_caller_user)
+    wrapped_user: JimoUser = Depends(get_caller_user)
 ):
     """Follow the given users."""
     user: schemas.internal.InternalUser = wrapped_user.user

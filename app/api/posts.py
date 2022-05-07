@@ -10,7 +10,7 @@ from fastapi import APIRouter, HTTPException, Depends
 
 from shared import schemas
 from app.api import utils
-from app.controllers.dependencies import WrappedUser, get_caller_user
+from app.controllers.dependencies import JimoUser, get_caller_user
 from app.controllers.firebase import FirebaseUser, get_firebase_user
 from app.controllers.tasks import BackgroundTaskHandler, get_task_handler
 from shared.stores.comment_store import CommentStore
@@ -28,7 +28,7 @@ async def get_post(
     place_store: PlaceStore = Depends(get_place_store),
     post_store: PostStore = Depends(get_post_store),
     relation_store: RelationStore = Depends(get_relation_store),
-    wrapped_user: WrappedUser = Depends(get_caller_user)
+    wrapped_user: JimoUser = Depends(get_caller_user)
 ):
     """Get the given post."""
     current_user: schemas.internal.InternalUser = wrapped_user.user
@@ -61,7 +61,7 @@ async def create_post(
     req: schemas.post.CreatePostRequest,
     place_store: PlaceStore = Depends(get_place_store),
     post_store: PostStore = Depends(get_post_store),
-    wrapped_user: WrappedUser = Depends(get_caller_user)
+    wrapped_user: JimoUser = Depends(get_caller_user)
 ):
     """Create a new post."""
     try:
@@ -86,7 +86,7 @@ async def update_post(
     firebase_user: FirebaseUser = Depends(get_firebase_user),
     place_store: PlaceStore = Depends(get_place_store),
     post_store: PostStore = Depends(get_post_store),
-    wrapped_user: WrappedUser = Depends(get_caller_user)
+    wrapped_user: JimoUser = Depends(get_caller_user)
 ):
     """Update the given post."""
     try:
@@ -117,7 +117,7 @@ async def delete_post(
     post_id: uuid.UUID,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
     post_store: PostStore = Depends(get_post_store),
-    wrapped_user: WrappedUser = Depends(get_caller_user)
+    wrapped_user: JimoUser = Depends(get_caller_user)
 ):
     """Delete the given post."""
     user: schemas.internal.InternalUser = wrapped_user.user
@@ -137,7 +137,7 @@ async def like_post(
     user_store: UserStore = Depends(get_user_store),
     post_store: PostStore = Depends(get_post_store),
     relation_store: RelationStore = Depends(get_relation_store),
-    wrapped_user: WrappedUser = Depends(get_caller_user)
+    wrapped_user: JimoUser = Depends(get_caller_user)
 ):
     """Like the given post if the user has not already liked the post."""
     user: schemas.internal.InternalUser = wrapped_user.user
@@ -158,7 +158,7 @@ async def unlike_post(
     post_id: uuid.UUID,
     post_store: PostStore = Depends(get_post_store),
     relation_store: RelationStore = Depends(get_relation_store),
-    wrapped_user: WrappedUser = Depends(get_caller_user)
+    wrapped_user: JimoUser = Depends(get_caller_user)
 ):
     """Unlike the given post if the user has already liked the post."""
     user: schemas.internal.InternalUser = wrapped_user.user
@@ -174,7 +174,7 @@ async def report_post(
     request: schemas.post.ReportPostRequest,
     post_store: PostStore = Depends(get_post_store),
     relation_store: RelationStore = Depends(get_relation_store),
-    wrapped_user: WrappedUser = Depends(get_caller_user)
+    wrapped_user: JimoUser = Depends(get_caller_user)
 ):
     """Report the given post."""
     reported_by: schemas.internal.InternalUser = wrapped_user.user
@@ -191,7 +191,7 @@ async def get_comments(
     post_store: PostStore = Depends(get_post_store),
     comment_store: CommentStore = Depends(get_comment_store),
     relation_store: RelationStore = Depends(get_relation_store),
-    wrapped_user: WrappedUser = Depends(get_caller_user)
+    wrapped_user: JimoUser = Depends(get_caller_user)
 ):
     user = wrapped_user.user
     post = await utils.get_post_and_validate_or_raise(

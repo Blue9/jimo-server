@@ -14,7 +14,7 @@ from app.controllers.firebase import FirebaseUser, get_firebase_user
 
 
 @dataclass
-class WrappedUser:
+class JimoUser:
     user: schemas.internal.InternalUser
 
 
@@ -34,15 +34,15 @@ def get_authorization_header(request: Request) -> str:
 async def get_caller_user(
     firebase_user: FirebaseUser = Depends(get_firebase_user),
     user_store: UserStore = Depends(get_user_store)
-) -> WrappedUser:
+) -> JimoUser:
     user: Optional[schemas.internal.InternalUser] = await user_store.get_user_by_uid(firebase_user.uid)
     if user is None or user.deleted:
         raise HTTPException(403)
-    return WrappedUser(user=user)
+    return JimoUser(user=user)
 
 
-async def get_requested_user(username: str, user_store: UserStore = Depends(get_user_store)) -> WrappedUser:
+async def get_requested_user(username: str, user_store: UserStore = Depends(get_user_store)) -> JimoUser:
     user: Optional[schemas.internal.InternalUser] = await user_store.get_user_by_username(username)
     if user is None or user.deleted:
         raise HTTPException(404)
-    return WrappedUser(user=user)
+    return JimoUser(user=user)

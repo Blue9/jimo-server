@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from shared import schemas
 from app.api import utils
-from app.controllers.dependencies import WrappedUser, get_caller_user, get_requested_user
+from app.controllers.dependencies import JimoUser, get_caller_user, get_requested_user
 from app.controllers.firebase import FirebaseUser, get_firebase_user
 from app.controllers.tasks import BackgroundTaskHandler, get_task_handler
 from app.db.database import get_db
@@ -48,8 +48,8 @@ async def create_user(
 @router.get("/{username}", response_model=schemas.user.PublicUser)
 async def get_user(
     relation_store: RelationStore = Depends(get_relation_store),
-    wrapped_user: WrappedUser = Depends(get_caller_user),
-    requested_user: WrappedUser = Depends(get_requested_user)
+    wrapped_user: JimoUser = Depends(get_caller_user),
+    requested_user: JimoUser = Depends(get_requested_user)
 ):
     """Get the given user's details."""
     caller_user: schemas.internal.InternalUser = wrapped_user.user
@@ -64,8 +64,8 @@ async def get_posts(
     relation_store: RelationStore = Depends(get_relation_store),
     post_store: PostStore = Depends(get_post_store),
     place_store: PlaceStore = Depends(get_place_store),
-    wrapped_user: WrappedUser = Depends(get_caller_user),
-    requested_user: WrappedUser = Depends(get_requested_user)
+    wrapped_user: JimoUser = Depends(get_caller_user),
+    requested_user: JimoUser = Depends(get_requested_user)
 ):
     """Get the posts of the given user."""
     if limit not in [50, 100]:
@@ -113,8 +113,8 @@ async def get_posts(
 async def get_relation(
     db: AsyncSession = Depends(get_db),
     relation_store: RelationStore = Depends(get_relation_store),
-    wrapped_user: WrappedUser = Depends(get_caller_user),
-    requested_user: WrappedUser = Depends(get_requested_user)
+    wrapped_user: JimoUser = Depends(get_caller_user),
+    requested_user: JimoUser = Depends(get_requested_user)
 ):
     """Get the relationship to the given user."""
     from_user: schemas.internal.InternalUser = wrapped_user.user
@@ -131,8 +131,8 @@ async def get_followers(
     cursor: Optional[uuid.UUID] = None,
     user_store: UserStore = Depends(get_user_store),
     relation_store: RelationStore = Depends(get_relation_store),
-    wrapped_user: WrappedUser = Depends(get_caller_user),
-    requested_user: WrappedUser = Depends(get_requested_user)
+    wrapped_user: JimoUser = Depends(get_caller_user),
+    requested_user: JimoUser = Depends(get_requested_user)
 ):
     """Get the followers of the given user."""
     limit = 50
@@ -150,8 +150,8 @@ async def get_following(
     cursor: Optional[uuid.UUID] = None,
     user_store: UserStore = Depends(get_user_store),
     relation_store: RelationStore = Depends(get_relation_store),
-    wrapped_user: WrappedUser = Depends(get_caller_user),
-    requested_user: WrappedUser = Depends(get_requested_user)
+    wrapped_user: JimoUser = Depends(get_caller_user),
+    requested_user: JimoUser = Depends(get_requested_user)
 ):
     """Get the given user's following."""
     limit = 50
@@ -170,8 +170,8 @@ async def follow_user(
     task_handler: Optional[BackgroundTaskHandler] = Depends(get_task_handler),
     user_store: UserStore = Depends(get_user_store),
     relation_store: RelationStore = Depends(get_relation_store),
-    wrapped_user: WrappedUser = Depends(get_caller_user),
-    requested_user: WrappedUser = Depends(get_requested_user)
+    wrapped_user: JimoUser = Depends(get_caller_user),
+    requested_user: JimoUser = Depends(get_requested_user)
 ):
     """Follow the given user."""
     from_user: schemas.internal.InternalUser = wrapped_user.user
@@ -192,8 +192,8 @@ async def follow_user(
 @router.post("/{username}/unfollow", response_model=schemas.user.FollowUserResponse)
 async def unfollow_user(
     relation_store: RelationStore = Depends(get_relation_store),
-    wrapped_user: WrappedUser = Depends(get_caller_user),
-    requested_user: WrappedUser = Depends(get_requested_user)
+    wrapped_user: JimoUser = Depends(get_caller_user),
+    requested_user: JimoUser = Depends(get_requested_user)
 ):
     """Unfollow the given user."""
     from_user: schemas.internal.InternalUser = wrapped_user.user
@@ -211,8 +211,8 @@ async def unfollow_user(
 @router.post("/{username}/block", response_model=schemas.base.SimpleResponse)
 async def block_user(
     relation_store: RelationStore = Depends(get_relation_store),
-    wrapped_user: WrappedUser = Depends(get_caller_user),
-    requested_user: WrappedUser = Depends(get_requested_user)
+    wrapped_user: JimoUser = Depends(get_caller_user),
+    requested_user: JimoUser = Depends(get_requested_user)
 ):
     """Block the given user."""
     from_user: schemas.internal.InternalUser = wrapped_user.user
@@ -229,8 +229,8 @@ async def block_user(
 @router.post("/{username}/unblock", response_model=schemas.base.SimpleResponse)
 async def unblock_user(
     relation_store: RelationStore = Depends(get_relation_store),
-    wrapped_user: WrappedUser = Depends(get_caller_user),
-    requested_user: WrappedUser = Depends(get_requested_user)
+    wrapped_user: JimoUser = Depends(get_caller_user),
+    requested_user: JimoUser = Depends(get_requested_user)
 ):
     """Unblock the given user."""
     from_user: schemas.internal.InternalUser = wrapped_user.user

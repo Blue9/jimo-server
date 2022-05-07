@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from shared import schemas
 from app.api import utils
 from app.api.utils import get_user_store, get_post_store, get_comment_store, get_relation_store
-from app.controllers.dependencies import WrappedUser, get_caller_user
+from app.controllers.dependencies import JimoUser, get_caller_user
 from app.controllers.tasks import BackgroundTaskHandler, get_task_handler
 from shared.stores.comment_store import CommentStore
 from shared.stores.post_store import PostStore
@@ -24,7 +24,7 @@ async def create_comment(
     comment_store: CommentStore = Depends(get_comment_store),
     relation_store: RelationStore = Depends(get_relation_store),
     user_store: UserStore = Depends(get_user_store),
-    wrapped_user: WrappedUser = Depends(get_caller_user)
+    wrapped_user: JimoUser = Depends(get_caller_user)
 ):
     user = wrapped_user.user
     post = await utils.get_post_and_validate_or_raise(
@@ -50,7 +50,7 @@ async def delete_comment(
     comment_id: uuid.UUID,
     post_store: PostStore = Depends(get_post_store),
     comment_store: CommentStore = Depends(get_comment_store),
-    wrapped_user: WrappedUser = Depends(get_caller_user)
+    wrapped_user: JimoUser = Depends(get_caller_user)
 ):
     user = wrapped_user.user
     comment: Optional[schemas.internal.InternalComment] = await comment_store.get_comment(comment_id)
@@ -72,7 +72,7 @@ async def like_comment(
     comment_store: CommentStore = Depends(get_comment_store),
     post_store: PostStore = Depends(get_post_store),
     user_store: UserStore = Depends(get_user_store),
-    wrapped_user: WrappedUser = Depends(get_caller_user)
+    wrapped_user: JimoUser = Depends(get_caller_user)
 ):
     user = wrapped_user.user
     comment: Optional[schemas.internal.InternalComment] = await comment_store.get_comment(comment_id)
@@ -91,7 +91,7 @@ async def unlike_comment(
     comment_id: uuid.UUID,
     comment_store: CommentStore = Depends(get_comment_store),
     post_store: PostStore = Depends(get_post_store),
-    wrapped_user: WrappedUser = Depends(get_caller_user)
+    wrapped_user: JimoUser = Depends(get_caller_user)
 ):
     user = wrapped_user.user
     comment: Optional[schemas.internal.InternalComment] = await comment_store.get_comment(comment_id)
