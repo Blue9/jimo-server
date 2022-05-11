@@ -58,14 +58,16 @@ async def get_posts_from_post_ids(
     post_store: PostStore,
     place_store: PlaceStore,
     user_store: UserStore,
+    preserve_order=False,
 ) -> list[schemas.post.Post]:
     # Step 1: Get internal posts
-    internal_posts = await post_store.get_posts(post_ids)
+    internal_posts = await post_store.get_posts(post_ids, preserve_order=preserve_order)
     # Step 2: Get places
     place_ids = set(post.place_id for post in internal_posts)
     places = await place_store.get_places(place_ids)
-    # Step 3: Get like statuses for each post
+    # Step 3: Get like and save statuses for each post
     liked_post_ids = await post_store.get_liked_posts(current_user.id, post_ids)
+    saved_post_ids = await post_store.get_saved_posts(current_user.id, post_ids)
     # Step 4: Get users for each post
     user_ids = list(set(post.user_id for post in internal_posts))
     users: dict[uuid.UUID, schemas.internal.InternalUser] = await user_store.get_users(user_ids=user_ids)
@@ -83,7 +85,8 @@ async def get_posts_from_post_ids(
             like_count=post.like_count,
             comment_count=post.comment_count,
             user=users[post.user_id],
-            liked=post.id in liked_post_ids
+            liked=post.id in liked_post_ids,
+            saved=post.id in saved_post_ids
         )
         posts.append(public_post)
     return posts

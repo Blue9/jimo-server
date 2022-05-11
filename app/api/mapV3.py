@@ -45,6 +45,24 @@ async def get_following_map(
     return MapResponseV3(pins=pins)
 
 
+@router.post("/saved-posts", response_model=MapResponseV3)
+async def get_saved_posts_map(
+    request: GetMapRequest,
+    place_store: PlaceStore = Depends(get_place_store),
+    wrapped_user: JimoUser = Depends(get_caller_user)
+):
+    """Get a map of all users."""
+    user: InternalUser = wrapped_user.user
+    pins = await place_store.get_map_v3(
+        user.id,
+        region=request.region,
+        user_filter=MapLoadStrategy.saved_posts,
+        categories=request.categories,
+        limit=500
+    )
+    return MapResponseV3(pins=pins)
+
+
 @router.post("/custom", response_model=MapResponseV3)
 async def get_custom_map(
     request: CustomMapRequest,
