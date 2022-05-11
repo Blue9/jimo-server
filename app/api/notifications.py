@@ -1,9 +1,10 @@
 import uuid
 from typing import Optional
 
+from shared.stores.post_store import PostStore
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.utils import get_feed_store
+from app.api.utils import get_feed_store, get_post_store
 from shared.stores.feed_store import FeedStore
 from fastapi import APIRouter, Depends
 
@@ -40,6 +41,7 @@ async def remove_token(
 @router.get("/feed", response_model=schemas.notifications.NotificationFeedResponse)
 async def get_notification_feed(
     cursor: Optional[uuid.UUID] = None,
+    post_store: PostStore = Depends(get_post_store),
     feed_store: FeedStore = Depends(get_feed_store),
     wrapped_user: JimoUser = Depends(get_caller_user)
 ):
@@ -49,7 +51,7 @@ async def get_notification_feed(
     """
     page_limit = 50
     user: schemas.internal.InternalUser = wrapped_user.user
-    feed = await feed_store.get_notification_feed(user.id, cursor, limit=page_limit)
+    feed = await feed_store.get_notification_feed(post_store, user.id, cursor, limit=page_limit)
     next_cursor = min(item.item_id for item in feed) if len(feed) >= page_limit else None
     return schemas.notifications.NotificationFeedResponse(
         notifications=feed,
