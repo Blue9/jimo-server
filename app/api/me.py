@@ -1,13 +1,12 @@
+import random
 import uuid
 from typing import Optional
 
 import shared.stores.utils
 from shared.stores.post_store import PostStore
-from shared.stores.relation_store import RelationStore
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.utils import get_user_store, get_place_store, get_feed_store, get_post_store, get_posts_from_post_ids, \
-    get_relation_store
+from app.api.utils import get_user_store, get_place_store, get_feed_store, get_post_store, get_posts_from_post_ids
 from shared.stores.feed_store import FeedStore
 from shared.stores.place_store import PlaceStore
 from shared.stores.user_store import UserStore
@@ -198,22 +197,30 @@ async def get_discover_feed(
 
 
 @router.get("/suggested", response_model=list[schemas.user.PublicUser])
+async def get_featured_users(
+    user_store: UserStore = Depends(get_user_store),
+    _wrapped_user: JimoUser = Depends(get_caller_user)
+):
+    """Get the list of featured jimo accounts."""
+    featured_user_ids = await user_store.get_featured_users()
+    user_map = await user_store.get_users(featured_user_ids)
+    return [user_map.get(user_id) for user_id in featured_user_ids]
+
+
+@router.get("/suggested-users", response_model=list[schemas.user.PublicUser])
 async def get_suggested_users(
-    db: AsyncSession = Depends(get_db),
+    user_store: UserStore = Depends(get_user_store),
     wrapped_user: JimoUser = Depends(get_caller_user)
 ):
-    """Get the list of suggested jimo accounts."""
+    """Get the list of suggested jimo accounts for the current user."""
     user: schemas.internal.InternalUser = wrapped_user.user
-    RelationToCurrent = aliased(models.UserRelation)  # noqa
-    query = select(models.User) \
-        .options(*shared.stores.utils.eager_load_user_options()) \
-        .join(RelationToCurrent,
-              (RelationToCurrent.to_user_id == user.id) & (RelationToCurrent.from_user_id == models.User.id),
-              isouter=True) \
-        .where(models.User.is_featured,
-               ~models.User.deleted,
-               RelationToCurrent.relation.is_distinct_from(models.UserRelationType.blocked))
-    return (await db.execute(query)).scalars().all()
+    user_ids = await user_store.get_suggested_users(user.id, limit=50)
+    if len(user_ids) == 0:
+        return []
+    user_map = await user_store.get_users(user_ids)
+    users = [user_map.get(user_id) for user_id in user_ids]
+    random.shuffle(users)
+    return users[:25]
 
 
 @router.post("/contacts", response_model=list[schemas.user.PublicUser])
