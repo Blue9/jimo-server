@@ -90,6 +90,32 @@ async def get_friend_posts_for_place(
     )
 
 
+@router.post("/{place_id}/getMutualPostsV3/saved-posts", response_model=list[schemas.post.Post])
+async def get_saved_posts_for_place(
+    place_id: uuid.UUID,
+    request: schemas.map.PlaceLoadRequest,
+    post_store: PostStore = Depends(get_post_store),
+    place_store: PlaceStore = Depends(get_place_store),
+    user_store: UserStore = Depends(get_user_store),
+    wrapped_user: JimoUser = Depends(get_caller_user)
+):
+    """Get the list of posts for the given place, using the given strategy."""
+    user: schemas.internal.InternalUser = wrapped_user.user
+    post_ids: list[uuid.UUID] = await post_store.get_mutual_posts_v3(
+        user.id,
+        place_id,
+        user_filter=MapLoadStrategy.saved_posts,
+        categories=request.categories
+    )
+    return await get_posts_from_post_ids(
+        current_user=user,
+        post_ids=post_ids,
+        post_store=post_store,
+        place_store=place_store,
+        user_store=user_store
+    )
+
+
 @router.post("/{place_id}/getMutualPostsV3/custom", response_model=list[schemas.post.Post])
 async def get_custom_posts_for_place(
     place_id: uuid.UUID,

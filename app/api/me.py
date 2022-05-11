@@ -3,9 +3,11 @@ from typing import Optional
 
 import shared.stores.utils
 from shared.stores.post_store import PostStore
+from shared.stores.relation_store import RelationStore
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.utils import get_user_store, get_place_store, get_feed_store, get_post_store, get_posts_from_post_ids
+from app.api.utils import get_user_store, get_place_store, get_feed_store, get_post_store, get_posts_from_post_ids, \
+    get_relation_store
 from shared.stores.feed_store import FeedStore
 from shared.stores.place_store import PlaceStore
 from shared.stores.user_store import UserStore
@@ -114,7 +116,7 @@ async def get_feed(
     user_store: UserStore = Depends(get_user_store)
 ):
     """Get the feed for the current user."""
-    page_size = 50
+    page_size = 10
     user: schemas.internal.InternalUser = wrapped_user.user
     # Step 1: Get post ids
     post_ids = await feed_store.get_feed_ids(user.id, cursor=cursor, limit=page_size)
@@ -128,7 +130,7 @@ async def get_feed(
         place_store=place_store,
         user_store=user_store
     )
-    next_cursor: Optional[uuid.UUID] = min(post.id for post in feed) if len(feed) >= 50 else None
+    next_cursor: Optional[uuid.UUID] = min(post.id for post in feed) if len(feed) >= page_size else None
     return schemas.post.Feed(posts=feed, cursor=next_cursor)
 
 
@@ -271,3 +273,32 @@ async def follow_many(
             if prefs.follow_notifications:
                 await task_handler.notify_follow(followed, followed_by=user)
     return schemas.base.SimpleResponse(success=True)
+
+
+@router.get("/saved-posts", response_model=schemas.post.Feed)
+async def get_saved_posts(
+    cursor: Optional[uuid.UUID] = None,
+    post_store: PostStore = Depends(get_post_store),
+    place_store: PlaceStore = Depends(get_place_store),
+    jimo_user: JimoUser = Depends(get_caller_user),
+    user_store: UserStore = Depends(get_user_store)
+):
+    """Get the given user's posts."""
+    page_size = 15
+    # Step 1: Get post ids
+    user = jimo_user.user
+    post_saves = await post_store.get_saved_posts_by_user(user.id, cursor=cursor, limit=page_size)
+    if len(post_saves) == 0:
+        return schemas.post.Feed(posts=[], cursor=None)
+    post_save_ids, post_ids = zip(*[(save.id, save.post_id) for save in post_saves])
+    # Step 2: Convert to posts
+    posts = await get_posts_from_post_ids(
+        current_user=user,
+        post_ids=post_ids,
+        post_store=post_store,
+        place_store=place_store,
+        user_store=user_store,
+        preserve_order=True,
+    )
+    next_cursor: Optional[uuid.UUID] = min(post_save_ids) if len(posts) >= page_size else None
+    return schemas.post.Feed(posts=posts, cursor=next_cursor)

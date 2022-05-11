@@ -60,7 +60,7 @@ async def get_user(
 @router.get("/{username}/posts", response_model=schemas.post.Feed)
 async def get_posts(
     cursor: Optional[uuid.UUID] = None,
-    limit: Optional[int] = 50,
+    limit: Optional[int] = 15,
     relation_store: RelationStore = Depends(get_relation_store),
     post_store: PostStore = Depends(get_post_store),
     place_store: PlaceStore = Depends(get_place_store),
@@ -68,7 +68,7 @@ async def get_posts(
     requested_user: JimoUser = Depends(get_requested_user)
 ):
     """Get the posts of the given user."""
-    if limit not in [50, 100]:
+    if limit not in [15, 50, 100]:
         raise HTTPException(400)
     page_size = limit
     caller_user: schemas.internal.InternalUser = wrapped_user.user
@@ -85,8 +85,9 @@ async def get_posts(
     # Step 3: Get places
     place_ids = set(post.place_id for post in internal_posts)
     places = await place_store.get_places(place_ids)
-    # Step 4: Get like statuses for each post
+    # Step 4: Get like and save statuses for each post
     liked_post_ids = await post_store.get_liked_posts(caller_user.id, post_ids)
+    saved_post_ids = await post_store.get_saved_posts(caller_user.id, post_ids)
 
     posts = []
     for post in internal_posts:
@@ -101,7 +102,8 @@ async def get_posts(
             like_count=post.like_count,
             comment_count=post.comment_count,
             user=user,
-            liked=post.id in liked_post_ids
+            liked=post.id in liked_post_ids,
+            saved=post.id in saved_post_ids
         )
         posts.append(public_post)
 

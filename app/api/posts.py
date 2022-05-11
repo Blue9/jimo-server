@@ -52,7 +52,8 @@ async def get_post(
         like_count=post.like_count,
         comment_count=post.comment_count,
         user=post_author,
-        liked=await post_store.is_post_liked(post_id, by_user=current_user.id)
+        liked=await post_store.is_post_liked(post_id, by_user=current_user.id),
+        saved=await post_store.is_post_saved(post_id, by_user=current_user.id)
     )
 
 
@@ -74,7 +75,7 @@ async def create_post(
             req.content,
             req.image_id
         )
-        return schemas.post.Post(**post.dict(), liked=False)
+        return schemas.post.Post(**post.dict(), liked=False, saved=False)
     except ValueError as e:
         raise HTTPException(400, detail=str(e))
 
@@ -107,7 +108,11 @@ async def update_post(
         if old_post.image_id and old_post.image_id != updated_post.image_id:
             # Delete old image
             await firebase_user.shared_firebase.delete_image(old_post.image_blob_name)
-        return schemas.post.Post(**updated_post.dict(), liked=await post_store.is_post_liked(post_id, user.id))
+        return schemas.post.Post(
+            **updated_post.dict(),
+            liked=await post_store.is_post_liked(post_id, user.id),
+            saved=await post_store.is_post_saved(post_id, user.id)
+        )
     except ValueError as e:
         raise HTTPException(400, detail=str(e))
 
@@ -166,6 +171,36 @@ async def unlike_post(
         post_store, relation_store, caller_user_id=user.id, post_id=post_id)
     await post_store.unlike_post(user.id, post.id)
     return {"likes": await post_store.get_like_count(post.id)}
+
+
+@router.post("/{post_id}/save", response_model=schemas.base.SimpleResponse)
+async def save_post(
+    post_id: uuid.UUID,
+    post_store: PostStore = Depends(get_post_store),
+    relation_store: RelationStore = Depends(get_relation_store),
+    wrapped_user: JimoUser = Depends(get_caller_user)
+):
+    """Save the given post if the user has not already saved the post."""
+    user: schemas.internal.InternalUser = wrapped_user.user
+    post = await utils.get_post_and_validate_or_raise(
+        post_store, relation_store, caller_user_id=user.id, post_id=post_id)
+    await post_store.save_post(user.id, post.id)
+    return {"success": True}
+
+
+@router.post("/{post_id}/unsave", response_model=schemas.base.SimpleResponse)
+async def unsave_post(
+    post_id: uuid.UUID,
+    post_store: PostStore = Depends(get_post_store),
+    relation_store: RelationStore = Depends(get_relation_store),
+    wrapped_user: JimoUser = Depends(get_caller_user)
+):
+    """Unsave the given post."""
+    user: schemas.internal.InternalUser = wrapped_user.user
+    post = await utils.get_post_and_validate_or_raise(
+        post_store, relation_store, caller_user_id=user.id, post_id=post_id)
+    await post_store.unsave_post(user.id, post.id)
+    return {"success": True}
 
 
 @router.post("/{post_id}/report", response_model=schemas.base.SimpleResponse)
