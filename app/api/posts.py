@@ -176,6 +176,8 @@ async def unlike_post(
 @router.post("/{post_id}/save", response_model=schemas.base.SimpleResponse)
 async def save_post(
     post_id: uuid.UUID,
+    task_handler: Optional[BackgroundTaskHandler] = Depends(get_task_handler),
+    user_store: UserStore = Depends(get_user_store),
     post_store: PostStore = Depends(get_post_store),
     relation_store: RelationStore = Depends(get_relation_store),
     wrapped_user: JimoUser = Depends(get_caller_user)
@@ -185,6 +187,12 @@ async def save_post(
     post = await utils.get_post_and_validate_or_raise(
         post_store, relation_store, caller_user_id=user.id, post_id=post_id)
     await post_store.save_post(user.id, post.id)
+    # Notify the user that their post was saved if they aren't the current user
+    if task_handler:
+        prefs = await user_store.get_user_preferences(post.user_id)
+        if user.id != post.user_id and prefs.post_liked_notifications:
+            place_name = await post_store.get_place_name(post.id)
+            await task_handler.notify_post_saved(post, place_name=place_name, saved_by=user)
     return {"success": True}
 
 

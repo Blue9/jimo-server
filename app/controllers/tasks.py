@@ -54,6 +54,11 @@ class BackgroundTaskHandler:
         request = schemas.notifications.PostLikeNotification(post=post, place_name=place_name, liked_by=liked_by)
         return await self._send_task(path, request.json())
 
+    async def notify_post_saved(self, post: internal.InternalPost, place_name: str, saved_by: internal.InternalUser):
+        path = "notifications/post/save"
+        request = schemas.notifications.PostSaveNotification(post=post, place_name=place_name, saved_by=saved_by)
+        return await self._send_task(path, request.json())
+
     async def notify_comment(
         self,
         post: internal.InternalPost,
