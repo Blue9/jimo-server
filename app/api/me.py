@@ -207,20 +207,21 @@ async def get_featured_users(
     return [user_map.get(user_id) for user_id in featured_user_ids]
 
 
-@router.get("/suggested-users", response_model=list[schemas.user.PublicUser])
+@router.get("/suggested-users", response_model=schemas.user.SuggestedUsersResponse)
 async def get_suggested_users(
     user_store: UserStore = Depends(get_user_store),
     wrapped_user: JimoUser = Depends(get_caller_user)
 ):
     """Get the list of suggested jimo accounts for the current user."""
     user: schemas.internal.InternalUser = wrapped_user.user
-    user_ids = await user_store.get_suggested_users(user.id, limit=50)
-    if len(user_ids) == 0:
-        return []
-    user_map = await user_store.get_users(user_ids)
-    users = [user_map.get(user_id) for user_id in user_ids]
+    suggested_users: list[schemas.user.SuggestedUserIdItem] = await user_store.get_suggested_users(user.id, limit=50)
+    if len(suggested_users) == 0:
+        return schemas.user.SuggestedUsersResponse(users=[])
+    user_map = await user_store.get_users([item[0] for item in suggested_users])
+    users = [schemas.user.SuggestedUserItem(user=user_map.get(user_id), num_mutual_friends=num_mutual_friends) for
+             user_id, num_mutual_friends in suggested_users]
     random.shuffle(users)
-    return users[:25]
+    return schemas.user.SuggestedUsersResponse(users=users[:25])
 
 
 @router.post("/contacts", response_model=list[schemas.user.PublicUser])
