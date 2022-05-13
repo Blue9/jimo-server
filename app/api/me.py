@@ -10,7 +10,7 @@ from app.api.utils import get_user_store, get_place_store, get_feed_store, get_p
 from shared.stores.feed_store import FeedStore
 from shared.stores.place_store import PlaceStore
 from shared.stores.user_store import UserStore
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from sqlalchemy import union_all, select
@@ -194,6 +194,38 @@ async def get_discover_feed(
         user_store=user_store
     )
     return JSONResponse(content=jsonable_encoder(feed))
+
+
+@router.get("/discoverV2", response_model=schemas.post.Feed)
+async def get_discover_feed_v2(
+    long: Optional[float] = Query(None, ge=-180, le=180),
+    lat: Optional[float] = Query(None, ge=-90, le=90),
+    feed_store: FeedStore = Depends(get_feed_store),
+    post_store: PostStore = Depends(get_post_store),
+    place_store: PlaceStore = Depends(get_place_store),
+    wrapped_user: JimoUser = Depends(get_caller_user),
+    user_store: UserStore = Depends(get_user_store)
+):
+    """Get the discover feed for the current user."""
+    user: schemas.internal.InternalUser = wrapped_user.user
+    # Step 1: Get post ids
+    location = None
+    if long is not None and lat is not None:
+        location = schemas.place.Location(latitude=lat, longitude=long)
+    post_ids = await feed_store.get_discover_feed_ids(user.id, location=location, limit=99)
+    if len(post_ids) == 0:
+        return schemas.post.Feed(posts=[])
+    # Step 2: Convert to posts
+    feed = await get_posts_from_post_ids(
+        current_user=user,
+        post_ids=post_ids,
+        post_store=post_store,
+        place_store=place_store,
+        user_store=user_store
+    )
+    response = schemas.post.Feed(posts=feed)
+    return JSONResponse(content=jsonable_encoder(response))
+
 
 
 @router.get("/suggested", response_model=list[schemas.user.PublicUser])
