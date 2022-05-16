@@ -6,27 +6,24 @@ authors = ["Your Name <you@example.com>"]
 
 [tool.poetry.dependencies]
 python = "^3.9"
-fastapi = "^0.65.2"
-uvicorn = {extras = ["standard"], version = "^0.13.4"}
+fastapi = "^0.78.0"
+uvicorn = {extras = ["standard"], version = "^0.17.6"}
 gunicorn = "^20.1.0"
-firebase-admin = "^4.5.3"
-cffi = "^1.14.5"
-grpcio = "^1.38.0"
+firebase-admin = "^5.2.0"
 python-multipart = "^0.0.5"
-alembic = "^1.5.8"
-mypy = "^0.812"
+alembic = "^1.7.7"
 shared = { git = "git@github.com:Blue9/jimo-shared.git", branch = "main" }
-google-cloud-tasks = "^2.6.0"
-pyparsing = "<3.0.0"
+google-cloud-tasks = "^2.9.0"
 asyncpg = "^0.25.0"
-aioredis = "^2.0.0"
+aioredis = "^2.0.1"
 slowapi = "^0.1.5"
 
 [tool.poetry.dev-dependencies]
-flake8 = "^3.9.0"
-pytest = "^6.2.3"
+flake8 = "^4.0.1"
+mypy = "^0.950"
+pytest = "^7.1.2"
 httpx = "^0.22.0"
-pytest-asyncio = "^0.16.0"
+pytest-asyncio = "^0.18.3"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
