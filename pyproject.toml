@@ -6,7 +6,7 @@ authors = ["Your Name <you@example.com>"]
 
 [tool.poetry.dependencies]
 python = "^3.9"
-fastapi = "^0.63.0"  # Need to update the iOS client to set Content-Type to application/json before upgrading
+fastapi = "^0.65.2"
 uvicorn = {extras = ["standard"], version = "^0.13.4"}
 gunicorn = "^20.1.0"
 firebase-admin = "^4.5.3"
@@ -25,7 +25,7 @@ slowapi = "^0.1.5"
 [tool.poetry.dev-dependencies]
 flake8 = "^3.9.0"
 pytest = "^6.2.3"
-httpx = "^0.21.1"
+httpx = "^0.22.0"
 pytest-asyncio = "^0.16.0"
 
 [build-system]
