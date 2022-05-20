@@ -16,4 +16,4 @@ async def search_users(
 ):
     """Search for users with the given query."""
     user: schemas.internal.InternalUser = wrapped_user.user
-    return await user_store.search_users(caller_user_id=user.id, query=q)
+    return await user_store.search_users(user.id, query=q)
