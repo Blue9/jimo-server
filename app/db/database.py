@@ -1,5 +1,3 @@
-from contextlib import asynccontextmanager
-
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 from starlette.requests import Request
@@ -14,7 +12,7 @@ engine = create_async_engine(
     pool_timeout=15,  # seconds
     pool_recycle=1800,
     pool_pre_ping=True,
-    echo=False
+    echo=False,
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine, class_=AsyncSession)
 
@@ -24,12 +22,3 @@ async def get_db(request: Request) -> AsyncSession:
     return request.state.db
     # The db session will be closed by the db_session_middleware in app.main
     # This is so that we close the session BEFORE the response is delivered,
-
-
-@asynccontextmanager
-async def get_session() -> AsyncSession:
-    db: AsyncSession = SessionLocal()
-    try:
-        yield db
-    finally:
-        await db.close()

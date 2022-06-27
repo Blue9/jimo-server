@@ -5,11 +5,11 @@ from typing import Optional
 from shared import schemas
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app import config
 from app.db.database import get_db
 from shared.stores.comment_store import CommentStore
 from shared.stores.feed_store import FeedStore
-from shared.stores.invite_store import InviteStore
+from shared.stores.map_store import MapStore
+from shared.stores.notification_store import NotificationStore
 from shared.stores.place_store import PlaceStore
 from shared.stores.post_store import PostStore
 from shared.stores.relation_store import RelationStore
@@ -24,11 +24,12 @@ from shared.models import models
 async def validate_user(
     relation_store: RelationStore,
     caller_user_id: uuid.UUID,
-    user: Optional[schemas.internal.InternalUser]
+    user: Optional[schemas.internal.InternalUser],
 ) -> schemas.internal.InternalUser:
-    if user is None or user.deleted or await relation_store.is_blocked(
-        blocked_by_user_id=user.id,
-        blocked_user_id=caller_user_id
+    if (
+        user is None
+        or user.deleted
+        or await relation_store.is_blocked(blocked_by_user_id=user.id, blocked_user_id=caller_user_id)
     ):
         raise HTTPException(404, detail="User not found")
     return user
@@ -74,9 +75,13 @@ async def get_posts_from_post_ids(
 
     posts = []
     for post in internal_posts:
+        place = places.get(post.place_id)
+        user = users.get(post.user_id)
+        if user is None or place is None:
+            continue
         public_post = schemas.post.Post(
             id=post.id,
-            place=places[post.place_id],
+            place=place,
             category=post.category,
             content=post.content,
             image_id=post.image_id,
@@ -84,9 +89,9 @@ async def get_posts_from_post_ids(
             created_at=post.created_at,
             like_count=post.like_count,
             comment_count=post.comment_count,
-            user=users[post.user_id],
+            user=user,
             liked=post.id in liked_post_ids,
-            saved=post.id in saved_post_ids
+            saved=post.id in saved_post_ids,
         )
         posts.append(public_post)
     return posts
@@ -95,13 +100,20 @@ async def get_posts_from_post_ids(
 async def get_or_create_place(
     user_id: uuid.UUID,
     request: schemas.place.MaybeCreatePlaceRequest,
-    place_store: PlaceStore
+    place_store: PlaceStore,
 ) -> uuid.UUID:
-    place = await place_store.get_or_create_place(request)
+    loc = request.location
+    radius = request.region.radius if request.region else 10
+    place = await place_store.get_or_create_place(
+        name=request.name,
+        latitude=loc.latitude,
+        longitude=loc.longitude,
+        search_radius_meters=radius,
+    )
     # Update place data
     region = request.region
     additional_data = request.additional_data
-    await place_store.create_or_update_place_data(user_id, place.id, region, additional_data)
+    await place_store.maybe_create_place_data(user_id, place.id, region, additional_data)
     return place.id
 
 
@@ -109,7 +121,7 @@ async def upload_image(
     file: UploadFile,
     user: schemas.internal.InternalUser,
     firebase_admin: FirebaseAdminProtocol,
-    db: AsyncSession
+    db: AsyncSession,
 ) -> models.ImageUpload:
     await check_valid_image(file)
     # Set override_used to True if you plan to immediately use the image in a profile picture or post (as opposed to
@@ -139,7 +151,7 @@ async def get_post_and_validate_or_raise(
     post_store: PostStore,
     relation_store: RelationStore,
     caller_user_id: uuid.UUID,
-    post_id: uuid.UUID
+    post_id: uuid.UUID,
 ) -> schemas.internal.InternalPost:
     """
     Check that the post exists and the given user is authorized to view it.
@@ -165,8 +177,12 @@ def get_feed_store(db: AsyncSession = Depends(get_db)):
     return FeedStore(db=db)
 
 
-def get_invite_store(db: AsyncSession = Depends(get_db)):
-    return InviteStore(invites_per_user=config.INVITES_PER_USER, db=db)
+def get_map_store(db: AsyncSession = Depends(get_db)):
+    return MapStore(db=db)
+
+
+def get_notification_store(db: AsyncSession = Depends(get_db)):
+    return NotificationStore(db=db)
 
 
 def get_place_store(db: AsyncSession = Depends(get_db)):

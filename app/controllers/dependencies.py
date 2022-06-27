@@ -33,7 +33,7 @@ def get_authorization_header(request: Request) -> str:
 
 async def get_caller_user(
     firebase_user: FirebaseUser = Depends(get_firebase_user),
-    user_store: UserStore = Depends(get_user_store)
+    user_store: UserStore = Depends(get_user_store),
 ) -> JimoUser:
     user: Optional[schemas.internal.InternalUser] = await user_store.get_user_by_uid(firebase_user.uid)
     if user is None or user.deleted:

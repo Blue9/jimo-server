@@ -27,7 +27,7 @@ Page = namedtuple("Page", ["offset", "limit"])
 
 async def get_admin_or_raise(
     firebase_user: FirebaseUser = Depends(get_firebase_user),
-    user_store: UserStore = Depends(get_user_store)
+    user_store: UserStore = Depends(get_user_store),
 ) -> schemas.internal.InternalUser:
     user: schemas.internal.InternalUser = await utils.get_user_from_uid_or_raise(user_store, uid=firebase_user.uid)
     if not user.is_admin:
@@ -41,7 +41,7 @@ def get_page(page: int = Query(1, gt=0), limit: int = Query(100, gt=0, le=1000))
 
 @router.post("/cache/flush", response_model=schemas.base.SimpleResponse)
 async def flush_cache(
-    _admin: schemas.internal.InternalUser = Depends(get_admin_or_raise)
+    _admin: schemas.internal.InternalUser = Depends(get_admin_or_raise),
 ):
     """Flush the cache."""
     await get_redis().flushdb()
@@ -53,16 +53,18 @@ async def flush_cache(
 async def get_users(
     page: Page = Depends(get_page),
     db: AsyncSession = Depends(get_db),
-    _admin: schemas.internal.InternalUser = Depends(get_admin_or_raise)
+    _admin: schemas.internal.InternalUser = Depends(get_admin_or_raise),
 ):
     """Get all users."""
     total_query = await db.execute(select(func.count(models.User.id)))
     total = total_query.scalar()
-    query = select(models.User) \
-        .options(*shared.stores.utils.eager_load_user_options()) \
-        .order_by(models.User.id.desc()) \
-        .offset(page.offset) \
+    query = (
+        select(models.User)
+        .options(*shared.stores.utils.eager_load_user_options())
+        .order_by(models.User.id.desc())
+        .offset(page.offset)
         .limit(page.limit)
+    )
     data = (await db.execute(query)).scalars().all()
     return schemas.admin.Page(total=total, data=data)
 
@@ -87,12 +89,14 @@ async def create_user(
 async def get_user(
     username: str,
     db: AsyncSession = Depends(get_db),
-    _admin: schemas.internal.InternalUser = Depends(get_admin_or_raise)
+    _admin: schemas.internal.InternalUser = Depends(get_admin_or_raise),
 ):
     """Get the given user."""
-    query = select(models.User) \
-        .options(*shared.stores.utils.eager_load_user_options()) \
+    query = (
+        select(models.User)
+        .options(*shared.stores.utils.eager_load_user_options())
         .where(models.User.username_lower == username.lower())
+    )
     user = (await db.execute(query)).scalars().first()
     if user is None:
         raise HTTPException(404)
@@ -104,12 +108,14 @@ async def update_user(
     username: str,
     request: schemas.admin.UpdateUserRequest,
     db: AsyncSession = Depends(get_db),
-    admin: schemas.internal.InternalUser = Depends(get_admin_or_raise)
+    admin: schemas.internal.InternalUser = Depends(get_admin_or_raise),
 ):
     """Update the given user."""
-    query = select(models.User) \
-        .options(*shared.stores.utils.eager_load_user_options()) \
+    query = (
+        select(models.User)
+        .options(*shared.stores.utils.eager_load_user_options())
         .where(models.User.username_lower == username.lower())
+    )
     executed = await db.execute(query)
     to_update: Optional[models.User] = executed.scalars().first()
     if not to_update:
@@ -137,17 +143,19 @@ async def update_user(
 async def get_admins(
     page: Page = Depends(get_page),
     db: AsyncSession = Depends(get_db),
-    _admin: schemas.internal.InternalUser = Depends(get_admin_or_raise)
+    _admin: schemas.internal.InternalUser = Depends(get_admin_or_raise),
 ):
     """Get all admin users."""
     total_query = await db.execute(select(func.count()).where(models.User.is_admin))
     total = total_query.scalar()
-    query = select(models.User) \
-        .options(*shared.stores.utils.eager_load_user_options()) \
-        .where(models.User.is_admin) \
-        .order_by(models.User.id.desc()) \
-        .offset(page.offset) \
+    query = (
+        select(models.User)
+        .options(*shared.stores.utils.eager_load_user_options())
+        .where(models.User.is_admin)
+        .order_by(models.User.id.desc())
+        .offset(page.offset)
         .limit(page.limit)
+    )
     admins_query = await db.execute(query)
     admins = admins_query.scalars().all()
     return schemas.admin.Page(total=total, data=admins)
@@ -158,17 +166,19 @@ async def get_admins(
 async def get_featured_users(
     page: Page = Depends(get_page),
     db: AsyncSession = Depends(get_db),
-    _admin: schemas.internal.InternalUser = Depends(get_admin_or_raise)
+    _admin: schemas.internal.InternalUser = Depends(get_admin_or_raise),
 ):
     """Get featured users."""
     total_query = await db.execute(select(func.count()).where(models.User.is_featured))
     total = total_query.scalar()
-    query = select(models.User) \
-        .options(*shared.stores.utils.eager_load_user_options()) \
-        .where(models.User.is_featured) \
-        .order_by(models.User.id.desc()) \
-        .offset(page.offset) \
+    query = (
+        select(models.User)
+        .options(*shared.stores.utils.eager_load_user_options())
+        .where(models.User.is_featured)
+        .order_by(models.User.id.desc())
+        .offset(page.offset)
         .limit(page.limit)
+    )
     rows = await db.execute(query)
     featured_users = rows.scalars().all()
     return schemas.admin.Page(total=total, data=featured_users)
@@ -179,16 +189,18 @@ async def get_featured_users(
 async def get_all_posts(
     page: Page = Depends(get_page),
     db: AsyncSession = Depends(get_db),
-    _admin: schemas.internal.InternalUser = Depends(get_admin_or_raise)
+    _admin: schemas.internal.InternalUser = Depends(get_admin_or_raise),
 ):
     """Get all posts."""
     total_query = await db.execute(select(func.count()).select_from(models.Post))
     total = total_query.scalar()
-    query = select(models.Post) \
-        .options(*shared.stores.utils.eager_load_post_options()) \
-        .order_by(models.Post.id.desc()) \
-        .offset(page.offset) \
+    query = (
+        select(models.Post)
+        .options(*shared.stores.utils.eager_load_post_options())
+        .order_by(models.Post.id.desc())
+        .offset(page.offset)
         .limit(page.limit)
+    )
     rows = await db.execute(query)
     posts = rows.scalars().all()
     return schemas.admin.Page(total=total, data=posts)
@@ -198,11 +210,9 @@ async def get_all_posts(
 async def get_post(
     post_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    _admin: schemas.internal.InternalUser = Depends(get_admin_or_raise)
+    _admin: schemas.internal.InternalUser = Depends(get_admin_or_raise),
 ):
-    query = select(models.Post) \
-        .options(*shared.stores.utils.eager_load_post_options()) \
-        .where(models.Post.id == post_id)
+    query = select(models.Post).options(*shared.stores.utils.eager_load_post_options()).where(models.Post.id == post_id)
     rows = await db.execute(query)
     post = rows.scalars().first()
     if post is None:
@@ -216,11 +226,9 @@ async def update_post(
     request: schemas.admin.UpdatePostRequest,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
     db: AsyncSession = Depends(get_db),
-    _admin: schemas.internal.InternalUser = Depends(get_admin_or_raise)
+    _admin: schemas.internal.InternalUser = Depends(get_admin_or_raise),
 ):
-    query = select(models.Post) \
-        .options(*shared.stores.utils.eager_load_post_options()) \
-        .where(models.Post.id == post_id)
+    query = select(models.Post).options(*shared.stores.utils.eager_load_post_options()).where(models.Post.id == post_id)
     rows = await db.execute(query)
     post: Optional[models.Post] = rows.scalars().first()
     if post is None:
@@ -231,7 +239,7 @@ async def update_post(
         post.deleted = request.deleted
     await db.commit()
     updated_post_result = await db.execute(query)
-    updated_post: models.Post = updated_post_result.scalars().first()
+    updated_post: models.Post = updated_post_result.scalars().first()  # type: ignore
     if updated_post.image is not None:
         if updated_post.deleted:
             await firebase_user.shared_firebase.make_image_private(updated_post.image_blob_name)
@@ -245,18 +253,22 @@ async def update_post(
 async def get_waitlist(
     page: Page = Depends(get_page),
     db: AsyncSession = Depends(get_db),
-    _admin: schemas.internal.InternalUser = Depends(get_admin_or_raise)
+    _admin: schemas.internal.InternalUser = Depends(get_admin_or_raise),
 ):
     """Get all users on the waitlist that haven't been invited yet."""
-    total_query = select(func.count()) \
-        .select_from(models.Waitlist) \
+    total_query = (
+        select(func.count())
+        .select_from(models.Waitlist)
         .where(~exists().where(models.Waitlist.phone_number == models.Invite.phone_number))
+    )
     total = (await db.execute(total_query)).scalar()
-    query = select(models.Waitlist) \
-        .where(~exists().where(models.Waitlist.phone_number == models.Invite.phone_number)) \
-        .order_by(models.Waitlist.id.desc()) \
-        .offset(page.offset) \
+    query = (
+        select(models.Waitlist)
+        .where(~exists().where(models.Waitlist.phone_number == models.Invite.phone_number))
+        .order_by(models.Waitlist.id.desc())
+        .offset(page.offset)
         .limit(page.limit)
+    )
     rows = await db.execute(query)
     waitlist = rows.scalars().all()
     return schemas.admin.Page(total=total, data=waitlist)
@@ -267,18 +279,22 @@ async def get_waitlist(
 async def get_all_invites(
     page: Page = Depends(get_page),
     db: AsyncSession = Depends(get_db),
-    _admin: schemas.internal.InternalUser = Depends(get_admin_or_raise)
+    _admin: schemas.internal.InternalUser = Depends(get_admin_or_raise),
 ):
     """Get invited phone numbers that haven't signed up yet."""
-    total_query = select(func.count()) \
-        .select_from(models.Invite) \
+    total_query = (
+        select(func.count())
+        .select_from(models.Invite)
         .where(~exists().where(models.Invite.phone_number == models.User.phone_number))
+    )
     total = (await db.execute(total_query)).scalar()
-    query = select(models.Invite) \
-        .where(~exists().where(models.Invite.phone_number == models.User.phone_number)) \
-        .order_by(models.Invite.id.desc()) \
-        .offset(page.offset) \
+    query = (
+        select(models.Invite)
+        .where(~exists().where(models.Invite.phone_number == models.User.phone_number))
+        .order_by(models.Invite.id.desc())
+        .offset(page.offset)
         .limit(page.limit)
+    )
     rows = await db.execute(query)
     invites = rows.scalars().all()
     return schemas.admin.Page(total=total, data=invites)
@@ -288,7 +304,7 @@ async def get_all_invites(
 async def create_invite(
     request: schemas.admin.CreateInviteRequest,
     db: AsyncSession = Depends(get_db),
-    admin: schemas.internal.InternalUser = Depends(get_admin_or_raise)
+    admin: schemas.internal.InternalUser = Depends(get_admin_or_raise),
 ):
     """Create invite."""
     invite = models.Invite(phone_number=request.phone_number, invited_by=admin.id)
@@ -305,7 +321,7 @@ async def create_invite(
 async def remove_invites(
     request: schemas.user.PhoneNumberList,
     db: AsyncSession = Depends(get_db),
-    _admin: schemas.internal.InternalUser = Depends(get_admin_or_raise)
+    _admin: schemas.internal.InternalUser = Depends(get_admin_or_raise),
 ):
     """Remove invites."""
     query = select(models.Invite).where(models.Invite.phone_number.in_(request.phone_numbers))
@@ -321,19 +337,23 @@ async def remove_invites(
 async def get_post_reports(
     page: Page = Depends(get_page),
     db: AsyncSession = Depends(get_db),
-    _admin: schemas.internal.InternalUser = Depends(get_admin_or_raise)
+    _admin: schemas.internal.InternalUser = Depends(get_admin_or_raise),
 ):
     """Get all post reports."""
     total_query = await db.execute(select(func.count()).select_from(models.PostReport))
     total = total_query.scalar()
-    query = select(models.PostReport) \
-        .options(joinedload(models.PostReport.post, innerjoin=True)
-                 .options(*shared.stores.utils.eager_load_post_options()),
-                 joinedload(models.PostReport.reported_by, innerjoin=True)
-                 .options(*shared.stores.utils.eager_load_user_options())) \
-        .order_by(models.PostReport.id.desc()) \
-        .offset(page.offset) \
+    query = (
+        select(models.PostReport)
+        .options(
+            joinedload(models.PostReport.post, innerjoin=True).options(*shared.stores.utils.eager_load_post_options()),
+            joinedload(models.PostReport.reported_by, innerjoin=True).options(
+                *shared.stores.utils.eager_load_user_options()
+            ),
+        )
+        .order_by(models.PostReport.id.desc())
+        .offset(page.offset)
         .limit(page.limit)
+    )
     reports = (await db.execute(query)).scalars().all()
     return schemas.admin.Page(total=total, data=reports)
 
@@ -342,16 +362,19 @@ async def get_post_reports(
 async def get_feedback(
     page: Page = Depends(get_page),
     db: AsyncSession = Depends(get_db),
-    _admin: schemas.internal.InternalUser = Depends(get_admin_or_raise)
+    _admin: schemas.internal.InternalUser = Depends(get_admin_or_raise),
 ):
     """Get all submitted feedback."""
     total_query = await db.execute(select(func.count()).select_from(models.Feedback))
     total = total_query.scalar()
-    query = select(models.Feedback) \
-        .options(joinedload(models.Feedback.user, innerjoin=True)
-                 .options(*shared.stores.utils.eager_load_user_options())) \
-        .order_by(models.Feedback.id.desc()) \
-        .offset(page.offset) \
+    query = (
+        select(models.Feedback)
+        .options(
+            joinedload(models.Feedback.user, innerjoin=True).options(*shared.stores.utils.eager_load_user_options())
+        )
+        .order_by(models.Feedback.id.desc())
+        .offset(page.offset)
         .limit(page.limit)
+    )
     feedback = (await db.execute(query)).scalars().all()
     return schemas.admin.Page(total=total, data=feedback)

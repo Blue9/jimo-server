@@ -5,7 +5,12 @@ from shared.stores.place_store import PlaceStore
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.utils import get_user_store, get_relation_store, get_post_store, get_place_store
+from app.api.utils import (
+    get_user_store,
+    get_relation_store,
+    get_post_store,
+    get_place_store,
+)
 from shared.stores.post_store import PostStore
 from shared.stores.relation_store import RelationStore
 from shared.stores.user_store import UserStore
@@ -26,7 +31,7 @@ router = APIRouter()
 async def create_user(
     request: schemas.user.CreateUserRequest,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
-    user_store: UserStore = Depends(get_user_store)
+    user_store: UserStore = Depends(get_user_store),
 ):
     """Create a new user."""
     phone_number: Optional[str] = await firebase_user.shared_firebase.get_phone_number_from_uid(firebase_user.uid)
@@ -34,13 +39,15 @@ async def create_user(
         email: Optional[str] = await firebase_user.shared_firebase.get_email_from_uid(firebase_user.uid)
         if email is None or not email.endswith("@jimoapp.com"):
             return schemas.user.CreateUserResponse(
-                created=None, error=schemas.user.UserFieldErrors(uid="Invalid account information."))
+                created=None,
+                error=schemas.user.UserFieldErrors(uid="Invalid account information."),
+            )
     user, error = await user_store.create_user(
         uid=firebase_user.uid,
         username=request.username,
         first_name=request.first_name,
         last_name=request.last_name,
-        phone_number=phone_number
+        phone_number=phone_number,
     )
     return schemas.user.CreateUserResponse(created=user, error=error)
 
@@ -49,7 +56,7 @@ async def create_user(
 async def get_user(
     relation_store: RelationStore = Depends(get_relation_store),
     wrapped_user: JimoUser = Depends(get_caller_user),
-    requested_user: JimoUser = Depends(get_requested_user)
+    requested_user: JimoUser = Depends(get_requested_user),
 ):
     """Get the given user's details."""
     caller_user: schemas.internal.InternalUser = wrapped_user.user
@@ -65,7 +72,7 @@ async def get_posts(
     post_store: PostStore = Depends(get_post_store),
     place_store: PlaceStore = Depends(get_place_store),
     wrapped_user: JimoUser = Depends(get_caller_user),
-    requested_user: JimoUser = Depends(get_requested_user)
+    requested_user: JimoUser = Depends(get_requested_user),
 ):
     """Get the posts of the given user."""
     if limit not in [15, 50, 100]:
@@ -103,7 +110,7 @@ async def get_posts(
             comment_count=post.comment_count,
             user=user,
             liked=post.id in liked_post_ids,
-            saved=post.id in saved_post_ids
+            saved=post.id in saved_post_ids,
         )
         posts.append(public_post)
 
@@ -116,14 +123,16 @@ async def get_relation(
     db: AsyncSession = Depends(get_db),
     relation_store: RelationStore = Depends(get_relation_store),
     wrapped_user: JimoUser = Depends(get_caller_user),
-    requested_user: JimoUser = Depends(get_requested_user)
+    requested_user: JimoUser = Depends(get_requested_user),
 ):
     """Get the relationship to the given user."""
     from_user: schemas.internal.InternalUser = wrapped_user.user
     maybe_to_user = requested_user.user
     to_user = await utils.validate_user(relation_store, caller_user_id=from_user.id, user=maybe_to_user)
-    relation_query = select(models.UserRelation.relation) \
-        .where(models.UserRelation.from_user_id == from_user.id, models.UserRelation.to_user_id == to_user.id)
+    relation_query = select(models.UserRelation.relation).where(
+        models.UserRelation.from_user_id == from_user.id,
+        models.UserRelation.to_user_id == to_user.id,
+    )
     relation: Optional[models.UserRelationType] = (await db.execute(relation_query)).scalar()
     return schemas.user.RelationToUser(relation=relation.value if relation else None)
 
@@ -134,17 +143,18 @@ async def get_followers(
     user_store: UserStore = Depends(get_user_store),
     relation_store: RelationStore = Depends(get_relation_store),
     wrapped_user: JimoUser = Depends(get_caller_user),
-    requested_user: JimoUser = Depends(get_requested_user)
+    requested_user: JimoUser = Depends(get_requested_user),
 ):
     """Get the followers of the given user."""
-    limit = 50
+    limit = 25
     current_user: schemas.internal.InternalUser = wrapped_user.user
     maybe_to_user = requested_user.user
     to_user = await utils.validate_user(relation_store, caller_user_id=current_user.id, user=maybe_to_user)
-    users, next_cursor = await user_store.get_followers(to_user.id, cursor, limit)
-    relations = await relation_store.get_relations(current_user.id, [user.id for user in users])
-    items = [schemas.user.FollowFeedItem(user=user, relation=relations.get(user.id)) for user in users]
-    return schemas.user.FollowFeedResponse(users=items, cursor=next_cursor)
+    user_ids, next_cursor = await relation_store.get_followers(to_user.id, cursor, limit)
+    relations = await relation_store.get_relations(current_user.id, user_ids)
+    users = await user_store.get_users(user_ids)
+    items = [dict(user=users[user_id], relation=relations.get(user_id)) for user_id in user_ids]
+    return dict(users=items, cursor=next_cursor)
 
 
 @router.get("/{username}/following", response_model=schemas.user.FollowFeedResponse)
@@ -153,18 +163,18 @@ async def get_following(
     user_store: UserStore = Depends(get_user_store),
     relation_store: RelationStore = Depends(get_relation_store),
     wrapped_user: JimoUser = Depends(get_caller_user),
-    requested_user: JimoUser = Depends(get_requested_user)
+    requested_user: JimoUser = Depends(get_requested_user),
 ):
     """Get the given user's following."""
-    limit = 50
+    limit = 25
     current_user: schemas.internal.InternalUser = wrapped_user.user
-    maybe_to_user = requested_user.user
-    to_user = await utils.validate_user(relation_store, caller_user_id=current_user.id, user=maybe_to_user)
-
-    users, next_cursor = await user_store.get_following(to_user.id, cursor, limit)
-    relations = await relation_store.get_relations(current_user.id, [user.id for user in users])
-    items = [schemas.user.FollowFeedItem(user=user, relation=relations.get(user.id)) for user in users]
-    return schemas.user.FollowFeedResponse(users=items, cursor=next_cursor)
+    maybe_from_user = requested_user.user
+    from_user = await utils.validate_user(relation_store, caller_user_id=current_user.id, user=maybe_from_user)
+    user_ids, next_cursor = await relation_store.get_following(from_user.id, cursor, limit)
+    relations = await relation_store.get_relations(current_user.id, user_ids)
+    users = await user_store.get_users(user_ids)
+    items = [dict(user=users[user_id], relation=relations.get(user_id)) for user_id in user_ids]
+    return dict(users=items, cursor=next_cursor)
 
 
 @router.post("/{username}/follow", response_model=schemas.user.FollowUserResponse)
@@ -173,7 +183,7 @@ async def follow_user(
     user_store: UserStore = Depends(get_user_store),
     relation_store: RelationStore = Depends(get_relation_store),
     wrapped_user: JimoUser = Depends(get_caller_user),
-    requested_user: JimoUser = Depends(get_requested_user)
+    requested_user: JimoUser = Depends(get_requested_user),
 ):
     """Follow the given user."""
     from_user: schemas.internal.InternalUser = wrapped_user.user
@@ -195,7 +205,7 @@ async def follow_user(
 async def unfollow_user(
     relation_store: RelationStore = Depends(get_relation_store),
     wrapped_user: JimoUser = Depends(get_caller_user),
-    requested_user: JimoUser = Depends(get_requested_user)
+    requested_user: JimoUser = Depends(get_requested_user),
 ):
     """Unfollow the given user."""
     from_user: schemas.internal.InternalUser = wrapped_user.user
@@ -214,7 +224,7 @@ async def unfollow_user(
 async def block_user(
     relation_store: RelationStore = Depends(get_relation_store),
     wrapped_user: JimoUser = Depends(get_caller_user),
-    requested_user: JimoUser = Depends(get_requested_user)
+    requested_user: JimoUser = Depends(get_requested_user),
 ):
     """Block the given user."""
     from_user: schemas.internal.InternalUser = wrapped_user.user
@@ -232,7 +242,7 @@ async def block_user(
 async def unblock_user(
     relation_store: RelationStore = Depends(get_relation_store),
     wrapped_user: JimoUser = Depends(get_caller_user),
-    requested_user: JimoUser = Depends(get_requested_user)
+    requested_user: JimoUser = Depends(get_requested_user),
 ):
     """Unblock the given user."""
     from_user: schemas.internal.InternalUser = wrapped_user.user
