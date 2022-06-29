@@ -1,41 +1,28 @@
 import uuid
-from typing import Optional
 
-from shared.schemas.map import MapLoadStrategy
+from shared.map.strategy import (
+    CategoryFilter,
+    EveryoneFilter,
+    FriendsFilter,
+    SavedPostsFilter,
+    UserListFilter,
+)
 from shared.stores.user_store import UserStore
 
-from app.api.utils import get_post_store, get_place_store, get_posts_from_post_ids, get_user_store
+from app.api.utils import (
+    get_post_store,
+    get_place_store,
+    get_posts_from_post_ids,
+    get_user_store,
+)
 from shared.stores.place_store import PlaceStore
 from shared.stores.post_store import PostStore
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 
 from shared import schemas
 from app.controllers.dependencies import JimoUser, get_caller_user
 
 router = APIRouter()
-
-
-@router.get("/{place_id}/icon", response_model=schemas.map.MapPinIcon)
-async def get_place_icon(
-    place_id: uuid.UUID,
-    place_store: PlaceStore = Depends(get_place_store),
-    wrapped_user: JimoUser = Depends(get_caller_user)
-):
-    user: schemas.internal.InternalUser = wrapped_user.user
-    return await place_store.get_place_icon(user.id, place_id)
-
-
-@router.get("/{place_id}/mutualPosts", response_model=list[schemas.post.Post])
-async def get_mutual_posts(
-    place_id: uuid.UUID,
-    post_store: PostStore = Depends(get_post_store),
-    wrapped_user: JimoUser = Depends(get_caller_user)
-):
-    user: schemas.internal.InternalUser = wrapped_user.user
-    mutual_posts = await post_store.get_mutual_posts(user.id, place_id)
-    if mutual_posts is None:
-        raise HTTPException(404)
-    return mutual_posts
 
 
 @router.post("/{place_id}/getMutualPostsV3/global", response_model=list[schemas.post.Post])
@@ -45,22 +32,19 @@ async def get_all_posts_for_place(
     post_store: PostStore = Depends(get_post_store),
     place_store: PlaceStore = Depends(get_place_store),
     user_store: UserStore = Depends(get_user_store),
-    wrapped_user: JimoUser = Depends(get_caller_user)
+    wrapped_user: JimoUser = Depends(get_caller_user),
 ):
     """Get the list of posts for the given place, using the given strategy."""
     user: schemas.internal.InternalUser = wrapped_user.user
     post_ids: list[uuid.UUID] = await post_store.get_mutual_posts_v3(
-        user.id,
-        place_id,
-        user_filter=MapLoadStrategy.everyone,
-        categories=request.categories
+        place_id, user_filter=EveryoneFilter(), category_filter=CategoryFilter(request.categories)  # type: ignore
     )
     return await get_posts_from_post_ids(
         current_user=user,
         post_ids=post_ids,
         post_store=post_store,
         place_store=place_store,
-        user_store=user_store
+        user_store=user_store,
     )
 
 
@@ -71,22 +55,21 @@ async def get_friend_posts_for_place(
     post_store: PostStore = Depends(get_post_store),
     place_store: PlaceStore = Depends(get_place_store),
     user_store: UserStore = Depends(get_user_store),
-    wrapped_user: JimoUser = Depends(get_caller_user)
+    wrapped_user: JimoUser = Depends(get_caller_user),
 ):
     """Get the list of posts for the given place, using the given strategy."""
     user: schemas.internal.InternalUser = wrapped_user.user
     post_ids: list[uuid.UUID] = await post_store.get_mutual_posts_v3(
-        user.id,
         place_id,
-        user_filter=MapLoadStrategy.following,
-        categories=request.categories
+        user_filter=FriendsFilter(user_id=user.id),
+        category_filter=CategoryFilter(request.categories),  # type: ignore
     )
     return await get_posts_from_post_ids(
         current_user=user,
         post_ids=post_ids,
         post_store=post_store,
         place_store=place_store,
-        user_store=user_store
+        user_store=user_store,
     )
 
 
@@ -97,22 +80,21 @@ async def get_saved_posts_for_place(
     post_store: PostStore = Depends(get_post_store),
     place_store: PlaceStore = Depends(get_place_store),
     user_store: UserStore = Depends(get_user_store),
-    wrapped_user: JimoUser = Depends(get_caller_user)
+    wrapped_user: JimoUser = Depends(get_caller_user),
 ):
     """Get the list of posts for the given place, using the given strategy."""
     user: schemas.internal.InternalUser = wrapped_user.user
     post_ids: list[uuid.UUID] = await post_store.get_mutual_posts_v3(
-        user.id,
         place_id,
-        user_filter=MapLoadStrategy.saved_posts,
-        categories=request.categories
+        user_filter=SavedPostsFilter(user_id=user.id),
+        category_filter=CategoryFilter(request.categories),  # type: ignore
     )
     return await get_posts_from_post_ids(
         current_user=user,
         post_ids=post_ids,
         post_store=post_store,
         place_store=place_store,
-        user_store=user_store
+        user_store=user_store,
     )
 
 
@@ -123,20 +105,19 @@ async def get_custom_posts_for_place(
     post_store: PostStore = Depends(get_post_store),
     place_store: PlaceStore = Depends(get_place_store),
     user_store: UserStore = Depends(get_user_store),
-    wrapped_user: JimoUser = Depends(get_caller_user)
+    wrapped_user: JimoUser = Depends(get_caller_user),
 ):
-    """Get the list of posts for the given place, using the given strategy."""
+    """Get the list of posts for the given place."""
     user: schemas.internal.InternalUser = wrapped_user.user
     post_ids: list[uuid.UUID] = await post_store.get_mutual_posts_v3(
-        user.id,
         place_id,
-        user_filter=request.users,
-        categories=request.categories
+        user_filter=UserListFilter(user_ids=request.users),
+        category_filter=CategoryFilter(request.categories),  # type: ignore
     )
     return await get_posts_from_post_ids(
         current_user=user,
         post_ids=post_ids,
         post_store=post_store,
         place_store=place_store,
-        user_store=user_store
+        user_store=user_store,
     )

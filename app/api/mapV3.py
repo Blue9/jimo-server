@@ -1,9 +1,16 @@
 from fastapi import APIRouter, Depends
+from shared.map.strategy import (
+    CategoryFilter,
+    EveryoneFilter,
+    FriendsFilter,
+    SavedPostsFilter,
+    UserListFilter,
+)
 from shared.schemas.internal import InternalUser
-from shared.schemas.map import MapResponseV3, MapLoadStrategy, CustomMapRequest, GetMapRequest
-from shared.stores.place_store import PlaceStore
+from shared.schemas.map import MapResponseV3, CustomMapRequest, GetMapRequest
+from shared.stores.map_store import MapStore
 
-from app.api.utils import get_place_store
+from app.api.utils import get_map_store
 from app.controllers.dependencies import get_caller_user, JimoUser
 
 router = APIRouter()
@@ -12,17 +19,16 @@ router = APIRouter()
 @router.post("/global", response_model=MapResponseV3)
 async def get_global_map(
     request: GetMapRequest,
-    place_store: PlaceStore = Depends(get_place_store),
-    wrapped_user: JimoUser = Depends(get_caller_user)
+    map_store: MapStore = Depends(get_map_store),
+    wrapped_user: JimoUser = Depends(get_caller_user),
 ):
     """Get a map of all users."""
-    user: InternalUser = wrapped_user.user
-    pins = await place_store.get_map_v3(
-        user.id,
+    _: InternalUser = wrapped_user.user
+    pins = await map_store.get_map_v3(
         region=request.region,
-        user_filter=MapLoadStrategy.everyone,
-        categories=request.categories,
-        limit=250
+        strategy=EveryoneFilter(),
+        category_filter=CategoryFilter(request.categories),  # type: ignore
+        limit=250,
     )
     return MapResponseV3(pins=pins)
 
@@ -30,17 +36,16 @@ async def get_global_map(
 @router.post("/following", response_model=MapResponseV3)
 async def get_following_map(
     request: GetMapRequest,
-    place_store: PlaceStore = Depends(get_place_store),
-    wrapped_user: JimoUser = Depends(get_caller_user)
+    map_store: MapStore = Depends(get_map_store),
+    wrapped_user: JimoUser = Depends(get_caller_user),
 ):
-    """Get a map of all users."""
+    """Get a map of friends."""
     user: InternalUser = wrapped_user.user
-    pins = await place_store.get_map_v3(
-        user.id,
+    pins = await map_store.get_map_v3(
         region=request.region,
-        user_filter=MapLoadStrategy.following,
-        categories=request.categories,
-        limit=500
+        strategy=FriendsFilter(user_id=user.id),
+        category_filter=CategoryFilter(request.categories),  # type: ignore
+        limit=250,
     )
     return MapResponseV3(pins=pins)
 
@@ -48,17 +53,16 @@ async def get_following_map(
 @router.post("/saved-posts", response_model=MapResponseV3)
 async def get_saved_posts_map(
     request: GetMapRequest,
-    place_store: PlaceStore = Depends(get_place_store),
-    wrapped_user: JimoUser = Depends(get_caller_user)
+    map_store: MapStore = Depends(get_map_store),
+    wrapped_user: JimoUser = Depends(get_caller_user),
 ):
-    """Get a map of all users."""
+    """Get a map of saved posts."""
     user: InternalUser = wrapped_user.user
-    pins = await place_store.get_map_v3(
-        user.id,
+    pins = await map_store.get_map_v3(
         region=request.region,
-        user_filter=MapLoadStrategy.saved_posts,
-        categories=request.categories,
-        limit=500
+        strategy=SavedPostsFilter(user_id=user.id),
+        category_filter=CategoryFilter(request.categories),  # type: ignore
+        limit=250,
     )
     return MapResponseV3(pins=pins)
 
@@ -66,15 +70,15 @@ async def get_saved_posts_map(
 @router.post("/custom", response_model=MapResponseV3)
 async def get_custom_map(
     request: CustomMapRequest,
-    place_store: PlaceStore = Depends(get_place_store),
-    wrapped_user: JimoUser = Depends(get_caller_user)
+    map_store: MapStore = Depends(get_map_store),
+    wrapped_user: JimoUser = Depends(get_caller_user),
 ):
-    """Get a map of all users."""
-    user: InternalUser = wrapped_user.user
-    pins = await place_store.get_map_v3(
-        user.id,
+    """Get a map of the given users."""
+    _: InternalUser = wrapped_user.user
+    pins = await map_store.get_map_v3(
         region=request.region,
-        user_filter=request.users,
-        categories=request.categories,
-        limit=500)
+        strategy=UserListFilter(user_ids=request.users),
+        category_filter=CategoryFilter(request.categories),  # type: ignore
+        limit=250,
+    )
     return MapResponseV3(pins=pins)

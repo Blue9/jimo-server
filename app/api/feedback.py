@@ -15,7 +15,7 @@ router = APIRouter()
 async def submit_feedback(
     request: schemas.feedback.FeedbackRequest,
     db: AsyncSession = Depends(get_db),
-    wrapped_user: JimoUser = Depends(get_caller_user)
+    wrapped_user: JimoUser = Depends(get_caller_user),
 ):
     user: schemas.internal.InternalUser = wrapped_user.user
     feedback = models.Feedback(user_id=user.id, contents=request.contents, follow_up=request.follow_up)

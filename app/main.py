@@ -13,7 +13,11 @@ from starlette.responses import JSONResponse, Response
 from app import api, config
 from shared import schemas
 from app.api import utils
-from app.controllers.dependencies import JimoUser, get_caller_user, get_authorization_header
+from app.controllers.dependencies import (
+    JimoUser,
+    get_caller_user,
+    get_authorization_header,
+)
 from app.controllers.firebase import FirebaseUser, get_firebase_user
 from app.db.database import get_db
 from app.utils import get_logger
@@ -42,7 +46,7 @@ def get_app() -> FastAPI:
     _app.state.limiter = Limiter(
         key_func=get_authorization_header,
         default_limits=[config.RATE_LIMIT_CONFIG],
-        storage_uri=config.REDIS_URL
+        storage_uri=config.REDIS_URL,
     )
     _app.add_middleware(SlowAPIMiddleware)
     return _app
@@ -94,7 +98,7 @@ async def upload_image(
     file: UploadFile = File(...),
     firebase_user: FirebaseUser = Depends(get_firebase_user),
     db: AsyncSession = Depends(get_db),
-    wrapped_user: JimoUser = Depends(get_caller_user)
+    wrapped_user: JimoUser = Depends(get_caller_user),
 ):
     """Upload the given image to Firebase if allowed, returning the image id (used for posts + profile pictures)."""
     user: schemas.internal.InternalUser = wrapped_user.user
@@ -110,6 +114,5 @@ app.include_router(api.comments.router, prefix="/comments")
 app.include_router(api.posts.router, prefix="/posts")
 app.include_router(api.places.router, prefix="/places")
 app.include_router(api.search.router, prefix="/search")
-app.include_router(api.waitlist.router, prefix="/waitlist")
 app.include_router(api.feedback.router, prefix="/feedback")
 app.include_router(api.admin.router, prefix="/admin")
