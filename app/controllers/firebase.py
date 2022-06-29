@@ -150,8 +150,7 @@ _firebase = FirebaseAdmin()
 async def get_firebase_user(
     authorization: Optional[str] = Header(None),
 ) -> FirebaseUser:
-    uid = "bWCx8Jk7TYNvQCMfI59v75hU04B2"
-    # uid = await _firebase.get_uid_from_auth_header(authorization)
+    uid = await _firebase.get_uid_from_auth_header(authorization)
     if uid is None:
         raise HTTPException(401, "Not authenticated")
     return FirebaseUser(shared_firebase=_firebase, uid=uid)
