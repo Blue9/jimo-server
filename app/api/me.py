@@ -209,7 +209,7 @@ async def get_featured_users(
     """Get the list of featured jimo accounts."""
     featured_user_ids = await user_store.get_featured_users()
     user_map = await user_store.get_users(featured_user_ids)
-    return [user_map.get(user_id) for user_id in featured_user_ids]
+    return [user_map.get(user_id) for user_id in featured_user_ids if user_id in user_map]
 
 
 @router.get("/suggested-users", response_model=schemas.user.SuggestedUsersResponse)
@@ -246,7 +246,9 @@ async def get_existing_users(
     if len(phone_numbers) < 10:
         return []
     limit = int(len(phone_numbers) / 4)
-    return await user_store.get_users_by_phone_number(phone_numbers, limit=limit)
+    user_ids = await user_store.get_users_by_phone_number(phone_numbers, limit=limit)
+    user_map = await user_store.get_users(user_ids)
+    return [user_map.get(user_id) for user_id in user_ids if user_id in user_map]
 
 
 @router.post("/following", response_model=schemas.base.SimpleResponse)
