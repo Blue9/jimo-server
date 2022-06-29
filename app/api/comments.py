@@ -41,7 +41,7 @@ async def create_comment(
     comment = await comment_store.create_comment(user.id, post.id, content=request.content)
     prefs = await user_store.get_user_preferences(post.user_id)
     if task_handler and user.id != post.user_id and prefs.comment_notifications:
-        place_name = await place_store.get_place_name(post.id)
+        place_name = await place_store.get_place_name(post.place_id)
         if place_name is not None:
             await task_handler.notify_comment(post, place_name, comment.content, comment_by=user)
     return schemas.comment.Comment(

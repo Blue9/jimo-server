@@ -157,7 +157,7 @@ async def like_post(
     if task_handler:
         prefs = await user_store.get_user_preferences(post.user_id)
         if user.id != post.user_id and prefs.post_liked_notifications:
-            place_name = await place_store.get_place_name(post.id)
+            place_name = await place_store.get_place_name(post.place_id)
             if place_name is not None:
                 await task_handler.notify_post_liked(post, place_name=place_name, liked_by=user)
     return {"likes": await post_store.get_like_count(post.id)}
@@ -199,7 +199,7 @@ async def save_post(
     if task_handler:
         prefs = await user_store.get_user_preferences(post.user_id)
         if user.id != post.user_id and prefs.post_liked_notifications:
-            place_name = await place_store.get_place_name(post.id)
+            place_name = await place_store.get_place_name(post.place_id)
             if place_name is not None:
                 await task_handler.notify_post_saved(post, place_name=place_name, saved_by=user)
     return {"success": True}
