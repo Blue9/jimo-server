@@ -5,10 +5,15 @@ from typing import Optional
 
 from cachetools.func import lru_cache
 from google.cloud import tasks_v2
-
 from pydantic import BaseModel
-from shared import schemas
-from shared.schemas import internal
+from shared.api.internal import InternalPost, InternalUser, InternalComment
+from shared.api.notifications import (
+    PostLikeNotification,
+    PostSaveNotification,
+    CommentNotification,
+    CommentLikeNotification,
+    FollowNotification,
+)
 
 from app import config
 from app.utils import get_logger
@@ -53,45 +58,43 @@ class BackgroundTaskHandler:
 
     async def notify_post_liked(
         self,
-        post: internal.InternalPost,
+        post: InternalPost,
         place_name: str,
-        liked_by: internal.InternalUser,
+        liked_by: InternalUser,
     ):
         path = "notifications/post/like"
-        request = schemas.notifications.PostLikeNotification(post=post, place_name=place_name, liked_by=liked_by)
+        request = PostLikeNotification(post=post, place_name=place_name, liked_by=liked_by)
         return await self._send_task(path, request.json())
 
     async def notify_post_saved(
         self,
-        post: internal.InternalPost,
+        post: InternalPost,
         place_name: str,
-        saved_by: internal.InternalUser,
+        saved_by: InternalUser,
     ):
         path = "notifications/post/save"
-        request = schemas.notifications.PostSaveNotification(post=post, place_name=place_name, saved_by=saved_by)
+        request = PostSaveNotification(post=post, place_name=place_name, saved_by=saved_by)
         return await self._send_task(path, request.json())
 
     async def notify_comment(
         self,
-        post: internal.InternalPost,
+        post: InternalPost,
         place_name: str,
         comment: str,
-        comment_by: internal.InternalUser,
+        comment_by: InternalUser,
     ):
         path = "notifications/comment"
-        request = schemas.notifications.CommentNotification(
-            post=post, place_name=place_name, comment=comment, comment_by=comment_by
-        )
+        request = CommentNotification(post=post, place_name=place_name, comment=comment, comment_by=comment_by)
         return await self._send_task(path, request.json())
 
-    async def notify_comment_liked(self, comment: internal.InternalComment, liked_by: internal.InternalUser):
+    async def notify_comment_liked(self, comment: InternalComment, liked_by: InternalUser):
         path = "notifications/comment/like"
-        request = schemas.notifications.CommentLikeNotification(comment=comment, liked_by=liked_by)
+        request = CommentLikeNotification(comment=comment, liked_by=liked_by)
         return await self._send_task(path, request.json())
 
-    async def notify_follow(self, user_id: uuid.UUID, followed_by: internal.InternalUser):
+    async def notify_follow(self, user_id: uuid.UUID, followed_by: InternalUser):
         path = "notifications/follow"
-        request = schemas.notifications.FollowNotification(user_id=user_id, followed_by=followed_by)
+        request = FollowNotification(user_id=user_id, followed_by=followed_by)
         return await self._send_task(path, request.json())
 
 

@@ -1,9 +1,10 @@
 import asyncio
 
 import pytest
+import pytest_asyncio
 from aioredis import Redis
 from httpx import AsyncClient
-import pytest_asyncio
+from shared.models.models import Base
 from sqlalchemy import text
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,7 +14,6 @@ from sqlalchemy.orm import sessionmaker
 from app import config
 from app.config import REDIS_URL
 from app.controllers import categories
-from shared.models import models
 
 TEST_DATABASE_NAME = "jimo_test_db"
 
@@ -37,6 +37,7 @@ def sync_engine(engine):
 def engine():
     check_db_name()
     from app.db.database import engine
+
     yield engine
     engine.sync_engine.dispose()
 
@@ -44,13 +45,14 @@ def engine():
 @pytest_asyncio.fixture(scope="session")
 async def app():
     from app.main import app as main_app
+
     return main_app
 
 
 @pytest_asyncio.fixture()
 async def create(engine):
     async with engine.begin() as conn:
-        await conn.run_sync(models.Base.metadata.create_all)
+        await conn.run_sync(Base.metadata.create_all)
         await conn.run_sync(populate)
     yield
     async with engine.begin() as conn:

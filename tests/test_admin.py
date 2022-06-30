@@ -3,8 +3,10 @@ from contextlib import asynccontextmanager
 from unittest import mock
 
 import pytest
-from fastapi import HTTPException
 import pytest_asyncio
+from fastapi import HTTPException
+from shared.models.models import UserRow, PlaceRow, PostRow
+from shared.stores.user_store import UserStore
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,8 +14,6 @@ from app import api
 from app.api.admin import get_admin_or_raise
 from app.controllers.firebase import FirebaseUser, get_firebase_user
 from app.main import app as main_app
-from shared.models import models
-from shared.stores.user_store import UserStore
 from tests.mock_firebase import MockFirebaseAdmin
 
 pytestmark = pytest.mark.asyncio
@@ -24,11 +24,12 @@ INITIAL_POST_ID = uuid.uuid4()
 
 @asynccontextmanager
 async def request_as_admin(session: AsyncSession, uid: str = "admin_uid"):
-    result = await session.execute(select(models.User).where(models.User.uid == uid))
+    result = await session.execute(select(UserRow).where(UserRow.uid == uid))
     user = result.scalars().first()
     mock_get_admin = mock.Mock(return_value=user)
-    main_app.dependency_overrides[get_firebase_user] = lambda: FirebaseUser(shared_firebase=MockFirebaseAdmin(),
-                                                                            uid=uid)
+    main_app.dependency_overrides[get_firebase_user] = lambda: FirebaseUser(
+        shared_firebase=MockFirebaseAdmin(), uid=uid
+    )
     main_app.dependency_overrides[get_admin_or_raise] = lambda: mock_get_admin()
     yield
     main_app.dependency_overrides = {}
@@ -37,25 +38,48 @@ async def request_as_admin(session: AsyncSession, uid: str = "admin_uid"):
 
 @pytest_asyncio.fixture(autouse=True, scope="function")
 async def setup_fixture(session):
-    regular_user = models.User(uid="uid", username="user", first_name="first", last_name="last",
-                               phone_number="+18005551234")
-    admin_user = models.User(uid="admin_uid", username="admin", first_name="first", last_name="last",
-                             phone_number="+18005551230", is_admin=True)
-    deleted_admin = models.User(uid="deleted_uid", username="deleted_user", first_name="first", last_name="last",
-                                phone_number="+18005551235", deleted=True, is_admin=True)
+    regular_user = UserRow(
+        uid="uid",
+        username="user",
+        first_name="first",
+        last_name="last",
+        phone_number="+18005551234",
+    )
+    admin_user = UserRow(
+        uid="admin_uid",
+        username="admin",
+        first_name="first",
+        last_name="last",
+        phone_number="+18005551230",
+        is_admin=True,
+    )
+    deleted_admin = UserRow(
+        uid="deleted_uid",
+        username="deleted_user",
+        first_name="first",
+        last_name="last",
+        phone_number="+18005551235",
+        deleted=True,
+        is_admin=True,
+    )
     session.add(regular_user)
     session.add(admin_user)
     session.add(deleted_admin)
     await session.commit()
 
-    place = models.Place(name="test place", latitude=0, longitude=0)
+    place = PlaceRow(name="test place", latitude=0, longitude=0)
     session.add(place)
     await session.commit()
     await session.refresh(regular_user)
     await session.refresh(place)
 
-    new_post = models.Post(id=INITIAL_POST_ID, user_id=regular_user.id, place_id=place.id, category="food",
-                           content="test")
+    new_post = PostRow(
+        id=INITIAL_POST_ID,
+        user_id=regular_user.id,
+        place_id=place.id,
+        category="food",
+        content="test",
+    )
     session.add(new_post)
     await session.commit()
 
@@ -68,11 +92,14 @@ async def test_get_admin_or_raise(session):
 
     with pytest.raises(HTTPException) as deleted_admin_exception:
         await api.admin.get_admin_or_raise(
-            FirebaseUser(shared_firebase=MockFirebaseAdmin(), uid="deleted_uid"), user_store)
+            FirebaseUser(shared_firebase=MockFirebaseAdmin(), uid="deleted_uid"),
+            user_store,
+        )
     assert deleted_admin_exception.value.status_code == 403
 
-    admin = await api.admin.get_admin_or_raise(FirebaseUser(shared_firebase=MockFirebaseAdmin(), uid="admin_uid"),
-                                               user_store)
+    admin = await api.admin.get_admin_or_raise(
+        FirebaseUser(shared_firebase=MockFirebaseAdmin(), uid="admin_uid"), user_store
+    )
     assert admin is not None
     assert admin.is_admin
 
@@ -80,10 +107,7 @@ async def test_get_admin_or_raise(session):
 async def test_auth_for_all_get_endpoints(session, client):
     all_routes = main_app.routes
     admin_routes = [route for route in all_routes if route.path.startswith("/admin") and "GET" in route.methods]
-    url_param_map = {
-        "{username}": "user",
-        "{post_id}": str(INITIAL_POST_ID)
-    }
+    url_param_map = {"{username}": "user", "{post_id}": str(INITIAL_POST_ID)}
     for route in admin_routes:
         route_deps = list(map(lambda dep: dep.call, route.dependant.dependencies))
         assert get_admin_or_raise in route_deps
@@ -120,7 +144,7 @@ async def test_create_update_users(session, client):
         "lastName": "Last",
         "isFeatured": False,
         "isAdmin": False,
-        "deleted": False
+        "deleted": False,
     }
     async with request_as_admin(session):
         update_user_response = await client.post(path, json=update_user_request)

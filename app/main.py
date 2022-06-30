@@ -1,17 +1,17 @@
+from fastapi import FastAPI, Depends, UploadFile, File
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
+from shared.api.image import ImageUploadResponse
+from shared.api.internal import InternalUser
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from fastapi import FastAPI, Depends, UploadFile, File
-from fastapi.encoders import jsonable_encoder
-from fastapi.exceptions import RequestValidationError
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
 from app import api, config
-from shared import schemas
 from app.api import utils
 from app.controllers.dependencies import (
     JimoUser,
@@ -93,7 +93,7 @@ async def index():
     return {"success": True}
 
 
-@app.post("/images", response_model=schemas.image.ImageUploadResponse)
+@app.post("/images", response_model=ImageUploadResponse)
 async def upload_image(
     file: UploadFile = File(...),
     firebase_user: FirebaseUser = Depends(get_firebase_user),
@@ -101,9 +101,9 @@ async def upload_image(
     wrapped_user: JimoUser = Depends(get_caller_user),
 ):
     """Upload the given image to Firebase if allowed, returning the image id (used for posts + profile pictures)."""
-    user: schemas.internal.InternalUser = wrapped_user.user
+    user: InternalUser = wrapped_user.user
     image_upload = await utils.upload_image(file, user, firebase_user.shared_firebase, db)
-    return schemas.image.ImageUploadResponse(image_id=image_upload.id)
+    return ImageUploadResponse(image_id=image_upload.id)
 
 
 app.include_router(api.me.router, prefix="/me")
