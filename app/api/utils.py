@@ -2,10 +2,11 @@ import imghdr
 import uuid
 from typing import Optional
 
-from shared import schemas
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.db.database import get_db
+from fastapi import HTTPException, UploadFile, Depends
+from shared.api.internal import InternalUser, InternalPost
+from shared.api.place import MaybeCreatePlaceRequest
+from shared.api.post import Post
+from shared.models.models import ImageUploadRow
 from shared.stores.comment_store import CommentStore
 from shared.stores.feed_store import FeedStore
 from shared.stores.map_store import MapStore
@@ -14,18 +15,18 @@ from shared.stores.place_store import PlaceStore
 from shared.stores.post_store import PostStore
 from shared.stores.relation_store import RelationStore
 from shared.stores.user_store import UserStore
-from fastapi import HTTPException, UploadFile, Depends
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.controllers.firebase import FirebaseAdminProtocol
-from shared.models import models
+from app.db.database import get_db
 
 
 async def validate_user(
     relation_store: RelationStore,
     caller_user_id: uuid.UUID,
-    user: Optional[schemas.internal.InternalUser],
-) -> schemas.internal.InternalUser:
+    user: Optional[InternalUser],
+) -> InternalUser:
     if (
         user is None
         or user.deleted
@@ -35,8 +36,8 @@ async def validate_user(
     return user
 
 
-async def get_user_from_uid_or_raise(user_store: UserStore, uid: str) -> schemas.internal.InternalUser:
-    user: Optional[schemas.internal.InternalUser] = await user_store.get_user_by_uid(uid)
+async def get_user_from_uid_or_raise(user_store: UserStore, uid: str) -> InternalUser:
+    user: Optional[InternalUser] = await user_store.get_user_by_uid(uid)
     if user is None or user.deleted:
         raise HTTPException(403)
     return user
@@ -54,13 +55,13 @@ async def check_valid_image(file: UploadFile):
 
 
 async def get_posts_from_post_ids(
-    current_user: schemas.internal.InternalUser,
+    current_user: InternalUser,
     post_ids: list[uuid.UUID],
     post_store: PostStore,
     place_store: PlaceStore,
     user_store: UserStore,
     preserve_order=False,
-) -> list[schemas.post.Post]:
+) -> list[Post]:
     # Step 1: Get internal posts
     internal_posts = await post_store.get_posts(post_ids, preserve_order=preserve_order)
     # Step 2: Get places
@@ -71,7 +72,7 @@ async def get_posts_from_post_ids(
     saved_post_ids = await post_store.get_saved_posts(current_user.id, post_ids)
     # Step 4: Get users for each post
     user_ids = list(set(post.user_id for post in internal_posts))
-    users: dict[uuid.UUID, schemas.internal.InternalUser] = await user_store.get_users(user_ids=user_ids)
+    users: dict[uuid.UUID, InternalUser] = await user_store.get_users(user_ids=user_ids)
 
     posts = []
     for post in internal_posts:
@@ -79,7 +80,7 @@ async def get_posts_from_post_ids(
         user = users.get(post.user_id)
         if user is None or place is None:
             continue
-        public_post = schemas.post.Post(
+        public_post = Post(
             id=post.id,
             place=place,
             category=post.category,
@@ -99,7 +100,7 @@ async def get_posts_from_post_ids(
 
 async def get_or_create_place(
     user_id: uuid.UUID,
-    request: schemas.place.MaybeCreatePlaceRequest,
+    request: MaybeCreatePlaceRequest,
     place_store: PlaceStore,
 ) -> uuid.UUID:
     loc = request.location
@@ -119,14 +120,14 @@ async def get_or_create_place(
 
 async def upload_image(
     file: UploadFile,
-    user: schemas.internal.InternalUser,
+    user: InternalUser,
     firebase_admin: FirebaseAdminProtocol,
     db: AsyncSession,
-) -> models.ImageUpload:
+) -> ImageUploadRow:
     await check_valid_image(file)
     # Set override_used to True if you plan to immediately use the image in a profile picture or post (as opposed to
     # returning the image ID to the user).
-    image_upload: models.ImageUpload = models.ImageUpload(user_id=user.id, used=False)
+    image_upload = ImageUploadRow(user_id=user.id, used=False)
     try:
         db.add(image_upload)
         await db.commit()
@@ -152,14 +153,14 @@ async def get_post_and_validate_or_raise(
     relation_store: RelationStore,
     caller_user_id: uuid.UUID,
     post_id: uuid.UUID,
-) -> schemas.internal.InternalPost:
+) -> InternalPost:
     """
     Check that the post exists and the given user is authorized to view it.
 
     Note: if the user is not authorized (the author blocked the caller user or has been blocked by the caller user),
     a 404 will be returned because they shouldn't even know that the post exists.
     """
-    post: Optional[schemas.internal.InternalPost] = await post_store.get_post(post_id)
+    post: Optional[InternalPost] = await post_store.get_post(post_id)
     if post is None:
         raise HTTPException(404, detail="Post not found")
     if await relation_store.is_blocked(post.user_id, caller_user_id):

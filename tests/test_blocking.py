@@ -2,10 +2,10 @@ import uuid
 from contextlib import contextmanager
 
 import pytest
+from shared.models.models import UserRow, PlaceRow, PostRow
 
 from app.controllers.firebase import get_firebase_user, FirebaseUser
 from app.main import app as main_app
-from shared.models import models
 from tests.mock_firebase import MockFirebaseAdmin
 
 pytestmark = pytest.mark.asyncio
@@ -15,32 +15,32 @@ USER_B_POST_ID = uuid.uuid4()
 
 @pytest.fixture(autouse=True, scope="function")
 async def setup_fixture(session):
-    user_a = models.User(uid="a", username="a", first_name="a", last_name="a")
-    user_b = models.User(uid="b", username="b", first_name="b", last_name="b")
+    user_a = UserRow(uid="a", username="a", first_name="a", last_name="a")
+    user_b = UserRow(uid="b", username="b", first_name="b", last_name="b")
     session.add(user_a)
     session.add(user_b)
     await session.commit()
 
-    place = models.Place(name="place_one", latitude=0, longitude=0)
+    place = PlaceRow(name="place_one", latitude=0, longitude=0)
     session.add(place)
     await session.commit()
     await session.refresh(user_a)
     await session.refresh(user_b)
     await session.refresh(place)
 
-    user_a_post = models.Post(
+    user_a_post = PostRow(
         id=USER_A_POST_ID,
         user_id=user_a.id,
         place_id=place.id,
         category="food",
-        content=""
+        content="",
     )
-    user_b_post = models.Post(
+    user_b_post = PostRow(
         id=USER_B_POST_ID,
         user_id=user_b.id,
         place_id=place.id,
         category="food",
-        content=""
+        content="",
     )
     session.add(user_a_post)
     session.add(user_b_post)

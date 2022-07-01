@@ -1,4 +1,6 @@
 from fastapi import APIRouter, Depends
+from shared.api.internal import InternalUser
+from shared.api.map import MapResponseV3, CustomMapRequest, GetMapRequest
 from shared.map.strategy import (
     CategoryFilter,
     EveryoneFilter,
@@ -6,8 +8,6 @@ from shared.map.strategy import (
     SavedPostsFilter,
     UserListFilter,
 )
-from shared.schemas.internal import InternalUser
-from shared.schemas.map import MapResponseV3, CustomMapRequest, GetMapRequest
 from shared.stores.map_store import MapStore
 
 from app.api.utils import get_map_store

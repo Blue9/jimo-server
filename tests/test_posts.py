@@ -1,17 +1,14 @@
 import uuid
 from contextlib import contextmanager
-from unittest import mock
-from unittest.mock import patch, AsyncMock
+from unittest.mock import AsyncMock
 
 import pytest
 from fastapi.encoders import jsonable_encoder
-from httpx import Client
-from sqlalchemy import select
+from shared.api.place import Location, MaybeCreatePlaceRequest
+from shared.api.post import PostWithoutLikeSaveStatus, CreatePostRequest
+from shared.models.models import UserRow, PlaceRow, ImageUploadRow, PostRow
 
-from shared import schemas
 from app.controllers.firebase import get_firebase_user, FirebaseUser
-from shared.models import models
-
 from app.main import app as main_app
 from tests.mock_firebase import MockFirebaseAdmin
 
@@ -28,14 +25,14 @@ PLACE_TWO_ID = uuid.uuid4()
 
 @pytest.fixture(autouse=True, scope="function")
 async def setup_fixture(session):
-    user_a = models.User(id=USER_A_ID, uid="a", username="a", first_name="a", last_name="a")
-    user_b = models.User(id=USER_B_ID, uid="b", username="b", first_name="b", last_name="b")
+    user_a = UserRow(id=USER_A_ID, uid="a", username="a", first_name="a", last_name="a")
+    user_b = UserRow(id=USER_B_ID, uid="b", username="b", first_name="b", last_name="b")
     session.add(user_a)
     session.add(user_b)
     await session.commit()
 
-    place_one = models.Place(id=PLACE_ONE_ID, name="place_one", latitude=0, longitude=0)
-    place_two = models.Place(id=PLACE_TWO_ID, name="place_two", latitude=10, longitude=10)
+    place_one = PlaceRow(id=PLACE_ONE_ID, name="place_one", latitude=0, longitude=0)
+    place_two = PlaceRow(id=PLACE_TWO_ID, name="place_two", latitude=10, longitude=10)
     session.add(place_one)
     session.add(place_two)
     await session.commit()
@@ -45,29 +42,29 @@ async def setup_fixture(session):
     session.add(place_one)
     session.add(place_two)
 
-    image_a = models.ImageUpload(
+    image_a = ImageUploadRow(
         id=IMAGE_A_ID,
         user_id=USER_A_ID,
         firebase_blob_name="blob-name",
-        firebase_public_url="public-url"
+        firebase_public_url="public-url",
     )
     session.add(image_a)
     await session.commit()
 
-    user_a_post = models.Post(
+    user_a_post = PostRow(
         id=USER_A_POST_ID,
         user_id=USER_A_ID,
         place_id=PLACE_ONE_ID,
         category="food",
         content="",
-        image_id=IMAGE_A_ID
+        image_id=IMAGE_A_ID,
     )
-    user_b_post = models.Post(
+    user_b_post = PostRow(
         id=USER_B_POST_ID,
         user_id=USER_B_ID,
         place_id=PLACE_TWO_ID,
         category="food",
-        content=""
+        content="",
     )
     session.add(user_a_post)
     session.add(user_b_post)
@@ -84,17 +81,17 @@ def request_as(uid: str):
 
 async def test_update_post(client):
     # Update a post
-    request = schemas.post.CreatePostRequest(
+    request = CreatePostRequest(
         place_id=PLACE_ONE_ID,
         place=None,
         category="activity",
         content="new content",
-        image_id=IMAGE_A_ID
+        image_id=IMAGE_A_ID,
     )
     with request_as("a"):
         response = await client.put(f"/posts/{USER_A_POST_ID}", json=jsonable_encoder(request))
     assert response.status_code == 200
-    post = schemas.post.ORMPost.parse_obj(response.json())
+    post = PostWithoutLikeSaveStatus.parse_obj(response.json())
     assert post.place.id == PLACE_ONE_ID
     assert post.category == "activity"
     assert post.content == "new content"
@@ -111,34 +108,28 @@ async def test_update_post(client):
     assert response.status_code == 403
 
     # Update using place request
-    request = schemas.post.CreatePostRequest(
+    request = CreatePostRequest(
         place_id=None,
-        place=schemas.place.MaybeCreatePlaceRequest(
-            name="place_two",
-            location=schemas.place.Location(latitude=10, longitude=10)
-        ),
+        place=MaybeCreatePlaceRequest(name="place_two", location=Location(latitude=10, longitude=10)),
         category="shopping",
         content="new content",
-        image_id=IMAGE_A_ID
+        image_id=IMAGE_A_ID,
     )
     with request_as("a"):
         response = await client.put(f"/posts/{USER_A_POST_ID}", json=jsonable_encoder(request))
     assert response.status_code == 200
-    post = schemas.post.ORMPost.parse_obj(response.json())
+    post = PostWithoutLikeSaveStatus.parse_obj(response.json())
     assert post.place.id == PLACE_TWO_ID
     assert post.category == "shopping"
     assert post.content == "new content"
 
     # Update image ID -> None, make sure old image is deleted
-    request = schemas.post.CreatePostRequest(
+    request = CreatePostRequest(
         place_id=None,
-        place=schemas.place.MaybeCreatePlaceRequest(
-            name="place_two",
-            location=schemas.place.Location(latitude=10, longitude=10)
-        ),
+        place=MaybeCreatePlaceRequest(name="place_two", location=Location(latitude=10, longitude=10)),
         category="shopping",
         content="new content",
-        image_id=None
+        image_id=None,
     )
     with request_as("a") as firebase_user:
         firebase_user.shared_firebase.delete_image = AsyncMock()
@@ -146,7 +137,7 @@ async def test_update_post(client):
         response = await client.put(f"/posts/{USER_A_POST_ID}", json=jsonable_encoder(request))
         firebase_user.shared_firebase.delete_image.assert_called_once()
     assert response.status_code == 200
-    post = schemas.post.ORMPost.parse_obj(response.json())
+    post = PostWithoutLikeSaveStatus.parse_obj(response.json())
     assert post.place.id == PLACE_TWO_ID
     assert post.category == "shopping"
     assert post.content == "new content"

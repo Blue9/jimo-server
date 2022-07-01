@@ -1,19 +1,18 @@
 import uuid
 
+from shared.models.models import FCMTokenRow
 from sqlalchemy import select, exists, delete
 from sqlalchemy.exc import IntegrityError
-
-from shared.models import models
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
 async def register_fcm_token(db: AsyncSession, user_id: uuid.UUID, token: str):
-    query = select(models.FCMToken).where(models.FCMToken.user_id == user_id, models.FCMToken.token == token)
+    query = select(FCMTokenRow).where(FCMTokenRow.user_id == user_id, FCMTokenRow.token == token)
     exists_query = await db.execute(exists(query).select())
     existing = exists_query.scalar()
     if existing:
         return
-    fcm_token = models.FCMToken(user_id=user_id, token=token)
+    fcm_token = FCMTokenRow(user_id=user_id, token=token)
     db.add(fcm_token)
     try:
         await db.commit()
@@ -22,6 +21,6 @@ async def register_fcm_token(db: AsyncSession, user_id: uuid.UUID, token: str):
 
 
 async def remove_fcm_token(db: AsyncSession, user_id: uuid.UUID, token: str):
-    query = delete(models.FCMToken).where(models.FCMToken.token == token, models.FCMToken.user_id == user_id)
+    query = delete(FCMTokenRow).where(FCMTokenRow.token == token, FCMTokenRow.user_id == user_id)
     await db.execute(query)
     await db.commit()

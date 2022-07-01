@@ -1,6 +1,7 @@
 import io
 from typing import Optional
 
+from shared.models.models import Base
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -9,7 +10,6 @@ from alembic.config import Config
 
 from app.config import SQLALCHEMY_DATABASE_URL
 from app.controllers import categories
-from shared.models import models
 
 from app.utils import get_logger
 
@@ -32,7 +32,7 @@ def main():
 def init_db():
     with engine.connect() as connection:
         connection.execute("""CREATE EXTENSION IF NOT EXISTS postgis""")
-    models.Base.metadata.create_all(bind=engine)
+    Base.metadata.create_all(bind=engine)
     with SessionLocal() as session:
         categories.add_categories_to_db(session)
 

@@ -1,9 +1,9 @@
 import pytest
 from fastapi import HTTPException
+from shared.models.models import UserRow, UserPrefsRow
 
 from app.controllers.firebase import FirebaseUser, get_firebase_user
 from app.main import app as main_app
-from shared.models import models
 from tests.mock_firebase import MockFirebaseAdmin
 
 pytestmark = pytest.mark.asyncio
@@ -11,15 +11,26 @@ pytestmark = pytest.mark.asyncio
 
 @pytest.fixture(autouse=True, scope="function")
 async def setup_fixture(session):
-    user = models.User(uid="uid", username="user", first_name="first", last_name="last",
-                       phone_number="+18005551234")
-    deleted_user = models.User(uid="deleted_uid", username="deleted_user", first_name="first", last_name="last",
-                               phone_number="+18005551235", deleted=True)
+    user = UserRow(
+        uid="uid",
+        username="user",
+        first_name="first",
+        last_name="last",
+        phone_number="+18005551234",
+    )
+    deleted_user = UserRow(
+        uid="deleted_uid",
+        username="deleted_user",
+        first_name="first",
+        last_name="last",
+        phone_number="+18005551235",
+        deleted=True,
+    )
     session.add(user)
     session.add(deleted_user)
     await session.commit()
     await session.refresh(user)
-    user_prefs = models.UserPrefs(user_id=user.id, follow_notifications=True, post_liked_notifications=True)
+    user_prefs = UserPrefsRow(user_id=user.id, follow_notifications=True, post_liked_notifications=True)
     session.add(user_prefs)
     await session.commit()
 
@@ -59,7 +70,7 @@ async def test_me_user_exists(client):
         "profilePictureUrl": None,
         "followerCount": 0,
         "followingCount": 0,
-        "postCount": 0
+        "postCount": 0,
     }
 
 
