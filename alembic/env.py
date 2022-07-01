@@ -33,7 +33,7 @@ def get_exclude_tables_from_config(config_):
     return []
 
 
-exclude_tables = get_exclude_tables_from_config(config.get_section('alembic:exclude'))
+exclude_tables = get_exclude_tables_from_config(config.get_section("alembic:exclude"))
 
 
 def include_object(_object, name, type_, reflected, compare_to):
@@ -75,11 +75,7 @@ def run_migrations_online():
 
     """
     with engine.connect() as connection:
-        context.configure(
-            connection=connection,
-            target_metadata=target_metadata,
-            include_object=include_object
-        )
+        context.configure(connection=connection, target_metadata=target_metadata, include_object=include_object)
 
         with context.begin_transaction():
             connection.execute("SELECT pg_advisory_xact_lock(10000);")
