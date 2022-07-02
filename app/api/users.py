@@ -99,10 +99,7 @@ async def get_posts(
         return Feed(posts=[], cursor=None)
     # Step 2: Get posts
     internal_posts = await post_store.get_posts(post_ids)
-    # Step 3: Get places
-    place_ids = set(post.place_id for post in internal_posts)
-    places = await place_store.get_places(place_ids)
-    # Step 4: Get like and save statuses for each post
+    # Step 3: Get like and save statuses for each post
     liked_post_ids = await post_store.get_liked_posts(caller_user.id, post_ids)
     saved_post_ids = await post_store.get_saved_posts(caller_user.id, post_ids)
 
@@ -110,7 +107,7 @@ async def get_posts(
     for post in internal_posts:
         public_post = Post(
             id=post.id,
-            place=places[post.place_id],
+            place=post.place,
             category=post.category,
             content=post.content,
             image_id=post.image_id,
@@ -244,7 +241,8 @@ async def block_user(
     if from_user.id == to_block.id:
         raise HTTPException(400, detail="Cannot block yourself")
     try:
-        return await relation_store.block_user(from_user.id, to_block.id)
+        await relation_store.block_user(from_user.id, to_block.id)
+        return SimpleResponse(success=True)
     except ValueError as e:
         raise HTTPException(400, str(e))
 
@@ -262,6 +260,7 @@ async def unblock_user(
     if from_user.id == to_user.id:
         raise HTTPException(400, detail="Cannot block yourself")
     try:
-        return await relation_store.unblock_user(from_user.id, to_user.id)
+        await relation_store.unblock_user(from_user.id, to_user.id)
+        return SimpleResponse(success=True)
     except ValueError as e:
         raise HTTPException(400, str(e))

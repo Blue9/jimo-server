@@ -53,7 +53,5 @@ async def get_notification_feed(
     """
     page_limit = 50
     user: InternalUser = wrapped_user.user
-    # TODO(gmekkat): fml
-    feed = await notification_store.get_notification_feed(post_store, user.id, cursor, limit=page_limit)
-    next_cursor = min(item.item_id for item in feed) if len(feed) >= page_limit else None
+    feed, next_cursor = await notification_store.get_notification_feed(post_store, user.id, cursor, limit=page_limit)
     return NotificationFeedResponse(notifications=feed, cursor=next_cursor)
