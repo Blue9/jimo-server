@@ -64,21 +64,18 @@ async def get_posts_from_post_ids(
 ) -> list[Post]:
     # Step 1: Get internal posts
     internal_posts = await post_store.get_posts(post_ids, preserve_order=preserve_order)
-    # Step 2: Get places
-    place_ids = set(post.place_id for post in internal_posts)
-    places = await place_store.get_places(place_ids)
-    # Step 3: Get like and save statuses for each post
+    # Step 2: Get like and save statuses for each post
     liked_post_ids = await post_store.get_liked_posts(current_user.id, post_ids)
     saved_post_ids = await post_store.get_saved_posts(current_user.id, post_ids)
-    # Step 4: Get users for each post
+    # Step 3: Get users for each post
     user_ids = list(set(post.user_id for post in internal_posts))
     users: dict[uuid.UUID, InternalUser] = await user_store.get_users(user_ids=user_ids)
 
     posts = []
     for post in internal_posts:
-        place = places.get(post.place_id)
+        place = post.place
         user = users.get(post.user_id)
-        if user is None or place is None:
+        if user is None:
             continue
         public_post = Post(
             id=post.id,
