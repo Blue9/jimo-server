@@ -45,7 +45,7 @@ async def get_following_map(
         region=request.region,
         strategy=FriendsFilter(user_id=user.id),
         category_filter=CategoryFilter(request.categories),  # type: ignore
-        limit=250,
+        limit=500,
     )
     return MapResponseV3(pins=pins)
 
@@ -62,7 +62,7 @@ async def get_saved_posts_map(
         region=request.region,
         strategy=SavedPostsFilter(user_id=user.id),
         category_filter=CategoryFilter(request.categories),  # type: ignore
-        limit=250,
+        limit=500,
     )
     return MapResponseV3(pins=pins)
 
@@ -79,6 +79,6 @@ async def get_custom_map(
         region=request.region,
         strategy=UserListFilter(user_ids=request.users),
         category_filter=CategoryFilter(request.categories),  # type: ignore
-        limit=250,
+        limit=500,
     )
     return MapResponseV3(pins=pins)

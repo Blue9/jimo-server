@@ -920,7 +920,7 @@ ulid-py = "^1.1.0"
 type = "git"
 url = "git@github.com:Blue9/jimo-shared.git"
 reference = "main"
-resolved_reference = "1c414b359abc30a22bf086aba65bee9b5a130594"
+resolved_reference = "ca632af78307f02ece11c23994d3abd3a6cb76b6"
 
 [[package]]
 name = "six"
