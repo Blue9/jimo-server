@@ -51,17 +51,15 @@ async def get_me(
     user_store: UserStore = Depends(get_user_store),
 ):
     """Get the current user based on the auth details."""
-    user = await user_store.get_user_by_uid(firebase_user.uid)
+    user = await user_store.get_user_by_uid(firebase_user.uid, include_deleted=True)
     if user is None:
         raise HTTPException(404, "User not found")
+    if user.deleted:
+        raise HTTPException(410)
     return user
 
 
-@router.post(
-    "",
-    response_model=UpdateProfileResponse,
-    response_model_exclude_none=True,
-)
+@router.post("", response_model=UpdateProfileResponse, response_model_exclude_none=True)
 async def update_user(
     request: UpdateProfileRequest,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
@@ -85,6 +83,16 @@ async def update_user(
     return response
 
 
+@router.post("/delete", response_model=SimpleResponse)
+async def delete_user(
+    user_store: UserStore = Depends(get_user_store),
+    wrapped_user: JimoUser = Depends(get_caller_user),
+):
+    """Mark the current user for deletion."""
+    await user_store.soft_delete_user(user_id=wrapped_user.user.id)
+    return SimpleResponse(success=True)
+
+
 @router.get("/preferences", response_model=UserPrefs)
 async def get_preferences(
     user_store: UserStore = Depends(get_user_store),
@@ -95,11 +103,7 @@ async def get_preferences(
     return await user_store.get_user_preferences(user.id)
 
 
-@router.post(
-    "/preferences",
-    response_model=UserPrefs,
-    response_model_exclude_none=True,
-)
+@router.post("/preferences", response_model=UserPrefs, response_model_exclude_none=True)
 async def update_preferences(
     request: UserPrefs,
     user_store: UserStore = Depends(get_user_store),

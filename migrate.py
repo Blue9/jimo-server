@@ -19,7 +19,7 @@ engine = create_engine(
     max_overflow=0,
     pool_timeout=15,  # seconds
     pool_recycle=1800,
-    echo=False
+    echo=False,
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 log = get_logger(__name__)

@@ -16,6 +16,7 @@ from firebase_admin.auth import (  # type: ignore
 )
 from firebase_admin.exceptions import FirebaseError  # type: ignore
 from google.cloud.exceptions import GoogleCloudError
+from google.cloud.storage import Bucket  # type: ignore
 
 from app import config
 from app.utils import get_logger
@@ -46,6 +47,9 @@ class FirebaseAdminProtocol(Protocol):
         ...
 
     async def delete_image(self, blob_name: str):
+        ...
+
+    async def delete_user_images(self, user_uid: str):
         ...
 
 
@@ -136,6 +140,19 @@ class FirebaseAdmin(FirebaseAdminProtocol):
         blob = await loop.run_in_executor(None, bucket.get_blob, blob_name)
         if blob:
             await loop.run_in_executor(None, blob.delete)
+
+    async def delete_user_images(self, user_uid: str):
+        """Delete the given user's images."""
+        loop = get_event_loop()
+        bucket = await self._get_bucket(loop)
+        image_folder = f"images/{user_uid}"
+        get_images_function_sync = functools.partial(bucket.list_blobs, prefix=image_folder)
+        blobs = await loop.run_in_executor(None, get_images_function_sync)
+        for blob in blobs:
+            await loop.run_in_executor(None, blob.delete)
+
+    async def _get_bucket(self, loop) -> Bucket:
+        return await loop.run_in_executor(None, functools.partial(storage.bucket, app=self._app))
 
 
 @dataclass

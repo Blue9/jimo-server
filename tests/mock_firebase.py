@@ -31,3 +31,6 @@ class MockFirebaseAdmin(FirebaseAdminProtocol):
 
     async def delete_image(self, blob_name: str):
         pass
+
+    async def delete_user_images(self, user_uid: str):
+        pass
