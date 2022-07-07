@@ -156,6 +156,24 @@ async def test_create_update_users(session, client):
         assert update_user_response.status_code == 200
 
 
+async def test_hard_delete_users(session, client):
+    async with request_as_admin(session):
+        path = "/admin/users/deleted_user"
+        response = await client.get(path)
+        assert response.status_code == 200
+        assert response.json()["deleted"] is True
+
+    async with request_as_admin(session):
+        path = "/admin/deleted-users"
+        response = await client.delete(path)
+        assert response.status_code == 200
+
+    async with request_as_admin(session):
+        path = "/admin/users/deleted_user"
+        response = await client.get(path)
+        assert response.status_code == 404
+
+
 async def test_create_update_post(session, client):
     async with request_as_admin(session):
         all_posts = await client.get("/admin/posts")
@@ -177,27 +195,3 @@ async def test_create_update_post(session, client):
         all_posts_json = all_posts.json()["data"]
         assert len(all_posts_json) == 1
         assert all_posts_json[0]["deleted"]
-
-
-async def test_add_remove_invites(session, client):
-    path = "/admin/invites"
-    async with request_as_admin(session):
-        admin_user_response = await client.post(path, json={"phoneNumber": "+18005554444"})
-        assert admin_user_response.status_code == 200
-
-    async with request_as_admin(session):
-        invites = await client.get(path)
-        assert invites.status_code == 200
-
-        invites_json = invites.json()["data"]
-        assert len(invites_json) == 1
-        assert invites_json[0]["phoneNumber"] == "+18005554444"
-
-    async with request_as_admin(session):
-        admin_user_response = await client.request("DELETE", path, json={"phoneNumbers": ["+18005554444"]})
-        assert admin_user_response.status_code == 200
-
-    async with request_as_admin(session):
-        invites = await client.get(path)
-        assert invites.status_code == 200
-        assert len(invites.json()["data"]) == 0

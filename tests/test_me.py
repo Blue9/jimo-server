@@ -80,4 +80,13 @@ async def test_me_deleted_user(client):
 
     main_app.dependency_overrides[get_firebase_user] = mock_get_firebase_user
     response = await client.get("/me")
-    assert response.status_code == 404
+    assert response.status_code == 410
+
+
+async def test_delete_me(client):
+    def mock_get_firebase_user():
+        return FirebaseUser(shared_firebase=MockFirebaseAdmin(), uid="uid")
+
+    main_app.dependency_overrides[get_firebase_user] = mock_get_firebase_user
+    response = await client.post("/me/delete")
+    assert response.status_code == 200

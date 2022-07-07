@@ -12,25 +12,19 @@ from shared.api.admin import (
     AdminUpdateUserRequest,
     AdminAPIPost,
     AdminUpdatePostRequest,
-    AdminAPIWaitlist,
-    AdminAPIInvite,
-    AdminCreateInviteRequest,
     AdminAPIReport,
     AdminAPIFeedback,
 )
 from shared.api.base import SimpleResponse
 from shared.api.internal import InternalUser
-from shared.api.user import PhoneNumberList
 from shared.models.models import (
     UserRow,
-    InviteRow,
     PostReportRow,
     PostRow,
     FeedbackRow,
-    WaitlistRow,
 )
 from shared.stores.user_store import UserStore
-from sqlalchemy import exists, select, func
+from sqlalchemy import select, func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
@@ -67,6 +61,24 @@ async def flush_cache(
     """Flush the cache."""
     await get_redis().flushdb()
     return SimpleResponse(success=True)
+
+
+@router.delete("/deleted-users", response_model=SimpleResponse)
+async def delete_users_marked_for_deletion(
+    _admin: InternalUser = Depends(get_admin_or_raise),
+    db: AsyncSession = Depends(get_db),
+    firebase_user: FirebaseUser = Depends(get_firebase_user),
+    user_store: UserStore = Depends(get_user_store),
+):
+    """Delete users marked for deletion."""
+    # Set a limit of 10 for now because this is an expensive operation
+    deleted_users_query = select(UserRow.id, UserRow.uid).where(UserRow.deleted).limit(10)
+    result = await db.execute(deleted_users_query)
+    users_to_delete = result.all()
+    for user_id, user_uid in users_to_delete:
+        await user_store.hard_delete_user(user_id)
+        await firebase_user.shared_firebase.delete_user_images(user_uid=user_uid)
+    return dict(success=True)
 
 
 # User endpoints
@@ -183,7 +195,7 @@ async def get_admins(
 
 
 # Featured users
-@router.get("/featuredUsers", response_model=AdminResponsePage[AdminAPIUser])
+@router.get("/featured-users", response_model=AdminResponsePage[AdminAPIUser])
 async def get_featured_users(
     page: Page = Depends(get_page),
     db: AsyncSession = Depends(get_db),
@@ -203,6 +215,28 @@ async def get_featured_users(
     rows = await db.execute(query)
     featured_users = rows.scalars().all()
     return AdminResponsePage(total=total, data=featured_users)
+
+
+@router.get("/deleted-users", response_model=AdminResponsePage[AdminAPIUser])
+async def get_deleted_users(
+    page: Page = Depends(get_page),
+    db: AsyncSession = Depends(get_db),
+    _admin: InternalUser = Depends(get_admin_or_raise),
+):
+    """Get soft-deleted users."""
+    total_query = await db.execute(select(func.count()).where(UserRow.deleted))
+    total = total_query.scalar()
+    query = (
+        select(UserRow)
+        .options(*shared.stores.utils.eager_load_user_options())
+        .where(UserRow.deleted)
+        .order_by(UserRow.id.desc())
+        .offset(page.offset)
+        .limit(page.limit)
+    )
+    rows = await db.execute(query)
+    deleted_users = rows.scalars().all()
+    return AdminResponsePage(total=total, data=deleted_users)
 
 
 # Posts
@@ -267,90 +301,6 @@ async def update_post(
         else:
             await firebase_user.shared_firebase.make_image_public(updated_post.image_blob_name)
     return updated_post
-
-
-# Waitlist
-@router.get("/waitlist", response_model=AdminResponsePage[AdminAPIWaitlist])
-async def get_waitlist(
-    page: Page = Depends(get_page),
-    db: AsyncSession = Depends(get_db),
-    _admin: InternalUser = Depends(get_admin_or_raise),
-):
-    """Get all users on the waitlist that haven't been invited yet."""
-    total_query = (
-        select(func.count())
-        .select_from(WaitlistRow)
-        .where(~exists().where(WaitlistRow.phone_number == InviteRow.phone_number))
-    )
-    total = (await db.execute(total_query)).scalar()
-    query = (
-        select(WaitlistRow)
-        .where(~exists().where(WaitlistRow.phone_number == InviteRow.phone_number))
-        .order_by(WaitlistRow.id.desc())
-        .offset(page.offset)
-        .limit(page.limit)
-    )
-    rows = await db.execute(query)
-    waitlist = rows.scalars().all()
-    return AdminResponsePage(total=total, data=waitlist)
-
-
-# Invites
-@router.get("/invites", response_model=AdminResponsePage[AdminAPIInvite])
-async def get_all_invites(
-    page: Page = Depends(get_page),
-    db: AsyncSession = Depends(get_db),
-    _admin: InternalUser = Depends(get_admin_or_raise),
-):
-    """Get invited phone numbers that haven't signed up yet."""
-    total_query = (
-        select(func.count())
-        .select_from(InviteRow)
-        .where(~exists().where(InviteRow.phone_number == UserRow.phone_number))
-    )
-    total = (await db.execute(total_query)).scalar()
-    query = (
-        select(InviteRow)
-        .where(~exists().where(InviteRow.phone_number == UserRow.phone_number))
-        .order_by(InviteRow.id.desc())
-        .offset(page.offset)
-        .limit(page.limit)
-    )
-    rows = await db.execute(query)
-    invites = rows.scalars().all()
-    return AdminResponsePage(total=total, data=invites)
-
-
-@router.post("/invites", response_model=AdminAPIInvite)
-async def create_invite(
-    request: AdminCreateInviteRequest,
-    db: AsyncSession = Depends(get_db),
-    admin: InternalUser = Depends(get_admin_or_raise),
-):
-    """Create invite."""
-    invite = InviteRow(phone_number=request.phone_number, invited_by=admin.id)
-    try:
-        db.add(invite)
-        await db.commit()
-        await db.refresh(invite)
-        return invite
-    except IntegrityError:
-        raise HTTPException(400, "Phone number exists")
-
-
-@router.delete("/invites", response_model=list[AdminAPIInvite])
-async def remove_invites(
-    request: PhoneNumberList,
-    db: AsyncSession = Depends(get_db),
-    _admin: InternalUser = Depends(get_admin_or_raise),
-):
-    """Remove invites."""
-    query = select(InviteRow).where(InviteRow.phone_number.in_(request.phone_numbers))
-    to_delete = (await db.execute(query)).scalars().all()
-    for invite in to_delete:
-        await db.delete(invite)
-    await db.commit()
-    return to_delete
 
 
 # Reports + Feedback

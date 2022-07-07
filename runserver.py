@@ -1,4 +1,4 @@
-import uvicorn
+import uvicorn  # type: ignore
 
 from app.utils import get_logger
 
