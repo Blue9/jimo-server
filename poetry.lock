@@ -15,7 +15,7 @@ hiredis = ["hiredis (>=1.0)"]
 
 [[package]]
 name = "alembic"
-version = "1.8.0"
+version = "1.8.1"
 description = "A database migration tool for SQLAlchemy."
 category = "main"
 optional = false
@@ -79,7 +79,7 @@ test = ["pycodestyle (>=2.7.0,<2.8.0)", "flake8 (>=3.9.2,<3.10.0)", "uvloop (>=0
 
 [[package]]
 name = "atomicwrites"
-version = "1.4.0"
+version = "1.4.1"
 description = "Atomic file writes."
 category = "dev"
 optional = false
@@ -262,11 +262,11 @@ grpc = ["grpcio (>=1.33.2,<2.0dev)", "grpcio-status (>=1.33.2,<2.0dev)"]
 
 [[package]]
 name = "google-api-python-client"
-version = "2.52.0"
+version = "2.53.0"
 description = "Google API Client Library for Python"
 category = "main"
 optional = false
-python-versions = ">=3.6"
+python-versions = ">=3.7"
 
 [package.dependencies]
 google-api-core = ">=1.31.5,<2.0.0 || >2.3.0,<3.0.0dev"
@@ -277,7 +277,7 @@ uritemplate = ">=3.0.1,<5"
 
 [[package]]
 name = "google-auth"
-version = "2.9.0"
+version = "2.9.1"
 description = "Google Authentication Library"
 category = "main"
 optional = false
@@ -397,11 +397,11 @@ requests = ["requests (>=2.18.0,<3.0.0dev)"]
 
 [[package]]
 name = "googleapis-common-protos"
-version = "1.56.3"
+version = "1.56.4"
 description = "Common protobufs used in Google APIs"
 category = "main"
 optional = false
-python-versions = ">=3.6"
+python-versions = ">=3.7"
 
 [package.dependencies]
 grpcio = {version = ">=1.0.0,<2.0.0dev", optional = true, markers = "extra == \"grpc\""}
@@ -920,7 +920,7 @@ ulid-py = "^1.1.0"
 type = "git"
 url = "git@github.com:Blue9/jimo-shared.git"
 reference = "main"
-resolved_reference = "9f552cf94d3e5acacf8300fb4ca96e84ca906d15"
+resolved_reference = "46cd2a89878125b22fd375cb18c4c35dace74e47"
 
 [[package]]
 name = "six"
@@ -1052,11 +1052,11 @@ python-versions = ">=3.6"
 
 [[package]]
 name = "urllib3"
-version = "1.26.9"
+version = "1.26.10"
 description = "HTTP library with thread-safe connection pooling, file post, and more."
 category = "main"
 optional = false
-python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*, <4"
+python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*, !=3.5.*, <4"
 
 [package.extras]
 brotli = ["brotlicffi (>=0.8.0)", "brotli (>=1.0.9)", "brotlipy (>=0.6.0)"]
@@ -1128,10 +1128,7 @@ aioredis = [
     {file = "aioredis-2.0.1-py3-none-any.whl", hash = "sha256:9ac0d0b3b485d293b8ca1987e6de8658d7dafcca1cddfcd1d506cae8cdebfdd6"},
     {file = "aioredis-2.0.1.tar.gz", hash = "sha256:eaa51aaf993f2d71f54b70527c440437ba65340588afeb786cd87c55c89cd98e"},
 ]
-alembic = [
-    {file = "alembic-1.8.0-py3-none-any.whl", hash = "sha256:b5ae4bbfc7d1302ed413989d39474d102e7cfa158f6d5969d2497955ffe85a30"},
-    {file = "alembic-1.8.0.tar.gz", hash = "sha256:a2d4d90da70b30e70352cd9455e35873a255a31402a438fe24815758d7a0e5e1"},
-]
+alembic = []
 anyio = [
     {file = "anyio-3.6.1-py3-none-any.whl", hash = "sha256:cb29b9c70620506a9a8f87a309591713446953302d7d995344d0d7c6c0c9a7be"},
     {file = "anyio-3.6.1.tar.gz", hash = "sha256:413adf95f93886e442aea925f3ee43baa5a765a64a0f52c6081894f9992fdd0b"},
@@ -1172,10 +1169,7 @@ asyncpg = [
     {file = "asyncpg-0.25.0-cp39-cp39-win_amd64.whl", hash = "sha256:649e2966d98cc48d0646d9a4e29abecd8b59d38d55c256d5c857f6b27b7407ac"},
     {file = "asyncpg-0.25.0.tar.gz", hash = "sha256:63f8e6a69733b285497c2855464a34de657f2cccd25aeaeeb5071872e9382540"},
 ]
-atomicwrites = [
-    {file = "atomicwrites-1.4.0-py2.py3-none-any.whl", hash = "sha256:6d1784dea7c0c8d4a5172b6c620f40b6e4cbfdf96d783691f2e1302a7b88e197"},
-    {file = "atomicwrites-1.4.0.tar.gz", hash = "sha256:ae70396ad1a434f9c7046fd2dd196fc04b12f9e91ffb859164193be8b6168a7a"},
-]
+atomicwrites = []
 attrs = [
     {file = "attrs-21.4.0-py2.py3-none-any.whl", hash = "sha256:2d27e3784d7a565d36ab851fe94887c5eccd6a463168875832a1be79c82828b4"},
     {file = "attrs-21.4.0.tar.gz", hash = "sha256:626ba8234211db98e869df76230a137c4c40a12d72445c45d5f5b716f076e2fd"},
@@ -1249,14 +1243,8 @@ google-api-core = [
     {file = "google-api-core-2.8.2.tar.gz", hash = "sha256:06f7244c640322b508b125903bb5701bebabce8832f85aba9335ec00b3d02edc"},
     {file = "google_api_core-2.8.2-py3-none-any.whl", hash = "sha256:93c6a91ccac79079ac6bbf8b74ee75db970cc899278b97d53bc012f35908cf50"},
 ]
-google-api-python-client = [
-    {file = "google-api-python-client-2.52.0.tar.gz", hash = "sha256:0ae3fa7cad2102e24a587986cee53afdbc95bd69b58f2c08f8fd881a20da5f14"},
-    {file = "google_api_python_client-2.52.0-py2.py3-none-any.whl", hash = "sha256:ac8c020d4db00914df4f8981236c109959f76c699b0ded428055cf9503c737cb"},
-]
-google-auth = [
-    {file = "google-auth-2.9.0.tar.gz", hash = "sha256:3b2f9d2f436cc7c3b363d0ac66470f42fede249c3bafcc504e9f0bcbe983cff0"},
-    {file = "google_auth-2.9.0-py2.py3-none-any.whl", hash = "sha256:75b3977e7e22784607e074800048f44d6a56df589fb2abe58a11d4d20c97c314"},
-]
+google-api-python-client = []
+google-auth = []
 google-auth-httplib2 = [
     {file = "google-auth-httplib2-0.1.0.tar.gz", hash = "sha256:a07c39fd632becacd3f07718dfd6021bf396978f03ad3ce4321d060015cc30ac"},
     {file = "google_auth_httplib2-0.1.0-py2.py3-none-any.whl", hash = "sha256:31e49c36c6b5643b57e82617cb3e021e3e1d2df9da63af67252c02fa9c1f4a10"},
@@ -1326,10 +1314,7 @@ google-resumable-media = [
     {file = "google-resumable-media-2.3.3.tar.gz", hash = "sha256:27c52620bd364d1c8116eaac4ea2afcbfb81ae9139fb3199652fcac1724bfb6c"},
     {file = "google_resumable_media-2.3.3-py2.py3-none-any.whl", hash = "sha256:5b52774ea7a829a8cdaa8bd2d4c3d4bc660c91b30857ab2668d0eb830f4ea8c5"},
 ]
-googleapis-common-protos = [
-    {file = "googleapis-common-protos-1.56.3.tar.gz", hash = "sha256:6f1369b58ed6cf3a4b7054a44ebe8d03b29c309257583a2bbdc064cd1e4a1442"},
-    {file = "googleapis_common_protos-1.56.3-py2.py3-none-any.whl", hash = "sha256:87955d7b3a73e6e803f2572a33179de23989ebba725e05ea42f24838b792e461"},
-]
+googleapis-common-protos = []
 greenlet = [
     {file = "greenlet-1.1.2-cp27-cp27m-macosx_10_14_x86_64.whl", hash = "sha256:58df5c2a0e293bf665a51f8a100d3e9956febfbf1d9aaf8c0677cf70218910c6"},
     {file = "greenlet-1.1.2-cp27-cp27m-manylinux1_x86_64.whl", hash = "sha256:aec52725173bd3a7b56fe91bc56eccb26fbdff1386ef123abb63c84c5b43b63a"},
@@ -1927,10 +1912,7 @@ uritemplate = [
     {file = "uritemplate-4.1.1-py2.py3-none-any.whl", hash = "sha256:830c08b8d99bdd312ea4ead05994a38e8936266f84b9a7878232db50b044e02e"},
     {file = "uritemplate-4.1.1.tar.gz", hash = "sha256:4346edfc5c3b79f694bccd6d6099a322bbeb628dbf2cd86eea55a456ce5124f0"},
 ]
-urllib3 = [
-    {file = "urllib3-1.26.9-py2.py3-none-any.whl", hash = "sha256:44ece4d53fb1706f667c9bd1c648f5469a2ec925fcf3a776667042d645472c14"},
-    {file = "urllib3-1.26.9.tar.gz", hash = "sha256:aabaf16477806a5e1dd19aa41f8c2b7950dd3c746362d7e3223dbe6de6ac448e"},
-]
+urllib3 = []
 uvicorn = [
     {file = "uvicorn-0.17.6-py3-none-any.whl", hash = "sha256:19e2a0e96c9ac5581c01eb1a79a7d2f72bb479691acd2b8921fce48ed5b961a6"},
     {file = "uvicorn-0.17.6.tar.gz", hash = "sha256:5180f9d059611747d841a4a4c4ab675edf54c8489e97f96d0583ee90ac3bfc23"},

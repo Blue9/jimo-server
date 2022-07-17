@@ -26,7 +26,7 @@ async def get_global_map(
     _: InternalUser = wrapped_user.user
     pins = await map_store.get_map_v3(
         region=request.region,
-        strategy=EveryoneFilter(),
+        map_filter=EveryoneFilter(),
         category_filter=CategoryFilter(request.categories),  # type: ignore
         limit=250,
     )
@@ -43,7 +43,7 @@ async def get_following_map(
     user: InternalUser = wrapped_user.user
     pins = await map_store.get_map_v3(
         region=request.region,
-        strategy=FriendsFilter(user_id=user.id),
+        map_filter=FriendsFilter(user_id=user.id),
         category_filter=CategoryFilter(request.categories),  # type: ignore
         limit=500,
     )
@@ -60,7 +60,7 @@ async def get_saved_posts_map(
     user: InternalUser = wrapped_user.user
     pins = await map_store.get_map_v3(
         region=request.region,
-        strategy=SavedPostsFilter(user_id=user.id),
+        map_filter=SavedPostsFilter(user_id=user.id),
         category_filter=CategoryFilter(request.categories),  # type: ignore
         limit=500,
     )
@@ -77,7 +77,7 @@ async def get_custom_map(
     _: InternalUser = wrapped_user.user
     pins = await map_store.get_map_v3(
         region=request.region,
-        strategy=UserListFilter(user_ids=request.users),
+        map_filter=UserListFilter(user_ids=request.users),
         category_filter=CategoryFilter(request.categories),  # type: ignore
         limit=500,
     )
