@@ -2,7 +2,6 @@ import uuid
 
 from fastapi import APIRouter, Depends
 from shared.api.internal import InternalUser
-from shared.api.map import PlaceLoadRequest, CustomPlaceLoadRequest
 from shared.api.post import Post
 from shared.map.strategy import (
     CategoryFilter,
@@ -15,6 +14,7 @@ from shared.stores.place_store import PlaceStore
 from shared.stores.post_store import PostStore
 from shared.stores.user_store import UserStore
 
+from app.api.types.map import PlaceLoadRequest, CustomPlaceLoadRequest
 from app.api.utils import (
     get_post_store,
     get_place_store,

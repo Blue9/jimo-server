@@ -4,10 +4,11 @@ from unittest.mock import AsyncMock
 
 import pytest
 from fastapi.encoders import jsonable_encoder
-from shared.api.place import Location, MaybeCreatePlaceRequest
-from shared.api.post import PostWithoutLikeSaveStatus, CreatePostRequest
+from shared.api.place import Location
+from shared.api.post import PostWithoutLikeSaveStatus
 from shared.models.models import UserRow, PlaceRow, ImageUploadRow, PostRow
 
+from app.api.types.post import CreatePostRequest, MaybeCreatePlaceRequest
 from app.controllers.firebase import get_firebase_user, FirebaseUser
 from app.main import app as main_app
 from tests.mock_firebase import MockFirebaseAdmin

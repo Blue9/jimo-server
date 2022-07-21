@@ -1,7 +1,6 @@
 from fastapi import FastAPI, Depends, UploadFile, File
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
-from shared.api.image import ImageUploadResponse
 from shared.api.internal import InternalUser
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
@@ -13,6 +12,7 @@ from starlette.responses import JSONResponse, Response
 
 from app import api, config
 from app.api import utils
+from app.api.types.image import ImageUploadResponse
 from app.controllers.dependencies import (
     JimoUser,
     get_caller_user,

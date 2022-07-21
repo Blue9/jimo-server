@@ -2,18 +2,9 @@ import uuid
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from shared.api.base import SimpleResponse
 from shared.api.internal import InternalUser
-from shared.api.post import Feed, Post
-from shared.api.user import (
-    CreateUserRequest,
-    CreateUserResponse,
-    UserFieldErrors,
-    PublicUser,
-    RelationToUser,
-    FollowFeedResponse,
-    FollowUserResponse,
-)
+from shared.api.post import Post
+from shared.api.user import UserFieldErrors, PublicUser
 from shared.models.models import UserRelationRow, UserRelationType
 from shared.stores.place_store import PlaceStore
 from shared.stores.post_store import PostStore
@@ -23,6 +14,15 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import utils
+from app.api.types.common import SimpleResponse
+from app.api.types.post import PostFeedResponse
+from app.api.types.user import (
+    CreateUserRequest,
+    CreateUserResponse,
+    RelationToUser,
+    FollowFeedResponse,
+    FollowUserResponse,
+)
 from app.api.utils import (
     get_user_store,
     get_relation_store,
@@ -74,7 +74,7 @@ async def get_user(
     return await utils.validate_user(relation_store, caller_user_id=caller_user.id, user=user)
 
 
-@router.get("/{username}/posts", response_model=Feed)
+@router.get("/{username}/posts", response_model=PostFeedResponse)
 async def get_posts(
     cursor: Optional[uuid.UUID] = None,
     limit: Optional[int] = 15,
@@ -96,7 +96,7 @@ async def get_posts(
     # Step 1: Get post ids
     post_ids = await post_store.get_post_ids(user.id, cursor=cursor, limit=page_size)
     if len(post_ids) == 0:
-        return Feed(posts=[], cursor=None)
+        return PostFeedResponse(posts=[], cursor=None)
     # Step 2: Get posts
     internal_posts = await post_store.get_posts(post_ids)
     # Step 3: Get like and save statuses for each post
@@ -122,7 +122,7 @@ async def get_posts(
         posts.append(public_post)
 
     next_cursor: Optional[uuid.UUID] = min(post.id for post in posts) if len(posts) >= page_size else None
-    return Feed(posts=posts, cursor=next_cursor)
+    return PostFeedResponse(posts=posts, cursor=next_cursor)
 
 
 @router.get("/{username}/relation", response_model=RelationToUser)

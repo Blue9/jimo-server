@@ -262,7 +262,7 @@ grpc = ["grpcio (>=1.33.2,<2.0dev)", "grpcio-status (>=1.33.2,<2.0dev)"]
 
 [[package]]
 name = "google-api-python-client"
-version = "2.53.0"
+version = "2.54.0"
 description = "Google API Client Library for Python"
 category = "main"
 optional = false
@@ -310,29 +310,29 @@ six = "*"
 
 [[package]]
 name = "google-cloud-core"
-version = "2.3.1"
+version = "2.3.2"
 description = "Google Cloud API client core library"
 category = "main"
 optional = false
-python-versions = ">=3.6"
+python-versions = ">=3.7"
 
 [package.dependencies]
-google-api-core = ">=1.31.5,<2.0.0 || >2.3.0,<3.0.0dev"
+google-api-core = ">=1.31.6,<2.0.0 || >2.3.0,<3.0.0dev"
 google-auth = ">=1.25.0,<3.0dev"
 
 [package.extras]
-grpc = ["grpcio (>=1.8.2,<2.0dev)"]
+grpc = ["grpcio (>=1.38.0,<2.0dev)"]
 
 [[package]]
 name = "google-cloud-firestore"
-version = "2.5.3"
+version = "2.6.0"
 description = "Google Cloud Firestore API client library"
 category = "main"
 optional = false
-python-versions = ">=3.6"
+python-versions = ">=3.7"
 
 [package.dependencies]
-google-api-core = {version = ">=1.31.5,<2.0.0 || >2.3.0,<3.0.0dev", extras = ["grpc"]}
+google-api-core = {version = ">=1.32.0,<2.0.0 || >=2.8.0,<3.0.0dev", extras = ["grpc"]}
 google-cloud-core = ">=1.4.1,<3.0.0dev"
 proto-plus = ">=1.20.5,<2.0.0dev"
 protobuf = ">=3.19.0,<4.0.0dev"
@@ -357,14 +357,14 @@ protobuf = ["protobuf (<5.0.0dev)"]
 
 [[package]]
 name = "google-cloud-tasks"
-version = "2.9.1"
+version = "2.10.0"
 description = "Cloud Tasks API API client library"
 category = "main"
 optional = false
-python-versions = ">=3.6"
+python-versions = ">=3.7"
 
 [package.dependencies]
-google-api-core = {version = ">=1.31.5,<2.0.0 || >2.3.0,<3.0.0dev", extras = ["grpc"]}
+google-api-core = {version = ">=1.32.0,<2.0.0 || >=2.8.0,<3.0.0dev", extras = ["grpc"]}
 grpc-google-iam-v1 = ">=0.12.4,<1.0.0dev"
 proto-plus = ">=1.15.0,<2.0.0dev"
 protobuf = ">=3.19.0,<4.0.0dev"
@@ -888,7 +888,7 @@ idna2008 = ["idna"]
 
 [[package]]
 name = "rsa"
-version = "4.8"
+version = "4.9"
 description = "Pure-Python RSA implementation"
 category = "main"
 optional = false
@@ -920,7 +920,7 @@ ulid-py = "^1.1.0"
 type = "git"
 url = "git@github.com:Blue9/jimo-shared.git"
 reference = "main"
-resolved_reference = "46cd2a89878125b22fd375cb18c4c35dace74e47"
+resolved_reference = "532ab7935e0c426e5b9287e08c385d5c13af6944"
 
 [[package]]
 name = "six"
@@ -1249,22 +1249,13 @@ google-auth-httplib2 = [
     {file = "google-auth-httplib2-0.1.0.tar.gz", hash = "sha256:a07c39fd632becacd3f07718dfd6021bf396978f03ad3ce4321d060015cc30ac"},
     {file = "google_auth_httplib2-0.1.0-py2.py3-none-any.whl", hash = "sha256:31e49c36c6b5643b57e82617cb3e021e3e1d2df9da63af67252c02fa9c1f4a10"},
 ]
-google-cloud-core = [
-    {file = "google-cloud-core-2.3.1.tar.gz", hash = "sha256:34334359cb04187bdc80ddcf613e462dfd7a3aabbc3fe4d118517ab4b9303d53"},
-    {file = "google_cloud_core-2.3.1-py2.py3-none-any.whl", hash = "sha256:113ba4f492467d5bd442c8d724c1a25ad7384045c3178369038840ecdd19346c"},
-]
-google-cloud-firestore = [
-    {file = "google-cloud-firestore-2.5.3.tar.gz", hash = "sha256:2123e3a55d9f8d948c6e425ae98cc519daf0c840bc31ab8bc12ea9a2132d1686"},
-    {file = "google_cloud_firestore-2.5.3-py2.py3-none-any.whl", hash = "sha256:8685d21b7cc64f3f95a6cc484b54b21cf6df0d9537c5527d1060247225fe4bed"},
-]
+google-cloud-core = []
+google-cloud-firestore = []
 google-cloud-storage = [
     {file = "google-cloud-storage-2.4.0.tar.gz", hash = "sha256:5fe26f1381b30e3cc328f46e13531ca8525458f870c1e303c616bdeb7b7f5c66"},
     {file = "google_cloud_storage-2.4.0-py2.py3-none-any.whl", hash = "sha256:973e7f7d9afcd4805769b6ea9ac15ab9df7037530850374f1494b5a2c8f65b6b"},
 ]
-google-cloud-tasks = [
-    {file = "google-cloud-tasks-2.9.1.tar.gz", hash = "sha256:c083b6d8149cac325d6e26baa0e12eb97a6d79dc6b09e86a58a2d79b14c998a1"},
-    {file = "google_cloud_tasks-2.9.1-py2.py3-none-any.whl", hash = "sha256:7f131316a565e80f6099d5f499d53a480316c969fd2c9e54872c6077ab24f1c9"},
-]
+google-cloud-tasks = []
 google-crc32c = [
     {file = "google-crc32c-1.3.0.tar.gz", hash = "sha256:276de6273eb074a35bc598f8efbc00c7869c5cf2e29c90748fccc8c898c244df"},
     {file = "google_crc32c-1.3.0-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:cb6994fff247987c66a8a4e550ef374671c2b82e3c0d2115e689d21e511a652d"},
@@ -1829,10 +1820,7 @@ rfc3986 = [
     {file = "rfc3986-1.5.0-py2.py3-none-any.whl", hash = "sha256:a86d6e1f5b1dc238b218b012df0aa79409667bb209e58da56d0b94704e712a97"},
     {file = "rfc3986-1.5.0.tar.gz", hash = "sha256:270aaf10d87d0d4e095063c65bf3ddbc6ee3d0b226328ce21e036f946e421835"},
 ]
-rsa = [
-    {file = "rsa-4.8-py3-none-any.whl", hash = "sha256:95c5d300c4e879ee69708c428ba566c59478fd653cc3a22243eeb8ed846950bb"},
-    {file = "rsa-4.8.tar.gz", hash = "sha256:5c6bd9dc7a543b7fe4304a631f8a8a3b674e2bbfc49c2ae96200cdbe55df6b17"},
-]
+rsa = []
 shared = []
 six = [
     {file = "six-1.16.0-py2.py3-none-any.whl", hash = "sha256:8abb2f1d86890a2dfb989f9a77cfcfd3e47c2a354b01111771326f8aa26e0254"},

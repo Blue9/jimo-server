@@ -2,14 +2,13 @@ import uuid
 from typing import Optional
 
 from fastapi import APIRouter, Depends
-from shared.api.base import SimpleResponse
 from shared.api.internal import InternalUser
-from shared.api.notifications import NotificationFeedResponse
-from shared.api.user import NotificationTokenRequest
 from shared.stores.notification_store import NotificationStore
 from shared.stores.post_store import PostStore
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.types.common import SimpleResponse
+from app.api.types.notifications import NotificationTokenRequest, NotificationFeedResponse
 from app.api.utils import get_notification_store, get_post_store
 from app.controllers import notifications
 from app.controllers.dependencies import get_caller_user, JimoUser

@@ -5,17 +5,6 @@ from typing import Optional
 
 import shared.stores.utils
 from fastapi import APIRouter, Depends, HTTPException, Query
-from shared.api.admin import (
-    AdminResponsePage,
-    AdminAPIUser,
-    AdminCreateUserRequest,
-    AdminUpdateUserRequest,
-    AdminAPIPost,
-    AdminUpdatePostRequest,
-    AdminAPIReport,
-    AdminAPIFeedback,
-)
-from shared.api.base import SimpleResponse
 from shared.api.internal import InternalUser
 from shared.models.models import (
     UserRow,
@@ -30,6 +19,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from app.api import utils
+from app.api.types.admin import (
+    AdminResponsePage,
+    AdminAPIUser,
+    AdminCreateUserRequest,
+    AdminUpdateUserRequest,
+    AdminAPIPost,
+    AdminUpdatePostRequest,
+    AdminAPIReport,
+    AdminAPIFeedback,
+)
+from app.api.types.common import SimpleResponse
 from app.api.utils import get_user_store
 from app.controllers.dependencies import get_redis
 from app.controllers.firebase import FirebaseUser, get_firebase_user

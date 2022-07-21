@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Depends
 from shared.api.internal import InternalUser
-from shared.api.map import MapResponseV3, CustomMapRequest, GetMapRequest
 from shared.map.strategy import (
     CategoryFilter,
     EveryoneFilter,
@@ -10,6 +9,7 @@ from shared.map.strategy import (
 )
 from shared.stores.map_store import MapStore
 
+from app.api.types.map import MapResponseV3, CustomMapRequest, GetMapRequest
 from app.api.utils import get_map_store
 from app.controllers.dependencies import get_caller_user, JimoUser
 

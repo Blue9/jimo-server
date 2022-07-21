@@ -4,8 +4,8 @@ from typing import Optional
 
 from fastapi import HTTPException, UploadFile, Depends
 from shared.api.internal import InternalUser, InternalPost
-from shared.api.place import MaybeCreatePlaceRequest
 from shared.api.post import Post
+from shared.api.type_aliases import UserId, PlaceId
 from shared.models.models import ImageUploadRow
 from shared.stores.comment_store import CommentStore
 from shared.stores.feed_store import FeedStore
@@ -18,6 +18,7 @@ from shared.stores.user_store import UserStore
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.types.post import MaybeCreatePlaceRequest
 from app.controllers.firebase import FirebaseAdminProtocol
 from app.db.database import get_db
 
@@ -96,10 +97,10 @@ async def get_posts_from_post_ids(
 
 
 async def get_or_create_place(
-    user_id: uuid.UUID,
+    user_id: UserId,
     request: MaybeCreatePlaceRequest,
     place_store: PlaceStore,
-) -> uuid.UUID:
+) -> PlaceId:
     loc = request.location
     radius = request.region.radius if request.region else 10
     place = await place_store.get_or_create_place(
