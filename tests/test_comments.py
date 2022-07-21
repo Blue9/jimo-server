@@ -2,12 +2,7 @@ import uuid
 from contextlib import contextmanager
 
 import pytest
-from shared.api.comment import (
-    CreateCommentRequest,
-    Comment,
-    CommentPage,
-    LikeCommentResponse,
-)
+from shared.api.comment import Comment
 from shared.models.models import (
     UserRow,
     PlaceRow,
@@ -17,6 +12,11 @@ from shared.models.models import (
 )
 from sqlalchemy import select
 
+from app.api.types.comment import (
+    CreateCommentRequest,
+    LikeCommentResponse,
+    CommentPageResponse,
+)
 from app.controllers.firebase import get_firebase_user, FirebaseUser
 from app.main import app as main_app
 from tests.mock_firebase import MockFirebaseAdmin
@@ -138,7 +138,7 @@ async def test_get_comments_regular_post(client):
 
     with request_as(uid="b"):
         response = await client.get(f"/posts/{USER_A_POST_ID}/comments")
-        parsed = CommentPage.parse_obj(response.json())
+        parsed = CommentPageResponse.parse_obj(response.json())
         assert response.status_code == 200
         assert len(parsed.comments) == 2
         assert parsed.comments[0] == Comment.parse_obj(comment_1)
@@ -208,7 +208,7 @@ async def test_delete_comment_regular_post(session, client):
 
     with request_as(uid="b"):
         response = await client.get(f"/posts/{USER_A_POST_ID}/comments")
-        parsed = CommentPage.parse_obj(response.json())
+        parsed = CommentPageResponse.parse_obj(response.json())
         assert len(parsed.comments) == 1
         assert parsed.comments[0] == Comment.parse_obj(a_comment)
 
@@ -265,7 +265,7 @@ async def test_delete_comment_on_my_post(session, client):
         delete_comment_response = await client.delete(f"/comments/{b_comment['commentId']}")
         assert delete_comment_response.status_code == 200
         get_comments_response = (await client.get(f"/posts/{USER_A_POST_ID}/comments")).json()
-        parsed = CommentPage.parse_obj(get_comments_response)
+        parsed = CommentPageResponse.parse_obj(get_comments_response)
         assert len(parsed.comments) == 0
         assert parsed.cursor is None
 
@@ -299,7 +299,7 @@ async def test_like_comment(client):
     # Get comments, make sure like count matches
     with request_as(uid="b"):
         response = await client.get(f"/posts/{USER_A_POST_ID}/comments")
-        comment_page = CommentPage.parse_obj(response.json())
+        comment_page = CommentPageResponse.parse_obj(response.json())
         assert len(comment_page.comments) == 1
         assert comment_page.cursor is None
         assert comment_page.comments[0].like_count == 2

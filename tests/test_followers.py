@@ -2,9 +2,10 @@ import uuid
 from contextlib import contextmanager
 
 import pytest
-from shared.api.user import FollowFeedResponse, UserRelation
+from shared.api.user import UserRelation
 from shared.models.models import UserRow, UserRelationRow, UserRelationType
 
+from app.api.types.user import FollowFeedResponse
 from app.controllers.firebase import get_firebase_user, FirebaseUser
 from app.main import app as main_app
 from tests.mock_firebase import MockFirebaseAdmin

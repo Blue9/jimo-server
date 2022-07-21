@@ -2,16 +2,9 @@ import uuid
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Depends
-from shared.api.base import SimpleResponse
-from shared.api.comment import CommentPage, Comment
+from shared.api.comment import Comment
 from shared.api.internal import InternalUser, InternalPost
-from shared.api.post import (
-    Post,
-    CreatePostRequest,
-    DeletePostResponse,
-    LikePostResponse,
-    ReportPostRequest,
-)
+from shared.api.post import Post
 from shared.stores.comment_store import CommentStore
 from shared.stores.place_store import PlaceStore
 from shared.stores.post_store import PostStore
@@ -19,6 +12,14 @@ from shared.stores.relation_store import RelationStore
 from shared.stores.user_store import UserStore
 
 from app.api import utils
+from app.api.types.comment import CommentPageResponse
+from app.api.types.common import SimpleResponse
+from app.api.types.post import (
+    CreatePostRequest,
+    DeletePostResponse,
+    LikePostResponse,
+    ReportPostRequest,
+)
 from app.api.utils import (
     get_user_store,
     get_post_store,
@@ -235,7 +236,7 @@ async def report_post(
     return SimpleResponse(success=success)
 
 
-@router.get("/{post_id}/comments", response_model=CommentPage)
+@router.get("/{post_id}/comments", response_model=CommentPageResponse)
 async def get_comments(
     post_id: uuid.UUID,
     cursor: Optional[uuid.UUID] = None,
@@ -243,7 +244,7 @@ async def get_comments(
     comment_store: CommentStore = Depends(get_comment_store),
     relation_store: RelationStore = Depends(get_relation_store),
     wrapped_user: JimoUser = Depends(get_caller_user),
-) -> CommentPage:
+) -> CommentPageResponse:
     user = wrapped_user.user
     post = await utils.get_post_and_validate_or_raise(
         post_store, relation_store, caller_user_id=user.id, post_id=post_id
@@ -262,4 +263,4 @@ async def get_comments(
         )
         for c in orm_comments
     ]
-    return CommentPage(comments=comments, cursor=cursor)
+    return CommentPageResponse(comments=comments, cursor=cursor)

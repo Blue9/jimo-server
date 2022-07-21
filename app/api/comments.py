@@ -1,19 +1,18 @@
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Depends
-from shared.api.base import SimpleResponse
-from shared.api.comment import Comment, CreateCommentRequest, LikeCommentResponse
+from shared.api.comment import Comment
 from shared.api.internal import InternalComment, InternalPost
 from shared.api.type_aliases import CommentId
 from shared.stores.comment_store import CommentStore
-from shared.stores.place_store import PlaceStore
 from shared.stores.post_store import PostStore
 from shared.stores.relation_store import RelationStore
 from shared.stores.user_store import UserStore
 
 from app.api import utils
+from app.api.types.comment import CreateCommentRequest, LikeCommentResponse
+from app.api.types.common import SimpleResponse
 from app.api.utils import (
-    get_place_store,
     get_user_store,
     get_post_store,
     get_comment_store,
@@ -30,7 +29,6 @@ async def create_comment(
     request: CreateCommentRequest,
     task_handler: Optional[BackgroundTaskHandler] = Depends(get_task_handler),
     post_store: PostStore = Depends(get_post_store),
-    place_store: PlaceStore = Depends(get_place_store),
     comment_store: CommentStore = Depends(get_comment_store),
     relation_store: RelationStore = Depends(get_relation_store),
     user_store: UserStore = Depends(get_user_store),

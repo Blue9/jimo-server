@@ -5,21 +5,10 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
-from shared.api.base import SimpleResponse
 from shared.api.internal import InternalUser
 from shared.api.place import Location
-from shared.api.post import Feed, Post
-from shared.api.user import (
-    PublicUser,
-    UpdateProfileResponse,
-    UpdateProfileRequest,
-    UserPrefs,
-    SuggestedUsersResponse,
-    SuggestedUserIdItem,
-    SuggestedUserItem,
-    PhoneNumberList,
-    UsernameList,
-)
+from shared.api.post import Post
+from shared.api.user import PublicUser, UserPrefs, SuggestedUserIdItem
 from shared.models.models import UserRelationRow, UserRow, UserRelationType
 from shared.stores.feed_store import FeedStore
 from shared.stores.place_store import PlaceStore
@@ -30,6 +19,16 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import utils
+from app.api.types.common import SimpleResponse
+from app.api.types.post import PostFeedResponse
+from app.api.types.user import (
+    UpdateProfileResponse,
+    UpdateProfileRequest,
+    SuggestedUsersResponse,
+    SuggestedUserItem,
+    PhoneNumberList,
+    UsernameList,
+)
 from app.api.utils import (
     get_user_store,
     get_place_store,
@@ -134,7 +133,7 @@ async def upload_profile_picture(
         raise HTTPException(400, detail=errors.dict() if errors else None)
 
 
-@router.get("/feed", response_model=Feed)
+@router.get("/feed", response_model=PostFeedResponse)
 async def get_feed(
     cursor: Optional[uuid.UUID] = None,
     feed_store: FeedStore = Depends(get_feed_store),
@@ -149,7 +148,7 @@ async def get_feed(
     # Step 1: Get post ids
     post_ids = await feed_store.get_feed_ids(user.id, cursor=cursor, limit=page_size)
     if len(post_ids) == 0:
-        return Feed(posts=[], cursor=None)
+        return PostFeedResponse(posts=[], cursor=None)
     # Step 2: Convert to posts
     feed = await get_posts_from_post_ids(
         current_user=user,
@@ -159,7 +158,7 @@ async def get_feed(
         user_store=user_store,
     )
     next_cursor: Optional[uuid.UUID] = min(post.id for post in feed) if len(feed) >= page_size else None
-    return Feed(posts=feed, cursor=next_cursor)
+    return PostFeedResponse(posts=feed, cursor=next_cursor)
 
 
 @router.get("/discover", response_model=list[Post])
@@ -187,7 +186,7 @@ async def get_discover_feed(
     return JSONResponse(content=jsonable_encoder(feed))
 
 
-@router.get("/discoverV2", response_model=Feed)
+@router.get("/discoverV2", response_model=PostFeedResponse)
 async def get_discover_feed_v2(
     long: Optional[float] = Query(None, ge=-180, le=180),
     lat: Optional[float] = Query(None, ge=-90, le=90),
@@ -205,7 +204,7 @@ async def get_discover_feed_v2(
         location = Location(latitude=lat, longitude=long)
     post_ids = await feed_store.get_discover_feed_ids(user.id, location=location, limit=99)
     if len(post_ids) == 0:
-        return Feed(posts=[])
+        return PostFeedResponse(posts=[])
     # Step 2: Convert to posts
     feed = await get_posts_from_post_ids(
         current_user=user,
@@ -214,7 +213,7 @@ async def get_discover_feed_v2(
         place_store=place_store,
         user_store=user_store,
     )
-    response = Feed(posts=feed)
+    response = PostFeedResponse(posts=feed)
     return JSONResponse(content=jsonable_encoder(response))
 
 
@@ -314,7 +313,7 @@ async def follow_many(
     return SimpleResponse(success=True)
 
 
-@router.get("/saved-posts", response_model=Feed)
+@router.get("/saved-posts", response_model=PostFeedResponse)
 async def get_saved_posts(
     cursor: Optional[uuid.UUID] = None,
     post_store: PostStore = Depends(get_post_store),
@@ -328,7 +327,7 @@ async def get_saved_posts(
     user = jimo_user.user
     post_saves = await post_store.get_saved_posts_by_user(user.id, cursor=cursor, limit=page_size)
     if len(post_saves) == 0:
-        return Feed(posts=[], cursor=None)
+        return PostFeedResponse(posts=[], cursor=None)
     post_save_ids, post_ids = zip(*[(save.id, save.post_id) for save in post_saves])
     # Step 2: Convert to posts
     posts = await get_posts_from_post_ids(
@@ -340,4 +339,4 @@ async def get_saved_posts(
         preserve_order=True,
     )
     next_cursor: Optional[uuid.UUID] = min(post_save_ids) if len(posts) >= page_size else None
-    return Feed(posts=posts, cursor=next_cursor)
+    return PostFeedResponse(posts=posts, cursor=next_cursor)

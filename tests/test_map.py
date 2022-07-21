@@ -3,10 +3,10 @@ from contextlib import contextmanager
 
 import pytest
 import pytest_asyncio
-from shared.api.map import GetMapRequest, MapResponseV3
 from shared.api.place import Region
 from shared.models.models import UserRow, PlaceRow, PostRow
 
+from app.api.types.map import GetMapRequest, MapResponseV3
 from app.controllers.firebase import get_firebase_user, FirebaseUser
 from app.main import app as main_app
 from tests.mock_firebase import MockFirebaseAdmin
