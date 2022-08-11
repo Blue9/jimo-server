@@ -12,12 +12,12 @@ from shared.models.models import (
 )
 from sqlalchemy import select
 
-from app.api.types.comment import (
+from app.core.firebase import get_firebase_user, FirebaseUser
+from app.features.comments.types import (
     CreateCommentRequest,
     LikeCommentResponse,
     CommentPageResponse,
 )
-from app.core.firebase import get_firebase_user, FirebaseUser
 from app.main import app as main_app
 from tests.mock_firebase import MockFirebaseAdmin
 

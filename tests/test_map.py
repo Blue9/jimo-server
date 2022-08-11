@@ -6,8 +6,8 @@ import pytest_asyncio
 from shared.api.place import Region
 from shared.models.models import UserRow, PlaceRow, PostRow
 
-from app.api.types.map import GetMapRequest, MapResponseV3
 from app.core.firebase import get_firebase_user, FirebaseUser
+from app.features.map.types import GetMapRequest, MapResponseV3
 from app.main import app as main_app
 from tests.mock_firebase import MockFirebaseAdmin
 

@@ -8,8 +8,8 @@ from shared.api.place import Location
 from shared.api.post import PostWithoutLikeSaveStatus
 from shared.models.models import UserRow, PlaceRow, ImageUploadRow, PostRow
 
-from app.api.types.post import CreatePostRequest, MaybeCreatePlaceRequest
 from app.core.firebase import get_firebase_user, FirebaseUser
+from app.features.posts.types import CreatePostRequest, MaybeCreatePlaceRequest
 from app.main import app as main_app
 from tests.mock_firebase import MockFirebaseAdmin
 

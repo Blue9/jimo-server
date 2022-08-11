@@ -13,7 +13,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.core import config
 from app.core.config import REDIS_URL
-from app.controllers import categories
+from app.features.posts import categories
 
 TEST_DATABASE_NAME = "jimo_test_db"
 
