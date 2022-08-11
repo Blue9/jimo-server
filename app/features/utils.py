@@ -18,9 +18,9 @@ from shared.stores.user_store import UserStore
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.types.post import MaybeCreatePlaceRequest
-from app.controllers.firebase import FirebaseAdminProtocol
-from app.db.database import get_db
+from app.core.database import get_db
+from app.core.firebase import FirebaseAdminProtocol
+from app.features.posts.types import MaybeCreatePlaceRequest
 
 
 async def validate_user(

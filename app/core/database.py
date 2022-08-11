@@ -2,7 +2,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 from starlette.requests import Request
 
-from app.config import SQLALCHEMY_DATABASE_URL
+from app.core.config import SQLALCHEMY_DATABASE_URL
 
 # Some information about pool sizing: https://github.com/brettwooldridge/HikariCP/wiki/About-Pool-Sizing
 engine = create_async_engine(

@@ -18,28 +18,22 @@ from sqlalchemy import union_all, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api import utils
-from app.api.types.common import SimpleResponse
-from app.api.types.post import PostFeedResponse
-from app.api.types.user import (
+from app.core.common import SimpleResponse
+from app.core.database import get_db
+from app.core.firebase import FirebaseUser, get_firebase_user
+from app.core.tasks import BackgroundTaskHandler, get_task_handler
+from app.features import utils
+from app.features.posts.types import PostFeedResponse
+from app.features.users.dependencies import JimoUser, get_caller_user
+from app.features.users.types import (
     UpdateProfileResponse,
     UpdateProfileRequest,
     SuggestedUsersResponse,
     SuggestedUserItem,
-    PhoneNumberList,
     UsernameList,
+    PhoneNumberList,
 )
-from app.api.utils import (
-    get_user_store,
-    get_place_store,
-    get_feed_store,
-    get_post_store,
-    get_posts_from_post_ids,
-)
-from app.controllers.dependencies import get_caller_user, JimoUser
-from app.controllers.firebase import FirebaseUser, get_firebase_user
-from app.controllers.tasks import BackgroundTaskHandler, get_task_handler
-from app.db.database import get_db
+from app.features.utils import get_user_store, get_post_store, get_feed_store, get_place_store, get_posts_from_post_ids
 
 router = APIRouter()
 

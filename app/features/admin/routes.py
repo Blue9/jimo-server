@@ -18,8 +18,11 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from app.api import utils
-from app.api.types.admin import (
+from app.core.common import SimpleResponse
+from app.core.database import get_db
+from app.core.firebase import FirebaseUser, get_firebase_user
+from app.features import utils
+from app.features.admin.types import (
     AdminResponsePage,
     AdminAPIUser,
     AdminCreateUserRequest,
@@ -29,11 +32,8 @@ from app.api.types.admin import (
     AdminAPIReport,
     AdminAPIFeedback,
 )
-from app.api.types.common import SimpleResponse
-from app.api.utils import get_user_store
-from app.controllers.dependencies import get_redis
-from app.controllers.firebase import FirebaseUser, get_firebase_user
-from app.db.database import get_db
+from app.features.users.dependencies import get_redis
+from app.features.utils import get_user_store
 
 router = APIRouter()
 

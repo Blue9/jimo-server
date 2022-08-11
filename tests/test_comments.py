@@ -17,7 +17,7 @@ from app.api.types.comment import (
     LikeCommentResponse,
     CommentPageResponse,
 )
-from app.controllers.firebase import get_firebase_user, FirebaseUser
+from app.core.firebase import get_firebase_user, FirebaseUser
 from app.main import app as main_app
 from tests.mock_firebase import MockFirebaseAdmin
 

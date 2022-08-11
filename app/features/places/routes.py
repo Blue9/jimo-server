@@ -14,14 +14,9 @@ from shared.stores.place_store import PlaceStore
 from shared.stores.post_store import PostStore
 from shared.stores.user_store import UserStore
 
-from app.api.types.map import PlaceLoadRequest, CustomPlaceLoadRequest
-from app.api.utils import (
-    get_post_store,
-    get_place_store,
-    get_posts_from_post_ids,
-    get_user_store,
-)
-from app.controllers.dependencies import JimoUser, get_caller_user
+from app.features.map.types import PlaceLoadRequest, CustomPlaceLoadRequest
+from app.features.users.dependencies import get_caller_user, JimoUser
+from app.features.utils import get_post_store, get_place_store, get_user_store, get_posts_from_post_ids
 
 router = APIRouter()
 

@@ -13,8 +13,7 @@ from shared.api.place import Place
 from shared.api.post import PostWithoutLikeSaveStatus
 from shared.api.type_aliases import UserId, PostId
 
-# Base types
-from app.api.types.user import CreateUserRequest
+from app.features.users.types import CreateUserRequest
 
 
 class AdminAPIUser(Base):

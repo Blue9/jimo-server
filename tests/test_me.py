@@ -2,7 +2,7 @@ import pytest
 from fastapi import HTTPException
 from shared.models.models import UserRow, UserPrefsRow
 
-from app.controllers.firebase import FirebaseUser, get_firebase_user
+from app.core.firebase import FirebaseUser, get_firebase_user
 from app.main import app as main_app
 from tests.mock_firebase import MockFirebaseAdmin
 

@@ -7,12 +7,12 @@ from shared.stores.notification_store import NotificationStore
 from shared.stores.post_store import PostStore
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.types.common import SimpleResponse
-from app.api.types.notifications import NotificationTokenRequest, NotificationFeedResponse
-from app.api.utils import get_notification_store, get_post_store
-from app.controllers import notifications
-from app.controllers.dependencies import get_caller_user, JimoUser
-from app.db.database import get_db
+from app.core.common import SimpleResponse
+from app.core.database import get_db
+from app.features.notifications import notifications
+from app.features.notifications.types import NotificationTokenRequest, NotificationFeedResponse
+from app.features.users.dependencies import JimoUser, get_caller_user
+from app.features.utils import get_post_store, get_notification_store
 
 router = APIRouter()
 

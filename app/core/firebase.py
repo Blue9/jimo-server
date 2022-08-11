@@ -18,7 +18,7 @@ from firebase_admin.exceptions import FirebaseError  # type: ignore
 from google.cloud.exceptions import GoogleCloudError
 from google.cloud.storage import Bucket  # type: ignore
 
-from app import config
+from app.core import config
 from app.utils import get_logger
 
 log = get_logger(__name__)

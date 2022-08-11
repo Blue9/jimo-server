@@ -2,7 +2,7 @@ from logging.config import fileConfig
 
 from alembic import context
 
-from app.config import SQLALCHEMY_DATABASE_URL
+from app.core.config import SQLALCHEMY_DATABASE_URL
 from shared.models.models import Base
 
 # this is the Alembic Config object, which provides

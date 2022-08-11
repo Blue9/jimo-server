@@ -4,10 +4,10 @@ from shared.models.models import FeedbackRow
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.types.common import SimpleResponse
-from app.api.types.feedback import FeedbackRequest
-from app.controllers.dependencies import JimoUser, get_caller_user
-from app.db.database import get_db
+from app.core.common import SimpleResponse
+from app.core.database import get_db
+from app.features.feedback.types import FeedbackRequest
+from app.features.users.dependencies import JimoUser, get_caller_user
 
 router = APIRouter()
 

@@ -1,8 +1,7 @@
 import os
 from typing import Optional
 
-# Database URL
-from app.controllers.tasks import CloudTasksConfig
+from app.core.tasks import CloudTasksConfig
 
 SQLALCHEMY_DATABASE_URL: str = os.environ["DATABASE_URL"]
 

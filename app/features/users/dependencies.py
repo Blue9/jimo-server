@@ -7,9 +7,9 @@ from fastapi import Depends, HTTPException, Request
 from shared.api.internal import InternalUser
 from shared.stores.user_store import UserStore
 
-from app.api.utils import get_user_store
-from app.config import REDIS_URL
-from app.controllers.firebase import FirebaseUser, get_firebase_user
+from app.core.config import REDIS_URL
+from app.core.firebase import FirebaseUser, get_firebase_user
+from app.features.utils import get_user_store
 
 
 @dataclass

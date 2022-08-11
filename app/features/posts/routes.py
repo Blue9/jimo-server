@@ -11,25 +11,14 @@ from shared.stores.post_store import PostStore
 from shared.stores.relation_store import RelationStore
 from shared.stores.user_store import UserStore
 
-from app.api import utils
-from app.api.types.comment import CommentPageResponse
-from app.api.types.common import SimpleResponse
-from app.api.types.post import (
-    CreatePostRequest,
-    DeletePostResponse,
-    LikePostResponse,
-    ReportPostRequest,
-)
-from app.api.utils import (
-    get_user_store,
-    get_post_store,
-    get_place_store,
-    get_relation_store,
-    get_comment_store,
-)
-from app.controllers.dependencies import JimoUser, get_caller_user
-from app.controllers.firebase import FirebaseUser, get_firebase_user
-from app.controllers.tasks import BackgroundTaskHandler, get_task_handler
+from app.core.common import SimpleResponse
+from app.core.firebase import FirebaseUser, get_firebase_user
+from app.core.tasks import BackgroundTaskHandler, get_task_handler
+from app.features import utils
+from app.features.comments.types import CommentPageResponse
+from app.features.posts.types import CreatePostRequest, DeletePostResponse, LikePostResponse, ReportPostRequest
+from app.features.users.dependencies import get_caller_user, JimoUser
+from app.features.utils import get_user_store, get_post_store, get_relation_store, get_place_store, get_comment_store
 from app.utils import get_logger
 
 router = APIRouter()
@@ -145,7 +134,6 @@ async def like_post(
     task_handler: Optional[BackgroundTaskHandler] = Depends(get_task_handler),
     user_store: UserStore = Depends(get_user_store),
     post_store: PostStore = Depends(get_post_store),
-    place_store: PlaceStore = Depends(get_place_store),
     relation_store: RelationStore = Depends(get_relation_store),
     wrapped_user: JimoUser = Depends(get_caller_user),
 ):
@@ -185,7 +173,6 @@ async def save_post(
     task_handler: Optional[BackgroundTaskHandler] = Depends(get_task_handler),
     user_store: UserStore = Depends(get_user_store),
     post_store: PostStore = Depends(get_post_store),
-    place_store: PlaceStore = Depends(get_place_store),
     relation_store: RelationStore = Depends(get_relation_store),
     wrapped_user: JimoUser = Depends(get_caller_user),
 ):

@@ -9,9 +9,9 @@ from shared.map.strategy import (
 )
 from shared.stores.map_store import MapStore
 
-from app.api.types.map import MapResponseV3, CustomMapRequest, GetMapRequest
-from app.api.utils import get_map_store
-from app.controllers.dependencies import get_caller_user, JimoUser
+from app.features.map.types import MapResponseV3, GetMapRequest, CustomMapRequest
+from app.features.users.dependencies import get_caller_user, JimoUser
+from app.features.utils import get_map_store
 
 router = APIRouter()
 

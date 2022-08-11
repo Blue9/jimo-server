@@ -11,8 +11,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import Connection
 from sqlalchemy.orm import sessionmaker
 
-from app import config
-from app.config import REDIS_URL
+from app.core import config
+from app.core.config import REDIS_URL
 from app.controllers import categories
 
 TEST_DATABASE_NAME = "jimo_test_db"
@@ -36,7 +36,7 @@ def sync_engine(engine):
 @pytest.fixture(scope="session")
 def engine():
     check_db_name()
-    from app.db.database import engine
+    from app.core.database import engine
 
     yield engine
     engine.sync_engine.dispose()

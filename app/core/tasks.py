@@ -15,7 +15,7 @@ from shared.api.notifications import (
     FollowNotification,
 )
 
-from app import config
+from app.core import config
 from app.utils import get_logger
 
 client = tasks_v2.CloudTasksClient()

@@ -10,9 +10,8 @@ from shared.stores.user_store import UserStore
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app import api
-from app.api.admin import get_admin_or_raise
-from app.controllers.firebase import FirebaseUser, get_firebase_user
+from app.core.firebase import FirebaseUser, get_firebase_user
+from app.features.admin.routes import get_admin_or_raise
 from app.main import app as main_app
 from tests.mock_firebase import MockFirebaseAdmin
 
@@ -87,19 +86,17 @@ async def setup_fixture(session):
 async def test_get_admin_or_raise(session):
     user_store = UserStore(session)
     with pytest.raises(HTTPException) as regular_user_exception:
-        await api.admin.get_admin_or_raise(FirebaseUser(shared_firebase=MockFirebaseAdmin(), uid="uid"), user_store)
+        await get_admin_or_raise(FirebaseUser(shared_firebase=MockFirebaseAdmin(), uid="uid"), user_store)
     assert regular_user_exception.value.status_code == 403
 
     with pytest.raises(HTTPException) as deleted_admin_exception:
-        await api.admin.get_admin_or_raise(
+        await get_admin_or_raise(
             FirebaseUser(shared_firebase=MockFirebaseAdmin(), uid="deleted_uid"),
             user_store,
         )
     assert deleted_admin_exception.value.status_code == 403
 
-    admin = await api.admin.get_admin_or_raise(
-        FirebaseUser(shared_firebase=MockFirebaseAdmin(), uid="admin_uid"), user_store
-    )
+    admin = await get_admin_or_raise(FirebaseUser(shared_firebase=MockFirebaseAdmin(), uid="admin_uid"), user_store)
     assert admin is not None
     assert admin.is_admin
 
@@ -127,9 +124,9 @@ async def test_create_update_users(session, client):
         "firstName": "First",
         "lastName": "Last",
     }
-    # async with request_as_admin(session):
-    #     create_user_response = await client.post(path, json=create_user_request)
-    #     assert create_user_response.status_code == 400
+    async with request_as_admin(session):
+        create_user_response = await client.post(path, json=create_user_request)
+        assert create_user_response.status_code == 400
 
     create_user_request["username"] = "new_user"
     async with request_as_admin(session):

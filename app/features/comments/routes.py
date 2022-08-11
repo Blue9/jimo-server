@@ -9,17 +9,12 @@ from shared.stores.post_store import PostStore
 from shared.stores.relation_store import RelationStore
 from shared.stores.user_store import UserStore
 
-from app.api import utils
-from app.api.types.comment import CreateCommentRequest, LikeCommentResponse
-from app.api.types.common import SimpleResponse
-from app.api.utils import (
-    get_user_store,
-    get_post_store,
-    get_comment_store,
-    get_relation_store,
-)
-from app.controllers.dependencies import JimoUser, get_caller_user
-from app.controllers.tasks import BackgroundTaskHandler, get_task_handler
+from app.core.common import SimpleResponse
+from app.core.tasks import BackgroundTaskHandler, get_task_handler
+from app.features import utils
+from app.features.comments.types import CreateCommentRequest, LikeCommentResponse
+from app.features.users.dependencies import get_caller_user, JimoUser
+from app.features.utils import get_post_store, get_comment_store, get_relation_store, get_user_store
 
 router = APIRouter()
 

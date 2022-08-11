@@ -6,33 +6,27 @@ from shared.api.internal import InternalUser
 from shared.api.post import Post
 from shared.api.user import UserFieldErrors, PublicUser
 from shared.models.models import UserRelationRow, UserRelationType
-from shared.stores.place_store import PlaceStore
 from shared.stores.post_store import PostStore
 from shared.stores.relation_store import RelationStore
 from shared.stores.user_store import UserStore
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api import utils
-from app.api.types.common import SimpleResponse
-from app.api.types.post import PostFeedResponse
-from app.api.types.user import (
-    CreateUserRequest,
+from app.core.common import SimpleResponse
+from app.core.database import get_db
+from app.core.firebase import FirebaseUser, get_firebase_user
+from app.core.tasks import BackgroundTaskHandler, get_task_handler
+from app.features import utils
+from app.features.posts.types import PostFeedResponse
+from app.features.users.dependencies import get_caller_user, get_requested_user, JimoUser
+from app.features.users.types import (
     CreateUserResponse,
     RelationToUser,
     FollowFeedResponse,
     FollowUserResponse,
+    CreateUserRequest,
 )
-from app.api.utils import (
-    get_user_store,
-    get_relation_store,
-    get_post_store,
-    get_place_store,
-)
-from app.controllers.dependencies import JimoUser, get_caller_user, get_requested_user
-from app.controllers.firebase import FirebaseUser, get_firebase_user
-from app.controllers.tasks import BackgroundTaskHandler, get_task_handler
-from app.db.database import get_db
+from app.features.utils import get_user_store, get_relation_store, get_post_store
 
 router = APIRouter()
 
@@ -80,7 +74,6 @@ async def get_posts(
     limit: Optional[int] = 15,
     relation_store: RelationStore = Depends(get_relation_store),
     post_store: PostStore = Depends(get_post_store),
-    place_store: PlaceStore = Depends(get_place_store),
     wrapped_user: JimoUser = Depends(get_caller_user),
     requested_user: JimoUser = Depends(get_requested_user),
 ):

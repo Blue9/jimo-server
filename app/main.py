@@ -10,16 +10,22 @@ from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
-from app import api, config
-from app.api import utils
-from app.api.types.image import ImageUploadResponse
-from app.controllers.dependencies import (
-    JimoUser,
-    get_caller_user,
-    get_authorization_header,
-)
-from app.controllers.firebase import FirebaseUser, get_firebase_user
-from app.db.database import get_db
+from app.core import config
+from app.core.database import get_db
+from app.core.firebase import FirebaseUser, get_firebase_user
+from app.features import utils
+from app.features.admin.routes import router as admin_router
+from app.features.comments.routes import router as comment_router
+from app.features.feedback.routes import router as feedback_router
+from app.features.images.types import ImageUploadResponse
+from app.features.map.routes import router as map_router
+from app.features.me import router as me_router
+from app.features.notifications.routes import router as notification_router
+from app.features.places.routes import router as place_router
+from app.features.posts.routes import router as post_router
+from app.features.search.routes import router as search_router
+from app.features.users.dependencies import get_authorization_header, JimoUser, get_caller_user
+from app.features.users.routes import router as user_router
 from app.utils import get_logger
 
 log = get_logger(__name__)
@@ -106,13 +112,13 @@ async def upload_image(
     return ImageUploadResponse(image_id=image_upload.id)
 
 
-app.include_router(api.me.router, prefix="/me")
-app.include_router(api.mapV3.router, prefix="/map")
-app.include_router(api.notifications.router, prefix="/notifications")
-app.include_router(api.users.router, prefix="/users")
-app.include_router(api.comments.router, prefix="/comments")
-app.include_router(api.posts.router, prefix="/posts")
-app.include_router(api.places.router, prefix="/places")
-app.include_router(api.search.router, prefix="/search")
-app.include_router(api.feedback.router, prefix="/feedback")
-app.include_router(api.admin.router, prefix="/admin")
+app.include_router(me_router, prefix="/me")
+app.include_router(map_router, prefix="/map")
+app.include_router(notification_router, prefix="/notifications")
+app.include_router(user_router, prefix="/users")
+app.include_router(comment_router, prefix="/comments")
+app.include_router(post_router, prefix="/posts")
+app.include_router(place_router, prefix="/places")
+app.include_router(search_router, prefix="/search")
+app.include_router(feedback_router, prefix="/feedback")
+app.include_router(admin_router, prefix="/admin")
