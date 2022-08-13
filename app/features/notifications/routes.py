@@ -5,10 +5,10 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database.engine import get_db
+from app.features.notifications import tokens
 from app.features.users.entities import InternalUser
 from app.core.types import SimpleResponse
-from app.features.notifications import notifications
-from app.features.notifications.notification_store import NotificationStore
+from app.features.notifications.activity_feed_store import ActivityFeedStore
 from app.features.notifications.types import (
     NotificationTokenRequest,
     NotificationFeedResponse,
@@ -27,7 +27,7 @@ async def register_token(
     wrapped_user: JimoUser = Depends(get_caller_user),
 ):
     user: InternalUser = wrapped_user.user
-    await notifications.register_fcm_token(db, user.id, request.token)
+    await tokens.register_fcm_token(db, user.id, request.token)
     return {"success": True}
 
 
@@ -38,7 +38,7 @@ async def remove_token(
     wrapped_user: JimoUser = Depends(get_caller_user),
 ):
     user: InternalUser = wrapped_user.user
-    await notifications.remove_fcm_token(db, user.id, request.token)
+    await tokens.remove_fcm_token(db, user.id, request.token)
     return {"success": True}
 
 
@@ -46,7 +46,7 @@ async def remove_token(
 async def get_notification_feed(
     cursor: Optional[uuid.UUID] = None,
     post_store: PostStore = Depends(get_post_store),
-    notification_store: NotificationStore = Depends(get_notification_store),
+    notification_store: ActivityFeedStore = Depends(get_notification_store),
     wrapped_user: JimoUser = Depends(get_caller_user),
 ):
     """

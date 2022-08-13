@@ -1,12 +1,14 @@
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.tasks import BackgroundTaskHandler, get_task_handler
+from app.core.database.engine import get_db
 from app.core.types import SimpleResponse, CommentId
 from app.features.comments.comment_store import CommentStore
 from app.features.comments.entities import InternalComment
 from app.features.comments.types import CreateCommentRequest, LikeCommentResponse, Comment
+from app.features.notifications import push_notifications
 from app.features.posts import post_utils
 from app.features.posts.entities import InternalPost
 from app.features.posts.post_store import PostStore
@@ -26,7 +28,8 @@ router = APIRouter()
 @router.post("", response_model=Comment)
 async def create_comment(
     request: CreateCommentRequest,
-    task_handler: Optional[BackgroundTaskHandler] = Depends(get_task_handler),
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
     post_store: PostStore = Depends(get_post_store),
     comment_store: CommentStore = Depends(get_comment_store),
     relation_store: RelationStore = Depends(get_relation_store),
@@ -38,9 +41,13 @@ async def create_comment(
         post_store, relation_store, caller_user_id=user.id, post_id=request.post_id
     )
     comment = await comment_store.create_comment(user.id, post.id, content=request.content)
-    prefs = await user_store.get_user_preferences(post.user_id)
-    if task_handler and user.id != post.user_id and prefs.comment_notifications:
-        await task_handler.notify_comment(post, post.place.name, comment.content, comment_by=user)
+
+    async def notification_task():
+        prefs = await user_store.get_user_preferences(post.user_id)
+        if user.id != post.user_id and prefs.comment_notifications:
+            await push_notifications.notify_comment(db, post, post.place.name, comment.content, comment_by=user)
+
+    background_tasks.add_task(notification_task)
     return Comment(
         id=comment.id,
         user=user,
@@ -75,7 +82,8 @@ async def delete_comment(
 @router.post("/{comment_id}/likes", response_model=LikeCommentResponse)
 async def like_comment(
     comment_id: CommentId,
-    task_handler: Optional[BackgroundTaskHandler] = Depends(get_task_handler),
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
     comment_store: CommentStore = Depends(get_comment_store),
     post_store: PostStore = Depends(get_post_store),
     user_store: UserStore = Depends(get_user_store),
@@ -86,10 +94,14 @@ async def like_comment(
     if comment is None or not (await post_store.post_exists(post_id=comment.post_id)):
         raise HTTPException(404)
     await comment_store.like_comment(comment_id, user.id)
-    if task_handler and user.id != comment.user_id:
-        prefs = await user_store.get_user_preferences(comment.user_id)
-        if prefs.comment_liked_notifications:
-            await task_handler.notify_comment_liked(comment, liked_by=user)
+
+    async def task():
+        if user.id != comment.user_id:
+            prefs = await user_store.get_user_preferences(comment.user_id)
+            if prefs.comment_liked_notifications:
+                await push_notifications.notify_comment_liked(db, comment, liked_by=user)
+
+    background_tasks.add_task(task)
     return LikeCommentResponse(likes=await comment_store.get_like_count(comment_id))
 
 

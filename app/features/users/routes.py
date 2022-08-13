@@ -1,15 +1,15 @@
 import uuid
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database.engine import get_db
 from app.core.database.models import UserRelationRow, UserRelationType
 from app.core.firebase import FirebaseUser, get_firebase_user
-from app.core.tasks import BackgroundTaskHandler, get_task_handler
 from app.core.types import SimpleResponse, UserId, PostId
+from app.features.notifications import push_notifications
 from app.features.posts import post_utils
 from app.features.posts.post_store import PostStore
 from app.features.posts.types import PostFeedResponse
@@ -160,7 +160,8 @@ async def get_following(
 
 @router.post("/{username}/follow", response_model=FollowUserResponse)
 async def follow_user(
-    task_handler: Optional[BackgroundTaskHandler] = Depends(get_task_handler),
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
     user_store: UserStore = Depends(get_user_store),
     relation_store: RelationStore = Depends(get_relation_store),
     wrapped_user: JimoUser = Depends(get_caller_user),
@@ -174,9 +175,13 @@ async def follow_user(
         raise HTTPException(400, "Cannot follow yourself")
     try:
         await relation_store.follow_user(from_user.id, to_user.id)
-        prefs = await user_store.get_user_preferences(to_user.id)
-        if task_handler and prefs.follow_notifications:
-            await task_handler.notify_follow(to_user.id, followed_by=from_user)
+
+        async def notify_task():
+            prefs = await user_store.get_user_preferences(to_user.id)
+            if prefs.follow_notifications:
+                await push_notifications.notify_follow(db, to_user.id, followed_by=from_user)
+
+        background_tasks.add_task(notify_task)
         return FollowUserResponse(followed=True, followers=to_user.follower_count + 1)
     except ValueError as e:
         raise HTTPException(400, detail=str(e))

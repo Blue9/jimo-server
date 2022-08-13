@@ -2,7 +2,7 @@ import random
 import uuid
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile, File, Query
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from sqlalchemy import union_all, select
@@ -12,11 +12,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database.engine import get_db
 from app.core.database.models import UserRelationRow, UserRow, UserRelationType
 from app.core.firebase import FirebaseUser, get_firebase_user
-from app.core.tasks import BackgroundTaskHandler, get_task_handler
 from app.core.types import SimpleResponse
 from app.features.images import image_utils
+from app.features.notifications import push_notifications
 from app.features.places.entities import Location
-from app.features.places.place_store import PlaceStore
 from app.features.posts.entities import Post
 from app.features.posts.feed_store import FeedStore
 from app.features.posts.post_store import PostStore
@@ -26,7 +25,6 @@ from app.features.stores import (
     get_user_store,
     get_post_store,
     get_feed_store,
-    get_place_store,
 )
 from app.features.users.dependencies import JimoUser, get_caller_user
 from app.features.users.entities import PublicUser, UserPrefs, SuggestedUserIdItem, InternalUser
@@ -264,8 +262,8 @@ async def get_existing_users(
 @router.post("/following", response_model=SimpleResponse)
 async def follow_many(
     request: UsernameList,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
-    task_handler: Optional[BackgroundTaskHandler] = Depends(get_task_handler),
     user_store: UserStore = Depends(get_user_store),
     wrapped_user: JimoUser = Depends(get_caller_user),
 ):
@@ -298,12 +296,14 @@ async def follow_many(
     except IntegrityError:
         raise HTTPException(400)
 
-    # Note: This makes N+1 queries, one for each followed user and one for the current user, we can optimize this later
-    if task_handler:
+    # Note: This makes N queries, can optimize later
+    async def task():
         for followed in users_to_follow:
             prefs = await user_store.get_user_preferences(followed)
             if prefs.follow_notifications:
-                await task_handler.notify_follow(followed, followed_by=user)
+                await push_notifications.notify_follow(db, followed, followed_by=user)
+
+    background_tasks.add_task(task)
     return SimpleResponse(success=True)
 
 
@@ -311,7 +311,6 @@ async def follow_many(
 async def get_saved_posts(
     cursor: Optional[uuid.UUID] = None,
     post_store: PostStore = Depends(get_post_store),
-    place_store: PlaceStore = Depends(get_place_store),
     jimo_user: JimoUser = Depends(get_caller_user),
     user_store: UserStore = Depends(get_user_store),
 ):

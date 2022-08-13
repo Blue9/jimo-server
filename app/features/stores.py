@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database.engine import get_db
 from app.features.comments.comment_store import CommentStore
 from app.features.map.map_store import MapStore
-from app.features.notifications.notification_store import NotificationStore
+from app.features.notifications.activity_feed_store import ActivityFeedStore
 from app.features.places.place_store import PlaceStore
 from app.features.posts.feed_store import FeedStore
 from app.features.posts.post_store import PostStore
@@ -26,7 +26,7 @@ def get_map_store(db: AsyncSession = Depends(get_db)):
 
 
 def get_notification_store(db: AsyncSession = Depends(get_db)):
-    return NotificationStore(db=db)
+    return ActivityFeedStore(db=db)
 
 
 def get_place_store(db: AsyncSession = Depends(get_db)):

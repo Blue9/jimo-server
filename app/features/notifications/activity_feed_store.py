@@ -22,12 +22,12 @@ from app.core.database.models import (
 from app.core.types import UserId, PostId, CursorId
 from app.features.comments.entities import CommentWithoutLikeStatus
 from app.features.comments.types import Comment
-from app.features.notifications.entities import NotificationItem, ItemType
+from app.features.notifications.types import ItemType, NotificationItem
 from app.features.posts.entities import PostWithoutLikeSaveStatus, Post
 from app.features.posts.post_store import PostStore
 
 
-class NotificationStore:
+class ActivityFeedStore:
     def __init__(self, db: AsyncSession):
         self.db = db
 

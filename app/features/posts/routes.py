@@ -1,16 +1,18 @@
 import uuid
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.database.engine import get_db
 from app.core.firebase import FirebaseUser, get_firebase_user
-from app.core.tasks import BackgroundTaskHandler, get_task_handler
 from app.core.types import SimpleResponse
 from app.features.comments.comment_store import CommentStore
 from app.features.comments.entities import CommentWithoutLikeStatus
 from app.features.comments.types import CommentPageResponse, Comment
-from app.features.places.place_store import PlaceStore
+from app.features.notifications import push_notifications
 from app.features.places import place_utils
+from app.features.places.place_store import PlaceStore
 from app.features.posts import post_utils
 from app.features.posts.entities import Post, InternalPost
 from app.features.posts.post_store import PostStore
@@ -149,7 +151,8 @@ async def delete_post(
 @router.post("/{post_id}/likes", response_model=LikePostResponse)
 async def like_post(
     post_id: uuid.UUID,
-    task_handler: Optional[BackgroundTaskHandler] = Depends(get_task_handler),
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
     user_store: UserStore = Depends(get_user_store),
     post_store: PostStore = Depends(get_post_store),
     relation_store: RelationStore = Depends(get_relation_store),
@@ -161,11 +164,14 @@ async def like_post(
         post_store, relation_store, caller_user_id=user.id, post_id=post_id
     )
     await post_store.like_post(user.id, post.id)
-    # Notify the user that their post was liked if they aren't the current user
-    if task_handler:
+
+    async def task():
+        # Notify the user that their post was liked if they aren't the current user
         prefs = await user_store.get_user_preferences(post.user_id)
         if user.id != post.user_id and prefs.post_liked_notifications:
-            await task_handler.notify_post_liked(post, place_name=post.place.name, liked_by=user)
+            await push_notifications.notify_post_liked(db, post, place_name=post.place.name, liked_by=user)
+
+    background_tasks.add_task(task)
     return {"likes": await post_store.get_like_count(post.id)}
 
 
@@ -188,7 +194,8 @@ async def unlike_post(
 @router.post("/{post_id}/save", response_model=SimpleResponse)
 async def save_post(
     post_id: uuid.UUID,
-    task_handler: Optional[BackgroundTaskHandler] = Depends(get_task_handler),
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
     user_store: UserStore = Depends(get_user_store),
     post_store: PostStore = Depends(get_post_store),
     relation_store: RelationStore = Depends(get_relation_store),
@@ -200,11 +207,13 @@ async def save_post(
         post_store, relation_store, caller_user_id=user.id, post_id=post_id
     )
     await post_store.save_post(user.id, post.id)
-    # Notify the user that their post was saved if they aren't the current user
-    if task_handler:
+
+    async def task():
         prefs = await user_store.get_user_preferences(post.user_id)
         if user.id != post.user_id and prefs.post_liked_notifications:
-            await task_handler.notify_post_saved(post, place_name=post.place.name, saved_by=user)
+            await push_notifications.notify_post_saved(db, post, place_name=post.place.name, saved_by=user)
+
+    background_tasks.add_task(task)
     return {"success": True}
 
 

@@ -1,8 +1,6 @@
 import os
 from typing import Optional
 
-from app.core.tasks import CloudTasksConfig
-
 SQLALCHEMY_DATABASE_URL: str = os.environ["DATABASE_URL"]
 
 REDIS_URL: str = os.environ["REDIS_URL"]
@@ -17,15 +15,6 @@ ENABLE_DOCS: bool = os.environ.get("ENABLE_DOCS") == "1"
 
 # Firebase storage bucket for user images
 STORAGE_BUCKET: str = os.environ.get("STORAGE_BUCKET", "goodplaces-app.appspot.com")
-
-# Cloud Tasks config
-CLOUD_TASKS_CONFIG: Optional[CloudTasksConfig] = None
-_cloud_tasks_config: Optional[str] = os.environ.get("CLOUD_TASKS_CONFIG")
-if _cloud_tasks_config:
-    try:
-        CLOUD_TASKS_CONFIG = CloudTasksConfig.parse_raw(_cloud_tasks_config)
-    except ValueError:
-        print(f"Malformed cloud tasks config: {_cloud_tasks_config}")
 
 # App-related configuration
 _invites_per_user: Optional[str] = os.environ.get("INVITES_PER_USER")
