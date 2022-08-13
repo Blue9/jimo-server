@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database.engine import get_db
-from app.core.internal import InternalUser
+from app.features.users.entities import InternalUser
 from app.core.types import SimpleResponse
 from app.features.notifications import notifications
 from app.features.notifications.notification_store import NotificationStore
@@ -15,7 +15,7 @@ from app.features.notifications.types import (
 )
 from app.features.posts.post_store import PostStore
 from app.features.users.dependencies import JimoUser, get_caller_user
-from app.features.utils import get_post_store, get_notification_store
+from app.features.stores import get_post_store, get_notification_store
 
 router = APIRouter()
 

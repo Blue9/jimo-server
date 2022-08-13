@@ -2,17 +2,17 @@ import uuid
 from contextlib import contextmanager
 
 import pytest
-from shared.api.comment import Comment
-from shared.models.models import (
+from sqlalchemy import select
+
+from app.core.database.models import (
     UserRow,
     PlaceRow,
     PostRow,
     UserRelationRow,
     UserRelationType,
 )
-from sqlalchemy import select
-
 from app.core.firebase import get_firebase_user, FirebaseUser
+from app.features.comments.types import Comment
 from app.features.comments.types import (
     CreateCommentRequest,
     LikeCommentResponse,

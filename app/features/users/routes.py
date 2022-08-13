@@ -8,19 +8,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database.engine import get_db
 from app.core.database.models import UserRelationRow, UserRelationType
 from app.core.firebase import FirebaseUser, get_firebase_user
-from app.core.internal import InternalUser
 from app.core.tasks import BackgroundTaskHandler, get_task_handler
-from app.core.types import SimpleResponse
-from app.features import utils
-from app.features.posts.entities import Post
+from app.core.types import SimpleResponse, UserId, PostId
+from app.features.posts import post_utils
 from app.features.posts.post_store import PostStore
 from app.features.posts.types import PostFeedResponse
+from app.features.stores import get_user_store, get_relation_store, get_post_store
 from app.features.users.dependencies import (
     get_caller_user,
     get_requested_user,
     JimoUser,
 )
-from app.features.users.entities import UserFieldErrors, PublicUser
+from app.features.users.entities import UserFieldErrors, PublicUser, InternalUser
 from app.features.users.relation_store import RelationStore
 from app.features.users.types import (
     CreateUserResponse,
@@ -30,7 +29,6 @@ from app.features.users.types import (
     CreateUserRequest,
 )
 from app.features.users.user_store import UserStore
-from app.features.utils import get_user_store, get_relation_store, get_post_store
 
 router = APIRouter()
 
@@ -69,7 +67,7 @@ async def get_user(
     """Get the given user's details."""
     caller_user: InternalUser = wrapped_user.user
     user: InternalUser = requested_user.user
-    return await utils.validate_user(relation_store, caller_user_id=caller_user.id, user=user)
+    return await validate_user(relation_store, caller_user_id=caller_user.id, user=user)
 
 
 @router.get("/{username}/posts", response_model=PostFeedResponse)
@@ -77,6 +75,7 @@ async def get_posts(
     cursor: Optional[uuid.UUID] = None,
     limit: Optional[int] = 15,
     relation_store: RelationStore = Depends(get_relation_store),
+    user_store: UserStore = Depends(get_user_store),
     post_store: PostStore = Depends(get_post_store),
     wrapped_user: JimoUser = Depends(get_caller_user),
     requested_user: JimoUser = Depends(get_requested_user),
@@ -87,38 +86,15 @@ async def get_posts(
     page_size = limit
     caller_user: InternalUser = wrapped_user.user
     maybe_user = requested_user.user
-    user = await utils.validate_user(relation_store, caller_user_id=caller_user.id, user=maybe_user)
+    user = await validate_user(relation_store, caller_user_id=caller_user.id, user=maybe_user)
     if await relation_store.is_blocked(blocked_by_user_id=caller_user.id, blocked_user_id=user.id):
         raise HTTPException(403)
     # Step 1: Get post ids
     post_ids = await post_store.get_post_ids(user.id, cursor=cursor, limit=page_size)
     if len(post_ids) == 0:
         return PostFeedResponse(posts=[], cursor=None)
-    # Step 2: Get posts
-    internal_posts = await post_store.get_posts(post_ids)
-    # Step 3: Get like and save statuses for each post
-    liked_post_ids = await post_store.get_liked_posts(caller_user.id, post_ids)
-    saved_post_ids = await post_store.get_saved_posts(caller_user.id, post_ids)
-
-    posts = []
-    for post in internal_posts:
-        public_post = Post(
-            id=post.id,
-            place=post.place,
-            category=post.category,
-            content=post.content,
-            image_id=post.image_id,
-            image_url=post.image_url,
-            created_at=post.created_at,
-            like_count=post.like_count,
-            comment_count=post.comment_count,
-            user=user,
-            liked=post.id in liked_post_ids,
-            saved=post.id in saved_post_ids,
-        )
-        posts.append(public_post)
-
-    next_cursor: Optional[uuid.UUID] = min(post.id for post in posts) if len(posts) >= page_size else None
+    posts = await post_utils.get_posts_from_post_ids(caller_user, post_ids, post_store, user_store)
+    next_cursor: Optional[PostId] = min(post.id for post in posts) if len(posts) >= page_size else None
     return PostFeedResponse(posts=posts, cursor=next_cursor)
 
 
@@ -132,7 +108,7 @@ async def get_relation(
     """Get the relationship to the given user."""
     from_user: InternalUser = wrapped_user.user
     maybe_to_user = requested_user.user
-    to_user = await utils.validate_user(relation_store, caller_user_id=from_user.id, user=maybe_to_user)
+    to_user = await validate_user(relation_store, caller_user_id=from_user.id, user=maybe_to_user)
     # TODO(gmekkat): Don't use select here
     relation_query = select(UserRelationRow.relation).where(
         UserRelationRow.from_user_id == from_user.id,
@@ -154,7 +130,7 @@ async def get_followers(
     limit = 25
     current_user: InternalUser = wrapped_user.user
     maybe_to_user = requested_user.user
-    to_user = await utils.validate_user(relation_store, caller_user_id=current_user.id, user=maybe_to_user)
+    to_user = await validate_user(relation_store, caller_user_id=current_user.id, user=maybe_to_user)
     user_ids, next_cursor = await relation_store.get_followers(to_user.id, cursor, limit)
     relations = await relation_store.get_relations(current_user.id, user_ids)
     users = await user_store.get_users(user_ids)
@@ -174,7 +150,7 @@ async def get_following(
     limit = 25
     current_user: InternalUser = wrapped_user.user
     maybe_from_user = requested_user.user
-    from_user = await utils.validate_user(relation_store, caller_user_id=current_user.id, user=maybe_from_user)
+    from_user = await validate_user(relation_store, caller_user_id=current_user.id, user=maybe_from_user)
     user_ids, next_cursor = await relation_store.get_following(from_user.id, cursor, limit)
     relations = await relation_store.get_relations(current_user.id, user_ids)
     users = await user_store.get_users(user_ids)
@@ -193,7 +169,7 @@ async def follow_user(
     """Follow the given user."""
     from_user: InternalUser = wrapped_user.user
     maybe_to_user = requested_user.user
-    to_user = await utils.validate_user(relation_store, caller_user_id=from_user.id, user=maybe_to_user)
+    to_user = await validate_user(relation_store, caller_user_id=from_user.id, user=maybe_to_user)
     if to_user.id == from_user.id:
         raise HTTPException(400, "Cannot follow yourself")
     try:
@@ -215,7 +191,7 @@ async def unfollow_user(
     """Unfollow the given user."""
     from_user: InternalUser = wrapped_user.user
     maybe_to_user = requested_user.user
-    to_user = await utils.validate_user(relation_store, caller_user_id=from_user.id, user=maybe_to_user)
+    to_user = await validate_user(relation_store, caller_user_id=from_user.id, user=maybe_to_user)
     if to_user.id == from_user.id:
         raise HTTPException(400, "Cannot follow yourself")
     try:
@@ -234,7 +210,7 @@ async def block_user(
     """Block the given user."""
     from_user: InternalUser = wrapped_user.user
     maybe_to_block = requested_user.user
-    to_block = await utils.validate_user(relation_store, from_user.id, maybe_to_block)
+    to_block = await validate_user(relation_store, from_user.id, maybe_to_block)
     if from_user.id == to_block.id:
         raise HTTPException(400, detail="Cannot block yourself")
     try:
@@ -253,7 +229,7 @@ async def unblock_user(
     """Unblock the given user."""
     from_user: InternalUser = wrapped_user.user
     maybe_to_user = requested_user.user
-    to_user = await utils.validate_user(relation_store, from_user.id, maybe_to_user)
+    to_user = await validate_user(relation_store, from_user.id, maybe_to_user)
     if from_user.id == to_user.id:
         raise HTTPException(400, detail="Cannot block yourself")
     try:
@@ -261,3 +237,17 @@ async def unblock_user(
         return SimpleResponse(success=True)
     except ValueError as e:
         raise HTTPException(400, str(e))
+
+
+async def validate_user(
+    relation_store: RelationStore,
+    caller_user_id: UserId,
+    user: Optional[InternalUser],
+) -> InternalUser:
+    if (
+        user is None
+        or user.deleted
+        or await relation_store.is_blocked(blocked_by_user_id=user.id, blocked_user_id=caller_user_id)
+    ):
+        raise HTTPException(404, detail="User not found")
+    return user

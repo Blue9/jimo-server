@@ -3,12 +3,13 @@ from contextlib import contextmanager
 from unittest.mock import AsyncMock
 
 import pytest
+import pytest_asyncio
 from fastapi.encoders import jsonable_encoder
-from shared.api.place import Location
-from shared.api.post import PostWithoutLikeSaveStatus
-from shared.models.models import UserRow, PlaceRow, ImageUploadRow, PostRow
 
+from app.core.database.models import UserRow, PlaceRow, ImageUploadRow, PostRow
 from app.core.firebase import get_firebase_user, FirebaseUser
+from app.features.places.entities import Location
+from app.features.posts.entities import PostWithoutLikeSaveStatus
 from app.features.posts.types import CreatePostRequest, MaybeCreatePlaceRequest
 from app.main import app as main_app
 from tests.mock_firebase import MockFirebaseAdmin
@@ -24,7 +25,7 @@ PLACE_ONE_ID = uuid.uuid4()
 PLACE_TWO_ID = uuid.uuid4()
 
 
-@pytest.fixture(autouse=True, scope="function")
+@pytest_asyncio.fixture(autouse=True, scope="function")
 async def setup_fixture(session):
     user_a = UserRow(id=USER_A_ID, uid="a", username="a", first_name="a", last_name="a")
     user_b = UserRow(id=USER_B_ID, uid="b", username="b", first_name="b", last_name="b")

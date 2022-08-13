@@ -1,9 +1,9 @@
-import datetime
+from datetime import datetime
 
 from pydantic import Field, validator
 
 from app.features.users.entities import PublicUser
-from app.core.types import Base, PostId, CommentId
+from app.core.types import Base, PostId, CommentId, InternalBase, UserId
 
 
 class CommentWithoutLikeStatus(Base):
@@ -11,7 +11,7 @@ class CommentWithoutLikeStatus(Base):
     user: PublicUser
     post_id: PostId
     content: str
-    created_at: datetime.datetime
+    created_at: datetime
     like_count: int
 
     @validator("created_at")
@@ -20,5 +20,10 @@ class CommentWithoutLikeStatus(Base):
         return created_at.replace(microsecond=0)
 
 
-class Comment(CommentWithoutLikeStatus):
-    liked: bool
+class InternalComment(InternalBase):
+    id: CommentId
+    user_id: UserId
+    post_id: PostId
+    content: str
+    deleted: bool
+    created_at: datetime

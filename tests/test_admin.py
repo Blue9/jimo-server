@@ -5,13 +5,13 @@ from unittest import mock
 import pytest
 import pytest_asyncio
 from fastapi import HTTPException
-from shared.models.models import UserRow, PlaceRow, PostRow
-from shared.stores.user_store import UserStore
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.database.models import UserRow, PlaceRow, PostRow
 from app.core.firebase import FirebaseUser, get_firebase_user
 from app.features.admin.routes import get_admin_or_raise
+from app.features.users.user_store import UserStore
 from app.main import app as main_app
 from tests.mock_firebase import MockFirebaseAdmin
 

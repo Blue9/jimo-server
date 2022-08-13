@@ -18,9 +18,8 @@ from app.core.database.models import (
     FeedbackRow,
 )
 from app.core.firebase import FirebaseUser, get_firebase_user
-from app.core.internal import InternalUser
+from app.features.users.entities import InternalUser
 from app.core.types import SimpleResponse
-from app.features import utils
 from app.features.admin.types import (
     AdminResponsePage,
     AdminAPIUser,
@@ -33,18 +32,25 @@ from app.features.admin.types import (
 )
 from app.features.users.dependencies import get_redis
 from app.features.users.user_store import UserStore
-from app.features.utils import get_user_store
+from app.features.stores import get_user_store
 
 router = APIRouter()
 
 Page = namedtuple("Page", ["offset", "limit"])
 
 
+async def get_user_from_uid_or_raise(user_store: UserStore, uid: str) -> InternalUser:
+    user: Optional[InternalUser] = await user_store.get_user(uid=uid)
+    if user is None or user.deleted:
+        raise HTTPException(403)
+    return user
+
+
 async def get_admin_or_raise(
     firebase_user: FirebaseUser = Depends(get_firebase_user),
     user_store: UserStore = Depends(get_user_store),
 ) -> InternalUser:
-    user: InternalUser = await utils.get_user_from_uid_or_raise(user_store, uid=firebase_user.uid)
+    user: InternalUser = await get_user_from_uid_or_raise(user_store, uid=firebase_user.uid)
     if not user.is_admin:
         raise HTTPException(403)
     return user

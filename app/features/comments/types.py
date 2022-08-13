@@ -3,7 +3,11 @@ from typing import Optional
 from pydantic import validator
 
 from app.core.types import Base, PostId, CursorId
-from app.features.comments.entities import Comment
+from app.features.comments.entities import CommentWithoutLikeStatus
+
+
+class Comment(CommentWithoutLikeStatus):
+    liked: bool
 
 
 class CreateCommentRequest(Base):

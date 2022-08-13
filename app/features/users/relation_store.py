@@ -1,13 +1,12 @@
-from typing import Callable, Optional, Tuple, Awaitable
+from typing import Callable, Optional, Awaitable
 
-from sqlalchemy import delete
+import sqlalchemy as sa
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.types import UserId, UserRelationId, CursorId
 from app.features.users.entities import UserRelation
 from app.core.database.models import UserRelationType, UserRelationRow
-from app.features.users.relation_query import UserRelationQuery
 
 
 class RelationStore:
@@ -18,49 +17,52 @@ class RelationStore:
 
     async def is_blocked(self, blocked_by_user_id: UserId, blocked_user_id: UserId) -> bool:
         """Return whether `blocked_by_user_id` has blocked `blocked_user_id`."""
-        return (
-            await UserRelationQuery(UserRelationType.blocked)
-            .from_user_id(blocked_by_user_id)
-            .to_user_id(blocked_user_id)
-            .execute_exists(self.db)
+        query = sa.select(UserRelationRow.id).where(
+            UserRelationRow.relation == UserRelationType.blocked,
+            UserRelationRow.from_user_id == blocked_by_user_id,
+            UserRelationRow.to_user_id == blocked_user_id,
         )
+        result = await self.db.execute(query.exists().select())
+        is_blocked: bool = result.scalar()  # type: ignore
+        return is_blocked
 
-    # Queries
     async def get_followers(
-        self, user_id: UserId, cursor: Optional[UserRelationId] = None, limit: int = 25
-    ) -> Tuple[list[UserId], Optional[CursorId]]:
-        rows = (
-            await UserRelationQuery(UserRelationType.following)
-            .to_user_id(user_id)
-            .cursor(cursor)
-            .order_by(UserRelationRow.id.desc())
-            .limit(limit)
-            .execute_many(self.db)
+        self, user_id: UserId, before_id: Optional[UserRelationId] = None, limit: int = 25
+    ) -> tuple[list[UserId], Optional[CursorId]]:
+        query = sa.select(UserRelationRow).where(
+            UserRelationRow.relation == UserRelationType.following, UserRelationRow.to_user_id == user_id
         )
-        user_ids = [row.from_user_id for row in rows]
-        next_cursor: Optional[CursorId] = rows[-1].id if len(rows) >= limit else None
-        return user_ids, next_cursor
+        if before_id:
+            query = query.where(UserRelationRow.id < before_id)
+        query = query.order_by(UserRelationRow.id.desc()).limit(limit)
+        result = await self.db.execute(query)
+        rows: list[UserRelationRow] = result.scalars().all()
+        user_ids: list[UserId] = [row.from_user_id for row in rows]
+        cursor = rows[-1].id if len(rows) == limit else None
+        return user_ids, cursor
 
     async def get_following(
-        self, user_id: UserId, cursor: Optional[UserRelationId] = None, limit: int = 25
-    ) -> Tuple[list[UserId], Optional[CursorId]]:
-        rows = (
-            await UserRelationQuery(UserRelationType.following)
-            .from_user_id(user_id)
-            .cursor(cursor)
-            .order_by(UserRelationRow.id.desc())
-            .limit(limit)
-            .execute_many(self.db)
+        self, user_id: UserId, before_id: Optional[UserRelationId] = None, limit: int = 25
+    ) -> tuple[list[UserId], Optional[CursorId]]:
+        query = sa.select(UserRelationRow).where(
+            UserRelationRow.relation == UserRelationType.following, UserRelationRow.from_user_id == user_id
         )
-        user_ids = [row.to_user_id for row in rows]
-        next_cursor: Optional[CursorId] = rows[-1].id if len(rows) >= limit else None
-        return user_ids, next_cursor
+        if before_id:
+            query = query.where(UserRelationRow.id < before_id)
+        query = query.order_by(UserRelationRow.id.desc()).limit(limit)
+        result = await self.db.execute(query)
+        rows: list[UserRelationRow] = result.scalars().all()
+        user_ids: list[UserId] = [row.to_user_id for row in rows]
+        cursor = rows[-1].id if len(rows) == limit else None
+        return user_ids, cursor
 
     async def get_relations(self, from_user_id: UserId, to_user_ids: list[UserId]) -> dict[UserId, UserRelation]:
-        row = await UserRelationQuery().from_user_id(from_user_id).to_user_id_in(to_user_ids).execute_many(self.db)
-        return {row.to_user_id: UserRelation[row.relation.value] for row in row}
-
-    # Operations
+        query = sa.select(UserRelationRow).where(
+            UserRelationRow.from_user_id == from_user_id, UserRelationRow.to_user_id.in_(to_user_ids)
+        )
+        result = await self.db.execute(query)
+        rows: list[UserRelationRow] = result.scalars().all()
+        return {row.to_user_id: UserRelation[row.relation.value] for row in rows}
 
     async def follow_user(self, from_user_id: UserId, to_user_id: UserId) -> None:
         existing = await self._try_add_relation(from_user_id, to_user_id, UserRelationType.following)
@@ -86,7 +88,7 @@ class RelationStore:
         #  and they will be unable to unblock each other.
         # TODO: race condition 2: If B follows A after this transaction starts the follow will go through.
         async def before_commit() -> None:
-            query = delete(UserRelationRow).where(
+            query = sa.delete(UserRelationRow).where(
                 UserRelationRow.from_user_id == to_user_id,
                 UserRelationRow.to_user_id == from_user_id,
                 UserRelationRow.relation == UserRelationType.following,
@@ -119,12 +121,11 @@ class RelationStore:
         before_commit: Optional[Callable[[], Awaitable[None]]] = None,
     ) -> Optional[UserRelationType]:
         """Try to add the relation, returning the existing relation if one already exists."""
-        existing_relation: Optional[UserRelationType] = (
-            await UserRelationQuery(UserRelationRow.relation)
-            .from_user_id(from_user_id)
-            .to_user_id(to_user_id)
-            .execute_one(self.db)
+        query = sa.select(UserRelationRow.relation).where(
+            UserRelationRow.from_user_id == from_user_id, UserRelationRow.to_user_id == to_user_id
         )
+        result = await self.db.execute(query)
+        existing_relation: Optional[UserRelationType] = result.scalars().first()
         if existing_relation:
             return existing_relation
         # else:
@@ -142,7 +143,7 @@ class RelationStore:
 
     async def _remove_relation(self, from_user_id: UserId, to_user_id: UserId, relation: UserRelationType) -> bool:
         """Try to remove the relation, returning true if the relation was deleted and false if it didn't exist."""
-        delete_query = delete(UserRelationRow).where(
+        delete_query = sa.delete(UserRelationRow).where(
             UserRelationRow.from_user_id == from_user_id,
             UserRelationRow.to_user_id == to_user_id,
             UserRelationRow.relation == relation,

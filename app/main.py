@@ -12,8 +12,8 @@ from starlette.responses import JSONResponse, Response
 from app.core import config
 from app.core.database.engine import get_db
 from app.core.firebase import FirebaseUser, get_firebase_user
-from app.core.internal import InternalUser
-from app.features import utils
+from app.features.images import image_utils
+from app.features.users.entities import InternalUser
 from app.features.admin.routes import router as admin_router
 from app.features.comments.routes import router as comment_router
 from app.features.feedback.routes import router as feedback_router
@@ -52,13 +52,14 @@ def get_app() -> FastAPI:
             allow_methods=["*"],
             allow_headers=["*"],
         )
-    log.warning("Rate limiting to %s", config.RATE_LIMIT_CONFIG)
-    _app.state.limiter = Limiter(
-        key_func=get_authorization_header,
-        default_limits=[config.RATE_LIMIT_CONFIG],
-        storage_uri=config.REDIS_URL,
-    )
-    _app.add_middleware(SlowAPIMiddleware)
+    if config.RATE_LIMIT_CONFIG:
+        log.warning("Rate limiting to %s", config.RATE_LIMIT_CONFIG)
+        _app.state.limiter = Limiter(
+            key_func=get_authorization_header,
+            default_limits=[config.RATE_LIMIT_CONFIG],
+            storage_uri=config.REDIS_URL,
+        )
+        _app.add_middleware(SlowAPIMiddleware)
     return _app
 
 
@@ -112,7 +113,7 @@ async def upload_image(
 ):
     """Upload the given image to Firebase if allowed, returning the image id (used for posts + profile pictures)."""
     user: InternalUser = wrapped_user.user
-    image_upload = await utils.upload_image(file, user, firebase_user.shared_firebase, db)
+    image_upload = await image_utils.upload_image(file, user, firebase_user.shared_firebase, db)
     return ImageUploadResponse(image_id=image_upload.id)
 
 

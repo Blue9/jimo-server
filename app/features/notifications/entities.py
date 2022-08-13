@@ -5,11 +5,11 @@ from uuid import UUID
 
 from pydantic import validator
 
-from app.core.internal import InternalPost, InternalUser, InternalComment
-from app.features.posts.entities import Post
-from app.features.users.entities import PublicUser
+from app.features.posts.entities import Post, InternalPost
+from app.features.users.entities import PublicUser, InternalUser
 from app.core.types import Base, UserId
-from app.features.comments.entities import Comment
+from app.features.comments.entities import InternalComment
+from app.features.comments.types import Comment
 
 
 class ItemType(Enum):

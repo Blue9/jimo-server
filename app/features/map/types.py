@@ -3,7 +3,7 @@ from typing import Optional
 from pydantic import validator
 
 from app.core.types import Base, Category, UserId
-from app.features.map.entities import MapPinV3
+from app.features.map.entities import MapPin
 from app.features.places.entities import Region
 
 
@@ -37,4 +37,4 @@ class CustomPlaceLoadRequest(PlaceLoadRequest):
 
 
 class MapResponseV3(Base):
-    pins: list[MapPinV3]
+    pins: list[MapPin]

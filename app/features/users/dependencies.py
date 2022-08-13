@@ -7,9 +7,9 @@ from fastapi import Depends, HTTPException, Request
 
 from app.core.config import REDIS_URL
 from app.core.firebase import FirebaseUser, get_firebase_user
-from app.core.internal import InternalUser
+from app.features.users.entities import InternalUser
 from app.features.users.user_store import UserStore
-from app.features.utils import get_user_store
+from app.features.stores import get_user_store
 
 
 @dataclass
@@ -34,14 +34,14 @@ async def get_caller_user(
     firebase_user: FirebaseUser = Depends(get_firebase_user),
     user_store: UserStore = Depends(get_user_store),
 ) -> JimoUser:
-    user: Optional[InternalUser] = await user_store.get_user_by_uid(firebase_user.uid)
+    user: Optional[InternalUser] = await user_store.get_user(uid=firebase_user.uid)
     if user is None or user.deleted:
         raise HTTPException(403)
     return JimoUser(user=user)
 
 
 async def get_requested_user(username: str, user_store: UserStore = Depends(get_user_store)) -> JimoUser:
-    user: Optional[InternalUser] = await user_store.get_user_by_username(username)
+    user: Optional[InternalUser] = await user_store.get_user(username=username)
     if user is None or user.deleted:
         raise HTTPException(404)
     return JimoUser(user=user)

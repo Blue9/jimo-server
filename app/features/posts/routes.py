@@ -4,15 +4,15 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, Depends
 
 from app.core.firebase import FirebaseUser, get_firebase_user
-from app.core.internal import InternalUser, InternalPost
 from app.core.tasks import BackgroundTaskHandler, get_task_handler
 from app.core.types import SimpleResponse
-from app.features import utils
 from app.features.comments.comment_store import CommentStore
-from app.features.comments.entities import Comment
-from app.features.comments.types import CommentPageResponse
+from app.features.comments.entities import CommentWithoutLikeStatus
+from app.features.comments.types import CommentPageResponse, Comment
 from app.features.places.place_store import PlaceStore
-from app.features.posts.entities import Post
+from app.features.places import place_utils
+from app.features.posts import post_utils
+from app.features.posts.entities import Post, InternalPost
 from app.features.posts.post_store import PostStore
 from app.features.posts.types import (
     CreatePostRequest,
@@ -20,16 +20,17 @@ from app.features.posts.types import (
     LikePostResponse,
     ReportPostRequest,
 )
-from app.features.users.dependencies import get_caller_user, JimoUser
-from app.features.users.relation_store import RelationStore
-from app.features.users.user_store import UserStore
-from app.features.utils import (
+from app.features.stores import (
     get_user_store,
     get_post_store,
     get_relation_store,
     get_place_store,
     get_comment_store,
 )
+from app.features.users.dependencies import get_caller_user, JimoUser
+from app.features.users.entities import InternalUser
+from app.features.users.relation_store import RelationStore
+from app.features.users.user_store import UserStore
 from app.utils import get_logger
 
 router = APIRouter()
@@ -46,10 +47,10 @@ async def get_post(
 ):
     """Get the given post."""
     current_user: InternalUser = wrapped_user.user
-    post: InternalPost = await utils.get_post_and_validate_or_raise(
+    post: InternalPost = await post_utils.get_post_and_validate_or_raise(
         post_store, relation_store, current_user.id, post_id
     )
-    post_author: Optional[InternalUser] = await user_store.get_user(post.user_id)
+    post_author: Optional[InternalUser] = await user_store.get_user(user_id=post.user_id)
     if post_author is None:
         log.error("Expected user to exist, found None", post.user_id)
         raise HTTPException(404)
@@ -76,11 +77,14 @@ async def create_post(
     wrapped_user: JimoUser = Depends(get_caller_user),
 ):
     """Create a new post."""
+    user: InternalUser = wrapped_user.user
     try:
-        if req.place_id is None and req.place is None:
+        if req.place_id:
+            place_id = req.place_id
+        elif req.place:
+            place_id = await place_utils.get_or_create_place(user.id, req.place, place_store)
+        else:
             raise HTTPException(400, "Either place_id or place must be specified")
-        user: InternalUser = wrapped_user.user
-        place_id = req.place_id or await utils.get_or_create_place(user.id, req.place, place_store)  # type: ignore
         post: InternalPost = await post_store.create_post(user.id, place_id, req.category, req.content, req.image_id)
         return Post(**post.dict(), user=user, liked=False, saved=False)
     except ValueError as e:
@@ -104,9 +108,12 @@ async def update_post(
             raise HTTPException(404)
         if old_post.user_id != user.id:
             raise HTTPException(403)
-        if req.place_id is None and req.place is None:
+        if req.place_id:
+            place_id = req.place_id
+        elif req.place:
+            place_id = await place_utils.get_or_create_place(user.id, req.place, place_store)
+        else:
             raise HTTPException(400, "Either place_id or place must be specified")
-        place_id = req.place_id or await utils.get_or_create_place(user.id, req.place, place_store)  # type: ignore
         updated_post = await post_store.update_post(post_id, place_id, req.category, req.content, req.image_id)
         if old_post.image_id and old_post.image_id != updated_post.image_id:
             # Delete old image
@@ -134,7 +141,7 @@ async def delete_post(
     if post is not None and post.user_id == user.id:
         await post_store.delete_post(post.id)
         if post.image_blob_name is not None:
-            await firebase_user.shared_firebase.make_image_private(post.image_blob_name)
+            await firebase_user.shared_firebase.delete_image(post.image_blob_name)
         return DeletePostResponse(deleted=True)
     return DeletePostResponse(deleted=False)
 
@@ -150,7 +157,7 @@ async def like_post(
 ):
     """Like the given post if the user has not already liked the post."""
     user: InternalUser = wrapped_user.user
-    post = await utils.get_post_and_validate_or_raise(
+    post = await post_utils.get_post_and_validate_or_raise(
         post_store, relation_store, caller_user_id=user.id, post_id=post_id
     )
     await post_store.like_post(user.id, post.id)
@@ -171,7 +178,7 @@ async def unlike_post(
 ):
     """Unlike the given post if the user has already liked the post."""
     user: InternalUser = wrapped_user.user
-    post = await utils.get_post_and_validate_or_raise(
+    post = await post_utils.get_post_and_validate_or_raise(
         post_store, relation_store, caller_user_id=user.id, post_id=post_id
     )
     await post_store.unlike_post(user.id, post.id)
@@ -189,7 +196,7 @@ async def save_post(
 ):
     """Save the given post if the user has not already saved the post."""
     user: InternalUser = wrapped_user.user
-    post = await utils.get_post_and_validate_or_raise(
+    post = await post_utils.get_post_and_validate_or_raise(
         post_store, relation_store, caller_user_id=user.id, post_id=post_id
     )
     await post_store.save_post(user.id, post.id)
@@ -210,7 +217,7 @@ async def unsave_post(
 ):
     """Unsave the given post."""
     user: InternalUser = wrapped_user.user
-    post = await utils.get_post_and_validate_or_raise(
+    post = await post_utils.get_post_and_validate_or_raise(
         post_store, relation_store, caller_user_id=user.id, post_id=post_id
     )
     await post_store.unsave_post(user.id, post.id)
@@ -227,7 +234,7 @@ async def report_post(
 ):
     """Report the given post."""
     reported_by: InternalUser = wrapped_user.user
-    post = await utils.get_post_and_validate_or_raise(
+    post = await post_utils.get_post_and_validate_or_raise(
         post_store, relation_store, caller_user_id=reported_by.id, post_id=post_id
     )
     success = await post_store.report_post(post.id, reported_by.id, details=request.details)
@@ -244,11 +251,14 @@ async def get_comments(
     wrapped_user: JimoUser = Depends(get_caller_user),
 ) -> CommentPageResponse:
     user = wrapped_user.user
-    post = await utils.get_post_and_validate_or_raise(
+    post = await post_utils.get_post_and_validate_or_raise(
         post_store, relation_store, caller_user_id=user.id, post_id=post_id
     )
-    orm_comments, cursor = await comment_store.get_comments(post_id=post.id, cursor=cursor)
-    liked_comments = await comment_store.get_liked_comments(user.id, [c.id for c in orm_comments])
+    page_limit = 10
+    comments: list[CommentWithoutLikeStatus] = await comment_store.get_comments(
+        post_id=post.id, after_comment_id=cursor, limit=page_limit
+    )
+    liked_comments = await comment_store.get_liked_comments(user.id, [c.id for c in comments])
     comments = [
         Comment(
             id=c.id,
@@ -259,6 +269,7 @@ async def get_comments(
             like_count=c.like_count,
             liked=c.id in liked_comments,
         )
-        for c in orm_comments
+        for c in comments
     ]
+    cursor = comments[-1].id if len(comments) == page_limit else None
     return CommentPageResponse(comments=comments, cursor=cursor)

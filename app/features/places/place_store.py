@@ -1,52 +1,19 @@
 from typing import Optional
 
+import sqlalchemy as sa
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database.helpers import is_unique_column_error
-from app.core.database.models import PlaceRow, PlaceDataRow
-from app.core.types import UserId, PlaceId
+from app.core.database.models import PlaceRow, PlaceDataRow, PostRow, UserRelationRow, UserRelationType, PostSaveRow
+from app.core.types import UserId, PlaceId, PostId, Category
 from app.features.places.entities import Region, AdditionalPlaceData, Place
-from app.features.places.place_query import PlaceQuery
 
 
 class PlaceStore:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    # Queries
-    async def get_places(self, place_ids: set[PlaceId]) -> dict[PlaceId, Place]:
-        places = await PlaceQuery().place_id_in(place_ids).execute_many(self.db)
-        return {place.id: Place.from_orm(place) for place in places}
-
-    async def get_place_name(self, place_id: PlaceId) -> Optional[str]:
-        return await PlaceQuery(PlaceRow.name).place_id(place_id).execute_one(self.db)
-
-    # Operations
-
-    async def create_place(self, name: str, latitude: float, longitude: float) -> Place:
-        """Create a place in the database with the given details."""
-        place = PlaceRow(name=name, latitude=latitude, longitude=longitude)
-        try:
-            self.db.add(place)
-            await self.db.commit()
-            await self.db.refresh(place)
-            return Place.from_orm(place)
-        except IntegrityError as e:
-            await self.db.rollback()
-            if is_unique_column_error(e, PlaceRow.id.key):
-                raise ValueError("UUID collision")
-            # Otherwise, a place with the same (name, location) exists
-            existing_place = await PlaceQuery().name(name).location(latitude, longitude).execute_one(self.db)
-            if existing_place is None:
-                raise ValueError("Failed to retrieve place.")
-            return Place.from_orm(existing_place)
-
-    async def get_place_by_id(self, place_id: PlaceId) -> Optional[Place]:
-        place = await PlaceQuery().place_id(place_id).execute_one(self.db)
-        return Place.from_orm(place) if place else None
-
-    async def get_or_create_place(
+    async def find_or_create_place(
         self,
         name: str,
         latitude: float,
@@ -54,24 +21,12 @@ class PlaceStore:
         search_radius_meters: float = 10,
     ) -> Place:
         """Try to find an existing place matching the given request, otherwise create a place and return it."""
-        place = await self.get_place(name, latitude, longitude, search_radius_meters)
+        place = await self._find_place(name, latitude, longitude, search_radius_meters=search_radius_meters)
         if place is not None:
             return place
-        return await self.create_place(name, latitude, longitude)
+        return await self._create_place(name, latitude, longitude)
 
-    async def get_place(
-        self,
-        name: str,
-        latitude: float,
-        longitude: float,
-        search_radius_meters: float = 10,
-    ) -> Optional[Place]:
-        """Try to find a place with the given name that is within the given region."""
-        query = PlaceQuery().name(name).within_radius(latitude, longitude, search_radius_meters)
-        place = await query.execute_one(self.db)
-        return Place.from_orm(place) if place else None
-
-    async def maybe_create_place_data(
+    async def update_place_metadata(
         self,
         user_id: UserId,
         place_id: PlaceId,
@@ -91,3 +46,88 @@ class PlaceStore:
             await self.db.commit()
         except IntegrityError:
             await self.db.rollback()
+
+    async def get_community_posts(self, place_id: PlaceId, categories: Optional[list[Category]] = None) -> list[PostId]:
+        # TODO: this should probably not be in place store
+        query = (
+            sa.select(PostRow.id)
+            .where(PostRow.place_id == place_id, ~PostRow.deleted)
+            .where(PostRow.image_id.isnot(None) | (PostRow.content != ""))
+        )
+        if categories:
+            query = query.where(PostRow.category.in_(categories))
+        result = await self.db.execute(query)
+        post_ids = result.scalars().all()
+        return post_ids
+
+    async def get_friend_posts(
+        self, place_id: PlaceId, user_id: UserId, categories: Optional[list[Category]] = None
+    ) -> list[PostId]:
+        # TODO: this should probably not be in place store
+        friends = sa.select(UserRelationRow.to_user_id).where(
+            UserRelationRow.from_user_id == user_id, UserRelationRow.relation == UserRelationType.following
+        )
+        query = (
+            sa.select(PostRow.id)
+            .where(PostRow.place_id == place_id, ~PostRow.deleted)
+            .where((PostRow.user_id == user_id) | PostRow.user_id.in_(friends))
+        )
+        if categories:
+            query = query.where(PostRow.category.in_(categories))
+        result = await self.db.execute(query)
+        post_ids = result.scalars().all()
+        return post_ids
+
+    async def get_saved_posts(
+        self, place_id: PlaceId, user_id: UserId, categories: Optional[list[Category]] = None
+    ) -> list[PostId]:
+        # TODO: this should probably not be in place store
+        query = (
+            sa.select(PostRow.id)
+            .where(PostRow.place_id == place_id, ~PostRow.deleted)
+            .where(PostRow.id.in_(sa.select(PostSaveRow.post_id).where(PostSaveRow.user_id == user_id)))
+        )
+        if categories:
+            query = query.where(PostRow.category.in_(categories))
+        result = await self.db.execute(query)
+        post_ids = result.scalars().all()
+        return post_ids
+
+    async def get_custom_posts(
+        self, place_id: PlaceId, user_ids: list[UserId], categories: Optional[list[Category]] = None
+    ) -> list[PostId]:
+        # TODO: this should probably not be in place store
+        query = (
+            sa.select(PostRow.id)
+            .where(PostRow.place_id == place_id, ~PostRow.deleted)
+            .where(PostRow.user_id.in_(user_ids))
+        )
+        if categories:
+            query = query.where(PostRow.category.in_(categories))
+        result = await self.db.execute(query)
+        post_ids = result.scalars().all()
+        return post_ids
+
+    async def _find_place(
+        self, name: str, latitude: float, longitude: float, search_radius_meters: float = 10
+    ) -> Optional[Place]:
+        query = sa.select(PlaceRow).where(PlaceRow.name == name)
+        if search_radius_meters > 0:
+            point = sa.func.ST_GeographyFromText(f"POINT({longitude} {latitude})")
+            # TODO: Would like to use ST_DWithin but non-deterministically running into
+            #  "no spatial operator found for 'st_dwithin'" (appears when running all tests at once (or test_posts and
+            #  test_map) together, but it doesn't appear when running test_posts alone, will investigate later
+            query = query.where(sa.func.ST_Distance(point, PlaceRow.location) < search_radius_meters)
+        else:
+            query = query.where(PlaceRow.latitude == latitude, PlaceRow.longitude == longitude)
+        result = await self.db.execute(query)
+        maybe_place = result.scalars().first()
+        return Place.from_orm(maybe_place) if maybe_place else None
+
+    async def _create_place(self, name: str, latitude: float, longitude: float) -> Place:
+        """Create a place in the database with the given details."""
+        place = PlaceRow(name=name, latitude=latitude, longitude=longitude)
+        self.db.add(place)
+        await self.db.commit()
+        await self.db.refresh(place)
+        return Place.from_orm(place)

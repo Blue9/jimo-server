@@ -8,7 +8,9 @@ from google.cloud import tasks_v2
 from pydantic import BaseModel
 
 from app.core import config
-from app.core.internal import InternalPost, InternalUser, InternalComment
+from app.features.comments.entities import InternalComment
+from app.features.posts.entities import InternalPost
+from app.features.users.entities import InternalUser
 from app.features.notifications.entities import (
     PostLikeNotification,
     PostSaveNotification,

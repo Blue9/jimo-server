@@ -2,23 +2,23 @@ from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Depends
 
-from app.core.internal import InternalComment, InternalPost
 from app.core.tasks import BackgroundTaskHandler, get_task_handler
 from app.core.types import SimpleResponse, CommentId
-from app.features import utils
 from app.features.comments.comment_store import CommentStore
-from app.features.comments.entities import Comment
-from app.features.comments.types import CreateCommentRequest, LikeCommentResponse
+from app.features.comments.entities import InternalComment
+from app.features.comments.types import CreateCommentRequest, LikeCommentResponse, Comment
+from app.features.posts import post_utils
+from app.features.posts.entities import InternalPost
 from app.features.posts.post_store import PostStore
-from app.features.users.dependencies import get_caller_user, JimoUser
-from app.features.users.relation_store import RelationStore
-from app.features.users.user_store import UserStore
-from app.features.utils import (
+from app.features.stores import (
     get_post_store,
     get_comment_store,
     get_relation_store,
     get_user_store,
 )
+from app.features.users.dependencies import get_caller_user, JimoUser
+from app.features.users.relation_store import RelationStore
+from app.features.users.user_store import UserStore
 
 router = APIRouter()
 
@@ -34,7 +34,7 @@ async def create_comment(
     wrapped_user: JimoUser = Depends(get_caller_user),
 ):
     user = wrapped_user.user
-    post = await utils.get_post_and_validate_or_raise(
+    post = await post_utils.get_post_and_validate_or_raise(
         post_store, relation_store, caller_user_id=user.id, post_id=request.post_id
     )
     comment = await comment_store.create_comment(user.id, post.id, content=request.content)
@@ -83,7 +83,7 @@ async def like_comment(
 ):
     user = wrapped_user.user
     comment: Optional[InternalComment] = await comment_store.get_comment(comment_id)
-    if comment is None or not (await post_store.post_exists_and_not_deleted(comment.post_id)):
+    if comment is None or not (await post_store.post_exists(post_id=comment.post_id)):
         raise HTTPException(404)
     await comment_store.like_comment(comment_id, user.id)
     if task_handler and user.id != comment.user_id:
@@ -102,7 +102,7 @@ async def unlike_comment(
 ):
     user = wrapped_user.user
     comment: Optional[InternalComment] = await comment_store.get_comment(comment_id)
-    if comment is None or not (await post_store.post_exists_and_not_deleted(comment.post_id)):
+    if comment is None or not (await post_store.post_exists(post_id=comment.post_id)):
         raise HTTPException(404)
     await comment_store.unlike_comment(comment_id, user.id)
     return LikeCommentResponse(likes=await comment_store.get_like_count(comment_id))

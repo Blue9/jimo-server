@@ -12,18 +12,24 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database.engine import get_db
 from app.core.database.models import UserRelationRow, UserRow, UserRelationType
 from app.core.firebase import FirebaseUser, get_firebase_user
-from app.core.internal import InternalUser
 from app.core.tasks import BackgroundTaskHandler, get_task_handler
 from app.core.types import SimpleResponse
-from app.features import utils
+from app.features.images import image_utils
 from app.features.places.entities import Location
 from app.features.places.place_store import PlaceStore
 from app.features.posts.entities import Post
 from app.features.posts.feed_store import FeedStore
 from app.features.posts.post_store import PostStore
+from app.features.posts.post_utils import get_posts_from_post_ids
 from app.features.posts.types import PostFeedResponse
+from app.features.stores import (
+    get_user_store,
+    get_post_store,
+    get_feed_store,
+    get_place_store,
+)
 from app.features.users.dependencies import JimoUser, get_caller_user
-from app.features.users.entities import PublicUser, UserPrefs, SuggestedUserIdItem
+from app.features.users.entities import PublicUser, UserPrefs, SuggestedUserIdItem, InternalUser
 from app.features.users.types import (
     UpdateProfileResponse,
     UpdateProfileRequest,
@@ -33,13 +39,6 @@ from app.features.users.types import (
     PhoneNumberList,
 )
 from app.features.users.user_store import UserStore
-from app.features.utils import (
-    get_user_store,
-    get_post_store,
-    get_feed_store,
-    get_place_store,
-    get_posts_from_post_ids,
-)
 
 router = APIRouter()
 
@@ -50,11 +49,12 @@ async def get_me(
     user_store: UserStore = Depends(get_user_store),
 ):
     """Get the current user based on the auth details."""
-    user = await user_store.get_user_by_uid(firebase_user.uid, include_deleted=True)
+    user = await user_store.get_user(uid=firebase_user.uid)
     if user is None:
+        if await user_store.user_exists(uid=firebase_user.uid):
+            # User has been marked as deleted
+            raise HTTPException(410)
         raise HTTPException(404, "User not found")
-    if user.deleted:
-        raise HTTPException(410)
     return user
 
 
@@ -123,7 +123,7 @@ async def upload_profile_picture(
 ):
     """Set the current user's profile picture."""
     old_user: InternalUser = wrapped_user.user
-    image_upload = await utils.upload_image(file, old_user, firebase_user.shared_firebase, db)
+    image_upload = await image_utils.upload_image(file, old_user, firebase_user.shared_firebase, db)
     new_user, errors = await user_store.update_user(old_user.id, profile_picture_id=image_upload.id)
     if old_user.profile_picture_blob_name:
         await firebase_user.shared_firebase.delete_image(old_user.profile_picture_blob_name)
@@ -138,7 +138,6 @@ async def get_feed(
     cursor: Optional[uuid.UUID] = None,
     feed_store: FeedStore = Depends(get_feed_store),
     post_store: PostStore = Depends(get_post_store),
-    place_store: PlaceStore = Depends(get_place_store),
     wrapped_user: JimoUser = Depends(get_caller_user),
     user_store: UserStore = Depends(get_user_store),
 ):
@@ -154,7 +153,6 @@ async def get_feed(
         current_user=user,
         post_ids=post_ids,
         post_store=post_store,
-        place_store=place_store,
         user_store=user_store,
     )
     next_cursor: Optional[uuid.UUID] = min(post.id for post in feed) if len(feed) >= page_size else None
@@ -165,7 +163,6 @@ async def get_feed(
 async def get_discover_feed(
     feed_store: FeedStore = Depends(get_feed_store),
     post_store: PostStore = Depends(get_post_store),
-    place_store: PlaceStore = Depends(get_place_store),
     wrapped_user: JimoUser = Depends(get_caller_user),
     user_store: UserStore = Depends(get_user_store),
 ):
@@ -180,7 +177,6 @@ async def get_discover_feed(
         current_user=user,
         post_ids=post_ids,
         post_store=post_store,
-        place_store=place_store,
         user_store=user_store,
     )
     return JSONResponse(content=jsonable_encoder(feed))
@@ -192,7 +188,6 @@ async def get_discover_feed_v2(
     lat: Optional[float] = Query(None, ge=-90, le=90),
     feed_store: FeedStore = Depends(get_feed_store),
     post_store: PostStore = Depends(get_post_store),
-    place_store: PlaceStore = Depends(get_place_store),
     wrapped_user: JimoUser = Depends(get_caller_user),
     user_store: UserStore = Depends(get_user_store),
 ):
@@ -210,7 +205,6 @@ async def get_discover_feed_v2(
         current_user=user,
         post_ids=post_ids,
         post_store=post_store,
-        place_store=place_store,
         user_store=user_store,
     )
     response = PostFeedResponse(posts=feed)
@@ -334,9 +328,7 @@ async def get_saved_posts(
         current_user=user,
         post_ids=post_ids,  # type: ignore
         post_store=post_store,
-        place_store=place_store,
         user_store=user_store,
-        preserve_order=True,
     )
     next_cursor: Optional[uuid.UUID] = min(post_save_ids) if len(posts) >= page_size else None
     return PostFeedResponse(posts=posts, cursor=next_cursor)

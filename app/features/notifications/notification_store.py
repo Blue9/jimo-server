@@ -4,8 +4,12 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from app.core.database.helpers import eager_load_user_options, eager_load_post_options, is_comment_liked_query, \
-    eager_load_comment_options
+from app.core.database.helpers import (
+    eager_load_user_options,
+    eager_load_post_options,
+    is_comment_liked_query,
+    eager_load_comment_options,
+)
 from app.core.database.models import (
     CommentRow,
     PostRow,
@@ -16,7 +20,8 @@ from app.core.database.models import (
     UserRelationType,
 )
 from app.core.types import UserId, PostId, CursorId
-from app.features.comments.entities import CommentWithoutLikeStatus, Comment
+from app.features.comments.entities import CommentWithoutLikeStatus
+from app.features.comments.types import Comment
 from app.features.notifications.entities import NotificationItem, ItemType
 from app.features.posts.entities import PostWithoutLikeSaveStatus, Post
 from app.features.posts.post_store import PostStore
@@ -47,8 +52,8 @@ class NotificationStore:
     ) -> list[NotificationItem]:
         follow_query = (
             select(UserRelationRow, UserRow)
-                .options(*eager_load_user_options())
-                .where(
+            .options(*eager_load_user_options())
+            .where(
                 UserRelationRow.to_user_id == user_id,
                 UserRow.id == UserRelationRow.from_user_id,
                 UserRelationRow.relation == UserRelationType.following,
@@ -80,11 +85,8 @@ class NotificationStore:
     ) -> list[NotificationItem]:
         like_query = (
             select(PostLikeRow, PostRow)
-                .options(
-                joinedload(PostLikeRow.liked_by).options(*eager_load_user_options()),
-                *eager_load_post_options()
-            )
-                .where(
+            .options(joinedload(PostLikeRow.liked_by).options(*eager_load_user_options()), *eager_load_post_options())
+            .where(
                 PostLikeRow.post_id == PostRow.id,
                 PostRow.user_id == user_id,
                 ~PostRow.deleted,
@@ -124,11 +126,8 @@ class NotificationStore:
     ) -> list[NotificationItem]:
         query = (
             select(PostSaveRow, PostRow)
-                .options(
-                joinedload(PostSaveRow.saved_by).options(*eager_load_user_options()),
-                *eager_load_post_options()
-            )
-                .where(
+            .options(joinedload(PostSaveRow.saved_by).options(*eager_load_user_options()), *eager_load_post_options())
+            .where(
                 PostSaveRow.post_id == PostRow.id,
                 PostRow.user_id == user_id,
                 ~PostRow.deleted,
@@ -168,9 +167,9 @@ class NotificationStore:
     ) -> list[NotificationItem]:
         comment_query = (
             select(CommentRow, is_comment_liked_query(user_id))
-                .options(*eager_load_comment_options())
-                .join(PostRow)
-                .where(
+            .options(*eager_load_comment_options())
+            .join(PostRow)
+            .where(
                 CommentRow.post_id == PostRow.id,
                 PostRow.user_id == user_id,
                 CommentRow.user_id != user_id,

@@ -4,69 +4,64 @@ import sqlalchemy as sa
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database.complex_queries import get_suggested_users_query
-from app.core.database.helpers import maybe_get_image_with_lock
-from app.core.database.models import UserRow, UserPrefsRow
-from app.core.internal import InternalUser
+from app.core.database.helpers import eager_load_user_options
+from app.features.images.image_utils import maybe_get_image_with_lock
+from app.core.database.models import UserRow, UserPrefsRow, UserRelationRow, UserRelationType
 from app.core.types import PhoneNumber, UserId, ImageId
-from app.features.users.entities import UserPrefs, SuggestedUserIdItem, UserFieldErrors
-from app.features.users.user_prefs_query import UserPrefsQuery
-from app.features.users.user_query import UserQuery
+from app.features.users.entities import UserPrefs, SuggestedUserIdItem, UserFieldErrors, InternalUser
 
 
 class UserStore:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    # Scalar query
-    async def is_username_taken(self, username: str) -> bool:
-        """Return whether or not a user (deleted or not) with the given username exists."""
-        return await UserQuery().username(username).execute_exists(self.db)
+    async def user_exists(self, username: Optional[str] = None, uid: Optional[str] = None) -> bool:
+        """Return whether or not a user (deleted or not) with the given attributes exists."""
+        query = sa.select(UserRow.id)
+        if username:
+            query = query.where(UserRow.username == username)
+        if uid:
+            query = query.where(UserRow.uid == uid)
+        result = await self.db.execute(query.exists().select())
+        user_exists: bool = result.scalar()  # type: ignore
+        return user_exists
 
-    async def is_uid_taken(self, uid: str) -> bool:
-        """Return whether or not a user (deleted or not) with the given uid exists."""
-        return await UserQuery().uid(uid).execute_exists(self.db)
-
-    # Queries
-    async def get_user(self, user_id: UserId, include_deleted: bool = False) -> Optional[InternalUser]:
-        user = await UserQuery().user_id(user_id).execute_one(self.db, include_deleted=include_deleted)
+    async def get_user(
+        self, user_id: Optional[UserId] = None, uid: Optional[str] = None, username: Optional[str] = None
+    ) -> Optional[InternalUser]:
+        query = sa.select(UserRow).options(*eager_load_user_options()).where(~UserRow.deleted)
+        if user_id:
+            query = query.where(UserRow.id == user_id)
+        if uid:
+            query = query.where(UserRow.uid == uid)
+        if username:
+            query = query.where(UserRow.username_lower == username.lower())
+        result = await self.db.execute(query)
+        user: Optional[UserRow] = result.scalars().first()
         return InternalUser.from_orm(user) if user else None
 
     async def get_users(self, user_ids: list[UserId]) -> dict[UserId, InternalUser]:
-        users = await UserQuery().user_id_in(user_ids).execute_many(self.db)
+        query = sa.select(UserRow).options(*eager_load_user_options()).where(UserRow.id.in_(user_ids), ~UserRow.deleted)
+        result = await self.db.execute(query)
+        users: list[UserRow] = result.scalars().all()
         return {user.id: InternalUser.from_orm(user) for user in users}
-
-    async def get_user_by_uid(self, uid: str, include_deleted: bool = False) -> Optional[InternalUser]:
-        """Return the user with the given uid if one exists."""
-        user = await UserQuery().uid(uid).execute_one(self.db, include_deleted=include_deleted)
-        return InternalUser.from_orm(user) if user else None
-
-    async def get_user_by_username(self, username: str) -> Optional[InternalUser]:
-        """Return the user with the given username or None if no such user exists or the user is deleted."""
-        user = await UserQuery().username(username).execute_one(self.db)
-        return InternalUser.from_orm(user) if user else None
 
     async def get_users_by_phone_number(self, phone_numbers: Sequence[PhoneNumber], limit: int = 100) -> list[UserId]:
         """Return up to `limit` users with the given phone numbers."""
-        return (
-            await UserQuery(query_entity=UserRow.id)
-            .phone_number_in(phone_numbers)
-            .is_searchable_by_phone_number()
+        query = (
+            sa.select(UserRow.id)
+            .join(UserPrefsRow)
+            .where(UserRow.phone_number.in_(phone_numbers), UserPrefsRow.searchable_by_phone_number)
             .limit(limit)
-            .execute_many(self.db)
         )
-
-    async def search_users(self, query: str) -> list[UserId]:
-        return (
-            await UserQuery()
-            .filter_by_keyword(query)
-            .order_by(UserRow.follower_count.desc())
-            .limit(50)
-            .execute_many(self.db)
-        )
+        result = await self.db.execute(query)
+        user_ids = result.scalars().all()
+        return user_ids
 
     async def get_user_preferences(self, user_id: UserId) -> UserPrefs:
-        prefs = await UserPrefsQuery().user_id(user_id).execute_one(self.db)
+        query = sa.select(UserPrefsRow).where(UserPrefsRow.user_id == user_id)
+        result = await self.db.execute(query)
+        prefs = result.scalars().first()
         return (
             UserPrefs.from_orm(prefs)
             if prefs
@@ -81,11 +76,13 @@ class UserStore:
 
     async def get_featured_users(self) -> list[UserId]:
         """Return all featured users."""
-        return await UserQuery(query_entity=UserRow.id).is_featured().execute_many(self.db)
+        query = sa.select(UserRow.id).where(UserRow.is_featured)
+        result = await self.db.execute(query)
+        return result.scalars().all()
 
     async def get_suggested_users(self, user_id: UserId, limit: int = 25) -> list[SuggestedUserIdItem]:
         """Get the list of suggested users for the given user_id."""
-        query = get_suggested_users_query(user_id, limit)
+        query = self._get_suggested_users_query(user_id, limit)
         results = (await self.db.execute(query)).all()
         return [(user_id, num_mutual_friends) for user_id, num_mutual_friends in results]
 
@@ -97,7 +94,7 @@ class UserStore:
         first_name: str,
         last_name: str,
         phone_number: Optional[str] = None,
-    ) -> Tuple[Optional[InternalUser], Optional[UserFieldErrors]]:
+    ) -> tuple[Optional[InternalUser], Optional[UserFieldErrors]]:
         """Create a new user with the given details."""
         new_user = UserRow(
             uid=uid,
@@ -106,21 +103,20 @@ class UserStore:
             last_name=last_name,
             phone_number=phone_number,
         )
+        prefs = UserPrefsRow(user=new_user)  # type: ignore
         try:
-            # Initialize user preferences
-            prefs = UserPrefsRow(user=new_user)  # type: ignore
             self.db.add(new_user)
             self.db.add(prefs)
             await self.db.commit()
             await self.db.refresh(new_user, ["id"])
-            return (await self.get_user(new_user.id)), None
+            return (await self.get_user(user_id=new_user.id)), None
         except IntegrityError as e:
             await self.db.rollback()
             # A user with the same uid or username exists
-            if await self.is_uid_taken(uid):
+            if await self.user_exists(uid=uid):
                 error = UserFieldErrors(uid="User exists.")
                 return None, error
-            elif await self.is_username_taken(username):
+            elif await self.user_exists(username=username):
                 error = UserFieldErrors(username="Username taken.")
                 return None, error
             else:
@@ -137,7 +133,9 @@ class UserStore:
         profile_picture_id: Optional[ImageId] = None,
     ) -> Tuple[Optional[InternalUser], Optional[UserFieldErrors]]:
         """Update the given user with the given details."""
-        user = await UserQuery().user_id(user_id).execute_one(self.db)
+        query = sa.select(UserRow).where(UserRow.id == user_id)
+        result = await self.db.execute(query)
+        user = result.scalars().first()
         if user is None:
             return None, UserFieldErrors(uid="User not found")
         if profile_picture_id:
@@ -155,10 +153,10 @@ class UserStore:
             user.last_name = last_name
         try:
             await self.db.commit()
-            return await self.get_user(user_id), None
+            return await self.get_user(user_id=user_id), None
         except IntegrityError as e:
             await self.db.rollback()
-            if username and await self.is_username_taken(username):
+            if username and await self.user_exists(username=username):
                 return None, UserFieldErrors(username="Username taken.")
             else:
                 # Unknown error
@@ -177,7 +175,9 @@ class UserStore:
 
     async def update_preferences(self, user_id: UserId, request: UserPrefs) -> UserPrefs:
         """Update the given user's preferences."""
-        prefs: Optional[UserPrefsRow] = await UserPrefsQuery().user_id(user_id).execute_one(self.db)
+        query = sa.select(UserPrefsRow).where(UserPrefsRow.user_id == user_id)
+        result = await self.db.execute(query)
+        prefs: Optional[UserPrefsRow] = result.scalars().first()
         if prefs is None:
             # TODO(gmekkat): If this happens, we need to create the user's preferences row.
             return request
@@ -192,3 +192,29 @@ class UserStore:
         await self.db.commit()
         await self.db.refresh(prefs)
         return UserPrefs.from_orm(prefs)
+
+    def _get_suggested_users_query(self, user_id: UserId, limit: int) -> sa.sql.Select:
+        """
+        How this is computed:
+        We first get the list of followers for user_id. We then retrieve the list of users that the followers follow,
+        minus the users the given user is already following. This list is then sorted by the # of "mutual followers."
+        """
+        cte = (
+            sa.select(UserRelationRow.to_user_id.label("id"))
+            .select_from(UserRelationRow)
+            .where(
+                UserRelationRow.from_user_id == user_id,
+                UserRelationRow.relation == UserRelationType.following,
+            )
+            .cte("already_followed")
+        )
+        return (
+            sa.select(UserRelationRow.to_user_id, sa.func.count(UserRelationRow.to_user_id))
+            .select_from(UserRelationRow)
+            .join(cte, cte.c.id == UserRelationRow.from_user_id)
+            .where(UserRelationRow.to_user_id.notin_(sa.select(cte.c.id)))
+            .where(UserRelationRow.to_user_id != user_id)
+            .group_by(UserRelationRow.to_user_id)
+            .order_by(sa.func.count(UserRelationRow.to_user_id).desc())
+            .limit(limit)
+        )

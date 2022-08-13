@@ -49,7 +49,6 @@ class Place(Base):
         return values
 
 
-# Request types
 class AdditionalPlaceData(Base):
     country_code: Optional[str]
     country: Optional[str]
