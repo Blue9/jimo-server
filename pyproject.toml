@@ -19,7 +19,6 @@ python-multipart = "^0.0.5"
 alembic = "^1.7.7"
 google-cloud-tasks = "^2.9.0"
 asyncpg = "^0.25.0"
-aioredis = "^2.0.1"
 slowapi = "^0.1.5"
 
 [tool.poetry.dev-dependencies]

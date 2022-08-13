@@ -3,8 +3,6 @@ from typing import Optional
 
 SQLALCHEMY_DATABASE_URL: str = os.environ["DATABASE_URL"]
 
-REDIS_URL: str = os.environ["REDIS_URL"]
-
 RATE_LIMIT_CONFIG: Optional[str] = os.environ.get("RATE_LIMIT_CONFIG")
 
 # Allow requests from this origin

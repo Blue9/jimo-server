@@ -1,19 +1,19 @@
 from fastapi import APIRouter, Depends
 
-from app.features.users.entities import InternalUser
 from app.core.types import PostId, PlaceId
 from app.features.map.types import PlaceLoadRequest, CustomPlaceLoadRequest
 from app.features.places.place_store import PlaceStore
 from app.features.posts.entities import Post
 from app.features.posts.post_store import PostStore
-from app.features.users.dependencies import get_caller_user, JimoUser
-from app.features.users.user_store import UserStore
+from app.features.posts.post_utils import get_posts_from_post_ids
 from app.features.stores import (
     get_post_store,
     get_place_store,
     get_user_store,
 )
-from app.features.posts.post_utils import get_posts_from_post_ids
+from app.features.users.dependencies import get_caller_user, JimoUser
+from app.features.users.entities import InternalUser
+from app.features.users.user_store import UserStore
 
 router = APIRouter()
 

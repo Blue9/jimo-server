@@ -1,25 +1,17 @@
 from dataclasses import dataclass
-from functools import lru_cache
 from typing import Optional
 
-import aioredis
 from fastapi import Depends, HTTPException, Request
 
-from app.core.config import REDIS_URL
 from app.core.firebase import FirebaseUser, get_firebase_user
+from app.features.stores import get_user_store
 from app.features.users.entities import InternalUser
 from app.features.users.user_store import UserStore
-from app.features.stores import get_user_store
 
 
 @dataclass
 class JimoUser:
     user: InternalUser
-
-
-@lru_cache(maxsize=1)
-def get_redis():
-    return aioredis.from_url(REDIS_URL, decode_responses=True)
 
 
 def get_authorization_header(request: Request) -> str:

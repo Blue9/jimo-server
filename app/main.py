@@ -12,11 +12,10 @@ from starlette.responses import JSONResponse, Response
 from app.core import config
 from app.core.database.engine import get_db
 from app.core.firebase import FirebaseUser, get_firebase_user
-from app.features.images import image_utils
-from app.features.users.entities import InternalUser
 from app.features.admin.routes import router as admin_router
 from app.features.comments.routes import router as comment_router
 from app.features.feedback.routes import router as feedback_router
+from app.features.images import image_utils
 from app.features.images.types import ImageUploadResponse
 from app.features.map.routes import router as map_router
 from app.features.me import router as me_router
@@ -29,55 +28,32 @@ from app.features.users.dependencies import (
     JimoUser,
     get_caller_user,
 )
+from app.features.users.entities import InternalUser
 from app.features.users.routes import router as user_router
 from app.utils import get_logger
 
 log = get_logger(__name__)
-
-
-def get_app() -> FastAPI:
-    log.info("Initializing server")
-    if config.ENABLE_DOCS:
-        log.warning("Enabling docs")
-        _app = FastAPI()
-    else:
-        _app = FastAPI(openapi_url=None)
-    if config.ALLOW_ORIGIN:
-        log.warning("Setting allow origin to %s", config.ALLOW_ORIGIN)
-        origins = [config.ALLOW_ORIGIN]
-        _app.add_middleware(
-            CORSMiddleware,
-            allow_origins=origins,
-            allow_credentials=True,
-            allow_methods=["*"],
-            allow_headers=["*"],
-        )
-    if config.RATE_LIMIT_CONFIG:
-        log.warning("Rate limiting to %s", config.RATE_LIMIT_CONFIG)
-        _app.state.limiter = Limiter(
-            key_func=get_authorization_header,
-            default_limits=[config.RATE_LIMIT_CONFIG],
-            storage_uri=config.REDIS_URL,
-        )
-        _app.add_middleware(SlowAPIMiddleware)
-    return _app
-
-
-app = get_app()
-
-
-@app.middleware("http")
-async def db_session_middleware(request: Request, call_next):
-    response = Response("Internal server error", status_code=500)
-    request.state.db = None
-    try:
-        response = await call_next(request)
-    except Exception:  # noqa
-        log.exception("Exception when handling request %s", request.url)
-    finally:
-        if request.state.db is not None:
-            await request.state.db.close()
-    return response
+log.info("Initializing server")
+app = FastAPI(openapi_url="/openapi.json" if config.ENABLE_DOCS else None)
+if config.ENABLE_DOCS:
+    log.warning("Docs enabled")
+if config.ALLOW_ORIGIN:
+    log.warning("Setting allow origin to %s", config.ALLOW_ORIGIN)
+    origins = [config.ALLOW_ORIGIN]
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+if config.RATE_LIMIT_CONFIG:
+    log.warning("Rate limiting to %s", config.RATE_LIMIT_CONFIG)
+    app.state.limiter = Limiter(
+        key_func=get_authorization_header,
+        default_limits=[config.RATE_LIMIT_CONFIG],
+    )
+    app.add_middleware(SlowAPIMiddleware)
 
 
 @app.exception_handler(RequestValidationError)

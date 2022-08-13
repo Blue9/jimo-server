@@ -18,7 +18,6 @@ from app.core.database.models import (
     FeedbackRow,
 )
 from app.core.firebase import FirebaseUser, get_firebase_user
-from app.features.users.entities import InternalUser
 from app.core.types import SimpleResponse
 from app.features.admin.types import (
     AdminResponsePage,
@@ -30,9 +29,9 @@ from app.features.admin.types import (
     AdminAPIReport,
     AdminAPIFeedback,
 )
-from app.features.users.dependencies import get_redis
-from app.features.users.user_store import UserStore
 from app.features.stores import get_user_store
+from app.features.users.entities import InternalUser
+from app.features.users.user_store import UserStore
 
 router = APIRouter()
 
@@ -58,15 +57,6 @@ async def get_admin_or_raise(
 
 def get_page(page: int = Query(1, gt=0), limit: int = Query(100, gt=0, le=1000)) -> Page:
     return Page(offset=(page - 1) * limit, limit=limit)
-
-
-@router.post("/cache/flush", response_model=SimpleResponse)
-async def flush_cache(
-    _admin: InternalUser = Depends(get_admin_or_raise),
-):
-    """Flush the cache."""
-    await get_redis().flushdb()
-    return SimpleResponse(success=True)
 
 
 @router.delete("/deleted-users", response_model=SimpleResponse)
