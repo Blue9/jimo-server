@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends
-from shared.api.internal import InternalUser
-from shared.models.models import FeedbackRow
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.common import SimpleResponse
-from app.core.database import get_db
+from app.core.database.engine import get_db
+from app.core.database.models import FeedbackRow
+from app.core.internal import InternalUser
+from app.core.types import SimpleResponse
 from app.features.feedback.types import FeedbackRequest
 from app.features.users.dependencies import JimoUser, get_caller_user
 

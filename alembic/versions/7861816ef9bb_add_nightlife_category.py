@@ -6,12 +6,12 @@ Create Date: 2021-11-02 22:55:37.391612
 
 """
 from alembic import op
-
-# revision identifiers, used by Alembic.
-from shared.models.models import CategoryRow
 from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
+from app.core.database.models import CategoryRow
+
+# revision identifiers, used by Alembic.
 revision = "7861816ef9bb"
 down_revision = "057f1e5e7a15"
 branch_labels = None

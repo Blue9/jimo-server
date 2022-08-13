@@ -1,20 +1,24 @@
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Depends
-from shared.api.comment import Comment
-from shared.api.internal import InternalComment, InternalPost
-from shared.api.type_aliases import CommentId
-from shared.stores.comment_store import CommentStore
-from shared.stores.post_store import PostStore
-from shared.stores.relation_store import RelationStore
-from shared.stores.user_store import UserStore
 
-from app.core.common import SimpleResponse
+from app.core.internal import InternalComment, InternalPost
 from app.core.tasks import BackgroundTaskHandler, get_task_handler
+from app.core.types import SimpleResponse, CommentId
 from app.features import utils
+from app.features.comments.comment_store import CommentStore
+from app.features.comments.entities import Comment
 from app.features.comments.types import CreateCommentRequest, LikeCommentResponse
+from app.features.posts.post_store import PostStore
 from app.features.users.dependencies import get_caller_user, JimoUser
-from app.features.utils import get_post_store, get_comment_store, get_relation_store, get_user_store
+from app.features.users.relation_store import RelationStore
+from app.features.users.user_store import UserStore
+from app.features.utils import (
+    get_post_store,
+    get_comment_store,
+    get_relation_store,
+    get_user_store,
+)
 
 router = APIRouter()
 

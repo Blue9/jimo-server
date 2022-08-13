@@ -1,7 +1,6 @@
 from fastapi import FastAPI, Depends, UploadFile, File
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
-from shared.api.internal import InternalUser
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
@@ -11,8 +10,9 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
 from app.core import config
-from app.core.database import get_db
+from app.core.database.engine import get_db
 from app.core.firebase import FirebaseUser, get_firebase_user
+from app.core.internal import InternalUser
 from app.features import utils
 from app.features.admin.routes import router as admin_router
 from app.features.comments.routes import router as comment_router
@@ -24,7 +24,11 @@ from app.features.notifications.routes import router as notification_router
 from app.features.places.routes import router as place_router
 from app.features.posts.routes import router as post_router
 from app.features.search.routes import router as search_router
-from app.features.users.dependencies import get_authorization_header, JimoUser, get_caller_user
+from app.features.users.dependencies import (
+    get_authorization_header,
+    JimoUser,
+    get_caller_user,
+)
 from app.features.users.routes import router as user_router
 from app.utils import get_logger
 

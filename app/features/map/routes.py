@@ -1,14 +1,13 @@
 from fastapi import APIRouter, Depends
-from shared.api.internal import InternalUser
-from shared.map.strategy import (
-    CategoryFilter,
+
+from app.core.internal import InternalUser
+from app.features.map.filters import (
     EveryoneFilter,
     FriendsFilter,
     SavedPostsFilter,
-    UserListFilter,
+    UserListFilter, CategoryFilter,
 )
-from shared.stores.map_store import MapStore
-
+from app.features.map.map_store import MapStore
 from app.features.map.types import MapResponseV3, GetMapRequest, CustomMapRequest
 from app.features.users.dependencies import get_caller_user, JimoUser
 from app.features.utils import get_map_store
@@ -44,7 +43,7 @@ async def get_following_map(
     pins = await map_store.get_map_v3(
         region=request.region,
         map_filter=FriendsFilter(user_id=user.id),
-        category_filter=CategoryFilter(request.categories),  # type: ignore
+        category_filter=CategoryFilter(request.categories),
         limit=500,
     )
     return MapResponseV3(pins=pins)

@@ -1,5 +1,4 @@
-from shared.api.base import Base
-from shared.api.type_aliases import ImageId
+from app.core.types import Base, ImageId
 
 
 class ImageUploadResponse(Base):

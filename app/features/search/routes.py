@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends
-from shared.api.user import PublicUser
-from shared.stores.user_store import UserStore
 
 from app.features.users.dependencies import get_caller_user, JimoUser
+from app.features.users.entities import PublicUser
+from app.features.users.user_store import UserStore
 from app.features.utils import get_user_store
 
 router = APIRouter()

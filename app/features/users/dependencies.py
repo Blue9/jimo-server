@@ -4,11 +4,11 @@ from typing import Optional
 
 import aioredis
 from fastapi import Depends, HTTPException, Request
-from shared.api.internal import InternalUser
-from shared.stores.user_store import UserStore
 
 from app.core.config import REDIS_URL
 from app.core.firebase import FirebaseUser, get_firebase_user
+from app.core.internal import InternalUser
+from app.features.users.user_store import UserStore
 from app.features.utils import get_user_store
 
 

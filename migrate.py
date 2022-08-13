@@ -2,12 +2,12 @@ import io
 from typing import Optional
 
 from alembic.config import Config
-from shared.models.models import Base
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from alembic import command
 from app.core.config import SQLALCHEMY_DATABASE_URL
+from app.core.database.models import Base
 from app.features.posts import categories
 from app.utils import get_logger
 

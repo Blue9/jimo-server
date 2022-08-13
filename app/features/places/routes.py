@@ -1,22 +1,21 @@
 import uuid
 
 from fastapi import APIRouter, Depends
-from shared.api.internal import InternalUser
-from shared.api.post import Post
-from shared.map.strategy import (
-    CategoryFilter,
-    EveryoneFilter,
-    FriendsFilter,
-    SavedPostsFilter,
-    UserListFilter,
-)
-from shared.stores.place_store import PlaceStore
-from shared.stores.post_store import PostStore
-from shared.stores.user_store import UserStore
 
+from app.core.internal import InternalUser
+from app.features.map.filters import FriendsFilter, SavedPostsFilter, UserListFilter, CategoryFilter, EveryoneFilter
 from app.features.map.types import PlaceLoadRequest, CustomPlaceLoadRequest
+from app.features.places.place_store import PlaceStore
+from app.features.posts.entities import Post
+from app.features.posts.post_store import PostStore
 from app.features.users.dependencies import get_caller_user, JimoUser
-from app.features.utils import get_post_store, get_place_store, get_user_store, get_posts_from_post_ids
+from app.features.users.user_store import UserStore
+from app.features.utils import (
+    get_post_store,
+    get_place_store,
+    get_user_store,
+    get_posts_from_post_ids,
+)
 
 router = APIRouter()
 
@@ -33,7 +32,7 @@ async def get_all_posts_for_place(
     """Get the list of posts for the given place, using the given strategy."""
     user: InternalUser = wrapped_user.user
     post_ids: list[uuid.UUID] = await post_store.get_mutual_posts_v3(
-        place_id, user_filter=EveryoneFilter(), category_filter=CategoryFilter(request.categories)  # type: ignore
+        place_id, user_filter=EveryoneFilter(), category_filter=CategoryFilter(request.categories)
     )
     return await get_posts_from_post_ids(
         current_user=user,

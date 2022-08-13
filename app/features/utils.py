@@ -3,24 +3,24 @@ import uuid
 from typing import Optional
 
 from fastapi import HTTPException, UploadFile, Depends
-from shared.api.internal import InternalUser, InternalPost
-from shared.api.post import Post
-from shared.api.type_aliases import UserId, PlaceId
-from shared.models.models import ImageUploadRow
-from shared.stores.comment_store import CommentStore
-from shared.stores.feed_store import FeedStore
-from shared.stores.map_store import MapStore
-from shared.stores.notification_store import NotificationStore
-from shared.stores.place_store import PlaceStore
-from shared.stores.post_store import PostStore
-from shared.stores.relation_store import RelationStore
-from shared.stores.user_store import UserStore
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db
+from app.core.database.engine import get_db
+from app.core.database.models import ImageUploadRow
 from app.core.firebase import FirebaseAdminProtocol
+from app.core.internal import InternalUser, InternalPost
+from app.core.types import UserId, PlaceId
+from app.features.comments.comment_store import CommentStore
+from app.features.map.map_store import MapStore
+from app.features.notifications.notification_store import NotificationStore
+from app.features.places.place_store import PlaceStore
+from app.features.posts.entities import Post
+from app.features.posts.feed_store import FeedStore
+from app.features.posts.post_store import PostStore
 from app.features.posts.types import MaybeCreatePlaceRequest
+from app.features.users.relation_store import RelationStore
+from app.features.users.user_store import UserStore
 
 
 async def validate_user(

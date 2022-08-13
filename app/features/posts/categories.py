@@ -1,4 +1,4 @@
-from shared.models.models import CategoryRow
+from app.core.database.models import CategoryRow
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 

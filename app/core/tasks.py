@@ -6,16 +6,16 @@ from typing import Optional
 from cachetools.func import lru_cache
 from google.cloud import tasks_v2
 from pydantic import BaseModel
-from shared.api.internal import InternalPost, InternalUser, InternalComment
-from shared.api.notifications import (
+
+from app.core import config
+from app.core.internal import InternalPost, InternalUser, InternalComment
+from app.features.notifications.entities import (
     PostLikeNotification,
     PostSaveNotification,
     CommentNotification,
     CommentLikeNotification,
     FollowNotification,
 )
-
-from app.core import config
 from app.utils import get_logger
 
 client = tasks_v2.CloudTasksClient()

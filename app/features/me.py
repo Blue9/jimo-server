@@ -5,26 +5,25 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
-from shared.api.internal import InternalUser
-from shared.api.place import Location
-from shared.api.post import Post
-from shared.api.user import PublicUser, UserPrefs, SuggestedUserIdItem
-from shared.models.models import UserRelationRow, UserRow, UserRelationType
-from shared.stores.feed_store import FeedStore
-from shared.stores.place_store import PlaceStore
-from shared.stores.post_store import PostStore
-from shared.stores.user_store import UserStore
 from sqlalchemy import union_all, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.common import SimpleResponse
-from app.core.database import get_db
+from app.core.database.engine import get_db
+from app.core.database.models import UserRelationRow, UserRow, UserRelationType
 from app.core.firebase import FirebaseUser, get_firebase_user
+from app.core.internal import InternalUser
 from app.core.tasks import BackgroundTaskHandler, get_task_handler
+from app.core.types import SimpleResponse
 from app.features import utils
+from app.features.places.entities import Location
+from app.features.places.place_store import PlaceStore
+from app.features.posts.entities import Post
+from app.features.posts.feed_store import FeedStore
+from app.features.posts.post_store import PostStore
 from app.features.posts.types import PostFeedResponse
 from app.features.users.dependencies import JimoUser, get_caller_user
+from app.features.users.entities import PublicUser, UserPrefs, SuggestedUserIdItem
 from app.features.users.types import (
     UpdateProfileResponse,
     UpdateProfileRequest,
@@ -33,7 +32,14 @@ from app.features.users.types import (
     UsernameList,
     PhoneNumberList,
 )
-from app.features.utils import get_user_store, get_post_store, get_feed_store, get_place_store, get_posts_from_post_ids
+from app.features.users.user_store import UserStore
+from app.features.utils import (
+    get_user_store,
+    get_post_store,
+    get_feed_store,
+    get_place_store,
+    get_posts_from_post_ids,
+)
 
 router = APIRouter()
 

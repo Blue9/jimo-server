@@ -2,23 +2,26 @@ import uuid
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from shared.api.internal import InternalUser
-from shared.api.post import Post
-from shared.api.user import UserFieldErrors, PublicUser
-from shared.models.models import UserRelationRow, UserRelationType
-from shared.stores.post_store import PostStore
-from shared.stores.relation_store import RelationStore
-from shared.stores.user_store import UserStore
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.common import SimpleResponse
-from app.core.database import get_db
+from app.core.database.engine import get_db
+from app.core.database.models import UserRelationRow, UserRelationType
 from app.core.firebase import FirebaseUser, get_firebase_user
+from app.core.internal import InternalUser
 from app.core.tasks import BackgroundTaskHandler, get_task_handler
+from app.core.types import SimpleResponse
 from app.features import utils
+from app.features.posts.entities import Post
+from app.features.posts.post_store import PostStore
 from app.features.posts.types import PostFeedResponse
-from app.features.users.dependencies import get_caller_user, get_requested_user, JimoUser
+from app.features.users.dependencies import (
+    get_caller_user,
+    get_requested_user,
+    JimoUser,
+)
+from app.features.users.entities import UserFieldErrors, PublicUser
+from app.features.users.relation_store import RelationStore
 from app.features.users.types import (
     CreateUserResponse,
     RelationToUser,
@@ -26,6 +29,7 @@ from app.features.users.types import (
     FollowUserResponse,
     CreateUserRequest,
 )
+from app.features.users.user_store import UserStore
 from app.features.utils import get_user_store, get_relation_store, get_post_store
 
 router = APIRouter()

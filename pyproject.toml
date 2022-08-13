@@ -6,13 +6,17 @@ authors = ["Your Name <you@example.com>"]
 
 [tool.poetry.dependencies]
 python = "^3.9"
+pydantic = "^1.9.0"
 fastapi = "^0.78.0"
+SQLAlchemy = {extras = ["mypy"], version = "^1.4.37"}
 uvicorn = { extras = ["standard"], version = "^0.17.6" }
 gunicorn = "^20.1.0"
+ulid-py = "^1.1.0"
+GeoAlchemy2 = "^0.11.1"
+psycopg2 = "^2.9.3"
 firebase-admin = "^5.2.0"
 python-multipart = "^0.0.5"
 alembic = "^1.7.7"
-shared = { git = "git@github.com:Blue9/jimo-shared.git", branch = "main" }
 google-cloud-tasks = "^2.9.0"
 asyncpg = "^0.25.0"
 aioredis = "^2.0.1"

@@ -1,6 +1,6 @@
 from pydantic import validator
 
-from shared.api.base import Base
+from app.core.types import Base
 
 
 class FeedbackRequest(Base):

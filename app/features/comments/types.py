@@ -1,9 +1,9 @@
 from typing import Optional
 
 from pydantic import validator
-from shared.api.base import Base
-from shared.api.comment import Comment
-from shared.api.type_aliases import PostId, CursorId
+
+from app.core.types import Base, PostId, CursorId
+from app.features.comments.entities import Comment
 
 
 class CreateCommentRequest(Base):

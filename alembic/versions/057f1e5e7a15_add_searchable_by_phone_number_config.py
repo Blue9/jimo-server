@@ -18,7 +18,12 @@ depends_on = None
 def upgrade():
     op.add_column(
         "preferences",
-        sa.Column("searchable_by_phone_number", sa.Boolean(), server_default=sa.text("true"), nullable=False),
+        sa.Column(
+            "searchable_by_phone_number",
+            sa.Boolean(),
+            server_default=sa.text("true"),
+            nullable=False,
+        ),
     )
 
 

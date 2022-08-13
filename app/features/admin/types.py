@@ -7,12 +7,11 @@ from uuid import UUID
 
 from pydantic import Field, validator
 from pydantic.generics import GenericModel
-from shared.api import validators
-from shared.api.base import Base
-from shared.api.place import Place
-from shared.api.post import PostWithoutLikeSaveStatus
-from shared.api.type_aliases import UserId, PostId
 
+from app.core.types import Base, UserId, PostId
+from app.features.places.entities import Place
+from app.features.posts.entities import PostWithoutLikeSaveStatus
+from app.features.users import validators
 from app.features.users.types import CreateUserRequest
 
 

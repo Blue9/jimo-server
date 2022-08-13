@@ -1,10 +1,10 @@
 from typing import Optional
 
 from pydantic import validator
-from shared.api.base import Base, Category
-from shared.api.map import MapPinV3
-from shared.api.place import Region
-from shared.api.type_aliases import UserId
+
+from app.core.types import Base, Category, UserId
+from app.features.map.entities import MapPinV3
+from app.features.places.entities import Region
 
 
 class GetMapRequest(Base):

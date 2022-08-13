@@ -1,6 +1,6 @@
 import uuid
 
-from shared.models.models import FCMTokenRow
+from app.core.database.models import FCMTokenRow
 from sqlalchemy import select, exists, delete
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession

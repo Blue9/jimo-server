@@ -1,13 +1,17 @@
 from typing import Optional
 
 from pydantic import validator
-from shared.api import validators
-from shared.api.base import Base, PhoneNumber
-from shared.api.type_aliases import ImageId, CursorId
-from shared.api.user import PublicUser, UserFieldErrors, UserRelation, NumMutualFriends
+
+from app.core.types import Base, ImageId, PhoneNumber, CursorId
+from app.features.users import validators
+from app.features.users.entities import (
+    PublicUser,
+    UserFieldErrors,
+    NumMutualFriends,
+    UserRelation,
+)
 
 
-# Request types
 class CreateUserRequest(Base):
     username: str
     first_name: str

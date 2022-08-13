@@ -3,24 +3,23 @@ import uuid
 from collections import namedtuple
 from typing import Optional
 
-import shared.stores.utils
 from fastapi import APIRouter, Depends, HTTPException, Query
-from shared.api.internal import InternalUser
-from shared.models.models import (
-    UserRow,
-    PostReportRow,
-    PostRow,
-    FeedbackRow,
-)
-from shared.stores.user_store import UserStore
 from sqlalchemy import select, func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from app.core.common import SimpleResponse
-from app.core.database import get_db
+from app.core.database.engine import get_db
+from app.core.database.helpers import eager_load_user_options, eager_load_post_options
+from app.core.database.models import (
+    UserRow,
+    PostReportRow,
+    PostRow,
+    FeedbackRow,
+)
 from app.core.firebase import FirebaseUser, get_firebase_user
+from app.core.internal import InternalUser
+from app.core.types import SimpleResponse
 from app.features import utils
 from app.features.admin.types import (
     AdminResponsePage,
@@ -33,6 +32,7 @@ from app.features.admin.types import (
     AdminAPIFeedback,
 )
 from app.features.users.dependencies import get_redis
+from app.features.users.user_store import UserStore
 from app.features.utils import get_user_store
 
 router = APIRouter()
@@ -93,7 +93,7 @@ async def get_users(
     total = total_query.scalar()
     query = (
         select(UserRow)
-        .options(*shared.stores.utils.eager_load_user_options())
+        .options(*eager_load_user_options())
         .order_by(UserRow.id.desc())
         .offset(page.offset)
         .limit(page.limit)
@@ -125,11 +125,7 @@ async def get_user(
     _admin: InternalUser = Depends(get_admin_or_raise),
 ):
     """Get the given user."""
-    query = (
-        select(UserRow)
-        .options(*shared.stores.utils.eager_load_user_options())
-        .where(UserRow.username_lower == username.lower())
-    )
+    query = select(UserRow).options(*eager_load_user_options()).where(UserRow.username_lower == username.lower())
     user = (await db.execute(query)).scalars().first()
     if user is None:
         raise HTTPException(404)
@@ -144,11 +140,7 @@ async def update_user(
     admin: InternalUser = Depends(get_admin_or_raise),
 ):
     """Update the given user."""
-    query = (
-        select(UserRow)
-        .options(*shared.stores.utils.eager_load_user_options())
-        .where(UserRow.username_lower == username.lower())
-    )
+    query = select(UserRow).options(*eager_load_user_options()).where(UserRow.username_lower == username.lower())
     executed = await db.execute(query)
     to_update: Optional[UserRow] = executed.scalars().first()
     if not to_update:
@@ -183,7 +175,7 @@ async def get_admins(
     total = total_query.scalar()
     query = (
         select(UserRow)
-        .options(*shared.stores.utils.eager_load_user_options())
+        .options(*eager_load_user_options())
         .where(UserRow.is_admin)
         .order_by(UserRow.id.desc())
         .offset(page.offset)
@@ -206,7 +198,7 @@ async def get_featured_users(
     total = total_query.scalar()
     query = (
         select(UserRow)
-        .options(*shared.stores.utils.eager_load_user_options())
+        .options(*eager_load_user_options())
         .where(UserRow.is_featured)
         .order_by(UserRow.id.desc())
         .offset(page.offset)
@@ -228,7 +220,7 @@ async def get_deleted_users(
     total = total_query.scalar()
     query = (
         select(UserRow)
-        .options(*shared.stores.utils.eager_load_user_options())
+        .options(*eager_load_user_options())
         .where(UserRow.deleted)
         .order_by(UserRow.id.desc())
         .offset(page.offset)
@@ -251,7 +243,7 @@ async def get_all_posts(
     total = total_query.scalar()
     query = (
         select(PostRow)
-        .options(*shared.stores.utils.eager_load_post_options())
+        .options(*eager_load_post_options())
         .order_by(PostRow.id.desc())
         .offset(page.offset)
         .limit(page.limit)
@@ -267,7 +259,7 @@ async def get_post(
     db: AsyncSession = Depends(get_db),
     _admin: InternalUser = Depends(get_admin_or_raise),
 ):
-    query = select(PostRow).options(*shared.stores.utils.eager_load_post_options()).where(PostRow.id == post_id)
+    query = select(PostRow).options(*eager_load_post_options()).where(PostRow.id == post_id)
     rows = await db.execute(query)
     post = rows.scalars().first()
     if post is None:
@@ -283,7 +275,7 @@ async def update_post(
     db: AsyncSession = Depends(get_db),
     _admin: InternalUser = Depends(get_admin_or_raise),
 ):
-    query = select(PostRow).options(*shared.stores.utils.eager_load_post_options()).where(PostRow.id == post_id)
+    query = select(PostRow).options(*eager_load_post_options()).where(PostRow.id == post_id)
     rows = await db.execute(query)
     post: Optional[PostRow] = rows.scalars().first()
     if post is None:
@@ -316,10 +308,8 @@ async def get_post_reports(
     query = (
         select(PostReportRow)
         .options(
-            joinedload(PostReportRow.post, innerjoin=True).options(*shared.stores.utils.eager_load_post_options()),
-            joinedload(PostReportRow.reported_by, innerjoin=True).options(
-                *shared.stores.utils.eager_load_user_options()
-            ),
+            joinedload(PostReportRow.post, innerjoin=True).options(*eager_load_post_options()),
+            joinedload(PostReportRow.reported_by, innerjoin=True).options(*eager_load_user_options()),
         )
         .order_by(PostReportRow.id.desc())
         .offset(page.offset)
@@ -340,7 +330,7 @@ async def get_feedback(
     total = total_query.scalar()
     query = (
         select(FeedbackRow)
-        .options(joinedload(FeedbackRow.user, innerjoin=True).options(*shared.stores.utils.eager_load_user_options()))
+        .options(joinedload(FeedbackRow.user, innerjoin=True).options(*eager_load_user_options()))
         .order_by(FeedbackRow.id.desc())
         .offset(page.offset)
         .limit(page.limit)

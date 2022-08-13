@@ -15,8 +15,18 @@ depends_on = None
 
 
 def upgrade():
-    op.create_index("user_relation_from_user_id_relation_idx", "follow", ["from_user_id", "relation"], unique=False)
-    op.create_index("user_relation_to_user_id_relation_idx", "follow", ["to_user_id", "relation"], unique=False)
+    op.create_index(
+        "user_relation_from_user_id_relation_idx",
+        "follow",
+        ["from_user_id", "relation"],
+        unique=False,
+    )
+    op.create_index(
+        "user_relation_to_user_id_relation_idx",
+        "follow",
+        ["to_user_id", "relation"],
+        unique=False,
+    )
     op.create_index("post_like_post_id_idx", "post_like", ["post_id"], unique=False)
 
 

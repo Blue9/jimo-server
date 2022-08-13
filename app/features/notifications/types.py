@@ -1,9 +1,9 @@
 from typing import Optional
 
 from pydantic import validator
-from shared.api.base import Base
-from shared.api.notifications import NotificationItem
-from shared.api.type_aliases import CursorId
+
+from app.core.types import Base, CursorId
+from app.features.notifications.entities import NotificationItem
 
 
 class NotificationTokenRequest(Base):

@@ -1,10 +1,10 @@
 from typing import Optional
 
 from pydantic import root_validator, validator
-from shared.api.base import Base
-from shared.api.place import Location, Region, AdditionalPlaceData
-from shared.api.post import Post
-from shared.api.type_aliases import PlaceId, ImageId, CursorId
+
+from app.core.types import Base, ImageId, CursorId, PlaceId
+from app.features.places.entities import Location, Region, AdditionalPlaceData
+from app.features.posts.entities import Post
 
 
 class MaybeCreatePlaceRequest(Base):
