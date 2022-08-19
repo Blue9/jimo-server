@@ -29,10 +29,6 @@ RUN --mount=type=ssh poetry build && /venv/bin/pip install dist/*.whl
 # Run stage - copy venv and run
 FROM base as final
 
-ARG serviceAccountFile
-COPY $serviceAccountFile /
-ENV GOOGLE_APPLICATION_CREDENTIALS $serviceAccountFile
-
 COPY --from=builder /venv /venv
 ENV PATH="/venv/bin:$PATH"
 RUN apt-get update && apt-get install -y libpq-dev \
@@ -44,7 +40,7 @@ COPY migrate.py /
 
 CMD exec gunicorn \
     --bind :$PORT \
-    --workers 4 \
+    --workers 3 \
     -k uvicorn.workers.UvicornWorker \
     --access-logfile - \
     app.main:app
