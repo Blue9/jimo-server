@@ -5,11 +5,11 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app import tasks
 from app.core.database.engine import get_db
 from app.core.database.models import UserRelationRow, UserRelationType
 from app.core.firebase import FirebaseUser, get_firebase_user
 from app.core.types import SimpleResponse, UserId, PostId
-from app.features.notifications import push_notifications
 from app.features.posts import post_utils
 from app.features.posts.post_store import PostStore
 from app.features.posts.types import PostFeedResponse
@@ -179,7 +179,7 @@ async def follow_user(
         async def notify_task():
             prefs = await user_store.get_user_preferences(to_user.id)
             if prefs.follow_notifications:
-                await push_notifications.notify_follow(db, to_user.id, followed_by=from_user)
+                await tasks.notify_follow(db, to_user.id, followed_by=from_user)
 
         background_tasks.add_task(notify_task)
         return FollowUserResponse(followed=True, followers=to_user.follower_count + 1)

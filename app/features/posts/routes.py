@@ -4,13 +4,13 @@ from typing import Optional
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app import tasks
 from app.core.database.engine import get_db
 from app.core.firebase import FirebaseUser, get_firebase_user
 from app.core.types import SimpleResponse
 from app.features.comments.comment_store import CommentStore
 from app.features.comments.entities import CommentWithoutLikeStatus
 from app.features.comments.types import CommentPageResponse, Comment
-from app.features.notifications import push_notifications
 from app.features.places import place_utils
 from app.features.places.place_store import PlaceStore
 from app.features.posts import post_utils
@@ -74,6 +74,7 @@ async def get_post(
 @router.post("", response_model=Post)
 async def create_post(
     req: CreatePostRequest,
+    background_tasks: BackgroundTasks,
     place_store: PlaceStore = Depends(get_place_store),
     post_store: PostStore = Depends(get_post_store),
     wrapped_user: JimoUser = Depends(get_caller_user),
@@ -88,6 +89,12 @@ async def create_post(
         else:
             raise HTTPException(400, "Either place_id or place must be specified")
         post: InternalPost = await post_store.create_post(user.id, place_id, req.category, req.content, req.image_id)
+
+        async def slack_new_post_created():
+            await tasks.slack_post_created(user.username, post)
+
+        background_tasks.add_task(slack_new_post_created)
+
         return Post(**post.dict(), user=user, liked=False, saved=False)
     except ValueError as e:
         raise HTTPException(400, detail=str(e))
@@ -169,7 +176,7 @@ async def like_post(
         # Notify the user that their post was liked if they aren't the current user
         prefs = await user_store.get_user_preferences(post.user_id)
         if user.id != post.user_id and prefs.post_liked_notifications:
-            await push_notifications.notify_post_liked(db, post, place_name=post.place.name, liked_by=user)
+            await tasks.notify_post_liked(db, post, place_name=post.place.name, liked_by=user)
 
     background_tasks.add_task(task)
     return {"likes": await post_store.get_like_count(post.id)}
@@ -211,7 +218,7 @@ async def save_post(
     async def task():
         prefs = await user_store.get_user_preferences(post.user_id)
         if user.id != post.user_id and prefs.post_liked_notifications:
-            await push_notifications.notify_post_saved(db, post, place_name=post.place.name, saved_by=user)
+            await tasks.notify_post_saved(db, post, place_name=post.place.name, saved_by=user)
 
     background_tasks.add_task(task)
     return {"success": True}

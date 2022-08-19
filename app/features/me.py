@@ -9,12 +9,12 @@ from sqlalchemy import union_all, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app import tasks
 from app.core.database.engine import get_db
 from app.core.database.models import UserRelationRow, UserRow, UserRelationType
 from app.core.firebase import FirebaseUser, get_firebase_user
 from app.core.types import SimpleResponse
 from app.features.images import image_utils
-from app.features.notifications import push_notifications
 from app.features.places.entities import Location
 from app.features.posts.entities import Post
 from app.features.posts.feed_store import FeedStore
@@ -303,7 +303,7 @@ async def follow_many(
         for followed in users_to_follow:
             prefs = await user_store.get_user_preferences(followed)
             if prefs.follow_notifications:
-                await push_notifications.notify_follow(db, followed, followed_by=user)
+                await tasks.notify_follow(db, followed, followed_by=user)
 
     background_tasks.add_task(task)
     return SimpleResponse(success=True)
