@@ -170,6 +170,7 @@ async def get_discover_feed(
     post_ids = await feed_store.get_discover_feed_ids(user.id, limit=99)  # Prevent additional row on iOS
     if len(post_ids) == 0:
         return []
+    post_ids = sorted(post_ids, reverse=True)
     # Step 2: Convert to posts
     feed = await get_posts_from_post_ids(
         current_user=user,
@@ -198,6 +199,7 @@ async def get_discover_feed_v2(
     post_ids = await feed_store.get_discover_feed_ids(user.id, location=location, limit=99)
     if len(post_ids) == 0:
         return PostFeedResponse(posts=[])
+    post_ids = sorted(post_ids, reverse=True)
     # Step 2: Convert to posts
     feed = await get_posts_from_post_ids(
         current_user=user,
