@@ -2,9 +2,9 @@ import uuid
 from contextlib import contextmanager
 
 import pytest
-from shared.models.models import UserRow, PlaceRow, PostRow
 
-from app.controllers.firebase import get_firebase_user, FirebaseUser
+from app.core.database.models import UserRow, PlaceRow, PostRow
+from app.core.firebase import get_firebase_user, FirebaseUser
 from app.main import app as main_app
 from tests.mock_firebase import MockFirebaseAdmin
 

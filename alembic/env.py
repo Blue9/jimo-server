@@ -2,8 +2,8 @@ from logging.config import fileConfig
 
 from alembic import context
 
-from app.config import SQLALCHEMY_DATABASE_URL
-from shared.models.models import Base
+from app.core.config import SQLALCHEMY_DATABASE_URL
+from app.core.database.models import Base
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -75,7 +75,11 @@ def run_migrations_online():
 
     """
     with engine.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata, include_object=include_object)
+        context.configure(
+            connection=connection,
+            target_metadata=target_metadata,
+            include_object=include_object,
+        )
 
         with context.begin_transaction():
             connection.execute("SELECT pg_advisory_xact_lock(10000);")

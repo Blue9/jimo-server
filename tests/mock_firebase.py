@@ -1,7 +1,7 @@
 import uuid
 from typing import Optional, IO, Tuple
 
-from app.controllers.firebase import FirebaseAdminProtocol
+from app.core.firebase import FirebaseAdminProtocol
 
 
 class MockFirebaseAdmin(FirebaseAdminProtocol):

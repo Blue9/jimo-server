@@ -2,25 +2,18 @@ import asyncio
 
 import pytest
 import pytest_asyncio
-from aioredis import Redis
 from httpx import AsyncClient
-from shared.models.models import Base
 from sqlalchemy import text
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import Connection
 from sqlalchemy.orm import sessionmaker
 
-from app import config
-from app.config import REDIS_URL
-from app.controllers import categories
+from app.core import config
+from app.core.database.models import Base
+from app.features.posts import categories
 
 TEST_DATABASE_NAME = "jimo_test_db"
-
-
-@pytest_asyncio.fixture(autouse=True, scope="module")
-async def reset_redis():
-    await Redis.from_url(REDIS_URL).flushdb()
 
 
 @pytest.fixture(scope="session")
@@ -36,7 +29,7 @@ def sync_engine(engine):
 @pytest.fixture(scope="session")
 def engine():
     check_db_name()
-    from app.db.database import engine
+    from app.core.database.engine import engine
 
     yield engine
     engine.sync_engine.dispose()
@@ -52,8 +45,9 @@ async def app():
 @pytest_asyncio.fixture()
 async def create(engine):
     async with engine.begin() as conn:
+        await conn.run_sync(reset_db)
         await conn.run_sync(Base.metadata.create_all)
-        await conn.run_sync(populate)
+        await conn.run_sync(populate_categories)
     yield
     async with engine.begin() as conn:
         await conn.run_sync(reset_db)
@@ -78,7 +72,7 @@ def check_db_name():
         pytest.exit(f"Database name must be {TEST_DATABASE_NAME}", returncode=1)
 
 
-def populate(connection):
+def populate_categories(connection):
     with sessionmaker(autocommit=False, autoflush=False, bind=connection)() as session:
         categories.add_categories_to_db(session)
 

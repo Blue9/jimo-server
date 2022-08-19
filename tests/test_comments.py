@@ -2,22 +2,22 @@ import uuid
 from contextlib import contextmanager
 
 import pytest
-from shared.api.comment import Comment
-from shared.models.models import (
+from sqlalchemy import select
+
+from app.core.database.models import (
     UserRow,
     PlaceRow,
     PostRow,
     UserRelationRow,
     UserRelationType,
 )
-from sqlalchemy import select
-
-from app.api.types.comment import (
+from app.core.firebase import get_firebase_user, FirebaseUser
+from app.features.comments.types import Comment
+from app.features.comments.types import (
     CreateCommentRequest,
     LikeCommentResponse,
     CommentPageResponse,
 )
-from app.controllers.firebase import get_firebase_user, FirebaseUser
 from app.main import app as main_app
 from tests.mock_firebase import MockFirebaseAdmin
 

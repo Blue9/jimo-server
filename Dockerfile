@@ -24,7 +24,6 @@ COPY /app /app
 COPY pyproject.toml /
 COPY poetry.lock /
 
-RUN mkdir -p -m 0600 ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
 RUN --mount=type=ssh poetry build && /venv/bin/pip install dist/*.whl
 
 # Run stage - copy venv and run
@@ -39,12 +38,9 @@ COPY /alembic /alembic
 COPY alembic.ini /
 COPY migrate.py /
 
-# Reasoning for options here:
-# https://cloud.google.com/run/docs/quickstarts/build-and-deploy/python#containerizing
 CMD exec gunicorn \
     --bind :$PORT \
-    --workers 1 \
-    --timeout 0 \
+    --workers 3 \
     -k uvicorn.workers.UvicornWorker \
     --access-logfile - \
     app.main:app

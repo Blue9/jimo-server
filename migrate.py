@@ -1,16 +1,14 @@
 import io
 from typing import Optional
 
-from shared.models.models import Base
+from alembic.config import Config
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from alembic import command
-from alembic.config import Config
-
-from app.config import SQLALCHEMY_DATABASE_URL
-from app.controllers import categories
-
+from app.core.config import SQLALCHEMY_DATABASE_URL
+from app.core.database.models import Base
+from app.features.posts import categories
 from app.utils import get_logger
 
 engine = create_engine(

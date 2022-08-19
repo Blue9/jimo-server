@@ -1,7 +1,6 @@
 from fastapi import FastAPI, Depends, UploadFile, File
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
-from shared.api.internal import InternalUser
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
@@ -10,63 +9,51 @@ from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
-from app import api, config
-from app.api import utils
-from app.api.types.image import ImageUploadResponse
-from app.controllers.dependencies import (
+from app.core import config
+from app.core.database.engine import get_db
+from app.core.firebase import FirebaseUser, get_firebase_user
+from app.features.admin.routes import router as admin_router
+from app.features.comments.routes import router as comment_router
+from app.features.feedback.routes import router as feedback_router
+from app.features.images import image_utils
+from app.features.images.types import ImageUploadResponse
+from app.features.map.routes import router as map_router
+from app.features.me import router as me_router
+from app.features.notifications.routes import router as notification_router
+from app.features.places.routes import router as place_router
+from app.features.posts.routes import router as post_router
+from app.features.search.routes import router as search_router
+from app.features.users.dependencies import (
+    get_authorization_header,
     JimoUser,
     get_caller_user,
-    get_authorization_header,
 )
-from app.controllers.firebase import FirebaseUser, get_firebase_user
-from app.db.database import get_db
+from app.features.users.entities import InternalUser
+from app.features.users.routes import router as user_router
 from app.utils import get_logger
 
 log = get_logger(__name__)
-
-
-def get_app() -> FastAPI:
-    log.info("Initializing server")
-    if config.ENABLE_DOCS:
-        log.warning("Enabling docs")
-        _app = FastAPI()
-    else:
-        _app = FastAPI(openapi_url=None)
-    if config.ALLOW_ORIGIN:
-        log.warning("Setting allow origin to %s", config.ALLOW_ORIGIN)
-        origins = [config.ALLOW_ORIGIN]
-        _app.add_middleware(
-            CORSMiddleware,
-            allow_origins=origins,
-            allow_credentials=True,
-            allow_methods=["*"],
-            allow_headers=["*"],
-        )
+log.info("Initializing server")
+app = FastAPI(openapi_url="/openapi.json" if config.ENABLE_DOCS else None)
+if config.ENABLE_DOCS:
+    log.warning("Docs enabled")
+if config.ALLOW_ORIGIN:
+    log.warning("Setting allow origin to %s", config.ALLOW_ORIGIN)
+    origins = [config.ALLOW_ORIGIN]
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+if config.RATE_LIMIT_CONFIG:
     log.warning("Rate limiting to %s", config.RATE_LIMIT_CONFIG)
-    _app.state.limiter = Limiter(
+    app.state.limiter = Limiter(
         key_func=get_authorization_header,
         default_limits=[config.RATE_LIMIT_CONFIG],
-        storage_uri=config.REDIS_URL,
     )
-    _app.add_middleware(SlowAPIMiddleware)
-    return _app
-
-
-app = get_app()
-
-
-@app.middleware("http")
-async def db_session_middleware(request: Request, call_next):
-    response = Response("Internal server error", status_code=500)
-    request.state.db = None
-    try:
-        response = await call_next(request)
-    except Exception:  # noqa
-        log.exception("Exception when handling request %s", request.url)
-    finally:
-        if request.state.db is not None:
-            await request.state.db.close()
-    return response
+    app.add_middleware(SlowAPIMiddleware)
 
 
 @app.exception_handler(RequestValidationError)
@@ -102,17 +89,17 @@ async def upload_image(
 ):
     """Upload the given image to Firebase if allowed, returning the image id (used for posts + profile pictures)."""
     user: InternalUser = wrapped_user.user
-    image_upload = await utils.upload_image(file, user, firebase_user.shared_firebase, db)
+    image_upload = await image_utils.upload_image(file, user, firebase_user.shared_firebase, db)
     return ImageUploadResponse(image_id=image_upload.id)
 
 
-app.include_router(api.me.router, prefix="/me")
-app.include_router(api.mapV3.router, prefix="/map")
-app.include_router(api.notifications.router, prefix="/notifications")
-app.include_router(api.users.router, prefix="/users")
-app.include_router(api.comments.router, prefix="/comments")
-app.include_router(api.posts.router, prefix="/posts")
-app.include_router(api.places.router, prefix="/places")
-app.include_router(api.search.router, prefix="/search")
-app.include_router(api.feedback.router, prefix="/feedback")
-app.include_router(api.admin.router, prefix="/admin")
+app.include_router(me_router, prefix="/me")
+app.include_router(map_router, prefix="/map")
+app.include_router(notification_router, prefix="/notifications")
+app.include_router(user_router, prefix="/users")
+app.include_router(comment_router, prefix="/comments")
+app.include_router(post_router, prefix="/posts")
+app.include_router(place_router, prefix="/places")
+app.include_router(search_router, prefix="/search")
+app.include_router(feedback_router, prefix="/feedback")
+app.include_router(admin_router, prefix="/admin")
