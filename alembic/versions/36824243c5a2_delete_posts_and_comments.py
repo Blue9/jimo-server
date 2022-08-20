@@ -12,8 +12,8 @@ from sqlalchemy.orm import Session
 from app.core.database.models import PostRow, CommentRow
 
 # revision identifiers, used by Alembic.
-revision = '36824243c5a2'
-down_revision = '5b80f513361d'
+revision = "36824243c5a2"
+down_revision = "5b80f513361d"
 branch_labels = None
 depends_on = None
 

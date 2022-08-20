@@ -3,12 +3,12 @@ from typing import Optional
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app import tasks
 from app.core.database.engine import get_db
 from app.core.types import SimpleResponse, CommentId
 from app.features.comments.comment_store import CommentStore
 from app.features.comments.entities import InternalComment
 from app.features.comments.types import CreateCommentRequest, LikeCommentResponse, Comment
-from app.features.notifications import push_notifications
 from app.features.posts import post_utils
 from app.features.posts.entities import InternalPost
 from app.features.posts.post_store import PostStore
@@ -45,7 +45,7 @@ async def create_comment(
     async def notification_task():
         prefs = await user_store.get_user_preferences(post.user_id)
         if user.id != post.user_id and prefs.comment_notifications:
-            await push_notifications.notify_comment(db, post, post.place.name, comment.content, comment_by=user)
+            await tasks.notify_comment(db, post, post.place.name, comment.content, comment_by=user)
 
     background_tasks.add_task(notification_task)
     return Comment(
@@ -99,7 +99,7 @@ async def like_comment(
         if user.id != comment.user_id:
             prefs = await user_store.get_user_preferences(comment.user_id)
             if prefs.comment_liked_notifications:
-                await push_notifications.notify_comment_liked(db, comment, liked_by=user)
+                await tasks.notify_comment_liked(db, comment, liked_by=user)
 
     background_tasks.add_task(task)
     return LikeCommentResponse(likes=await comment_store.get_like_count(comment_id))
