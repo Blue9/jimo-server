@@ -19,7 +19,7 @@ class UserStore:
         """Return whether or not a user (deleted or not) with the given attributes exists."""
         query = sa.select(UserRow.id)
         if username:
-            query = query.where(UserRow.username == username)
+            query = query.where(UserRow.username_lower == username.lower())
         if uid:
             query = query.where(UserRow.uid == uid)
         result = await self.db.execute(query.exists().select())
