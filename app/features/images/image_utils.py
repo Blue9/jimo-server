@@ -48,8 +48,8 @@ async def check_valid_image(file: UploadFile):
     file_size = 0
     for chunk in file.file:
         file_size += len(chunk)
-        if file_size > 2 * 1024 * 1024:
-            raise HTTPException(400, detail="Max file size is 2MB")
+        if file_size > 10 * 1024 * 1024:
+            raise HTTPException(400, detail="Max image size is 10MB")
     file.file.seek(0)
 
 
