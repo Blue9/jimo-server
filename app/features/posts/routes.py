@@ -73,8 +73,9 @@ async def get_post(
 
 @router.post("", response_model=Post)
 async def create_post(
-    req: CreatePostRequest,
+    request: CreatePostRequest,
     background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
     place_store: PlaceStore = Depends(get_place_store),
     post_store: PostStore = Depends(get_post_store),
     wrapped_user: JimoUser = Depends(get_caller_user),
@@ -82,19 +83,17 @@ async def create_post(
     """Create a new post."""
     user: InternalUser = wrapped_user.user
     try:
-        if req.place_id:
-            place_id = req.place_id
-        elif req.place:
-            place_id = await place_utils.get_or_create_place(user.id, req.place, place_store)
+        if request.place_id:
+            place_id = request.place_id
+        elif request.place:
+            place_id = await place_utils.get_or_create_place(user.id, request.place, place_store)
         else:
             raise HTTPException(400, "Either place_id or place must be specified")
-        post: InternalPost = await post_store.create_post(user.id, place_id, req.category, req.content, req.image_id)
-
-        async def slack_new_post_created():
-            await tasks.slack_post_created(user.username, post)
-
-        background_tasks.add_task(slack_new_post_created)
-
+        post: InternalPost = await post_store.create_post(
+            user.id, place_id, request.category, request.content, request.image_id
+        )
+        background_tasks.add_task(tasks.slack_post_created, user.username, post)
+        background_tasks.add_task(tasks.notify_post_created, db, post, user)
         return Post(**post.dict(), user=user, liked=False, saved=False)
     except ValueError as e:
         raise HTTPException(400, detail=str(e))

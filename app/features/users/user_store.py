@@ -6,9 +6,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database.helpers import eager_load_user_options
 from app.features.images.image_utils import maybe_get_image_with_lock
-from app.core.database.models import UserRow, UserPrefsRow, UserRelationRow, UserRelationType
+from app.core.database.models import (
+    UserRow,
+    UserPrefsRow,
+    UserRelationRow,
+    UserRelationType,
+)
 from app.core.types import PhoneNumber, UserId, ImageId
-from app.features.users.entities import UserPrefs, SuggestedUserIdItem, UserFieldErrors, InternalUser
+from app.features.users.entities import (
+    UserPrefs,
+    SuggestedUserIdItem,
+    UserFieldErrors,
+    InternalUser,
+)
 
 
 class UserStore:
@@ -27,7 +37,10 @@ class UserStore:
         return user_exists
 
     async def get_user(
-        self, user_id: Optional[UserId] = None, uid: Optional[str] = None, username: Optional[str] = None
+        self,
+        user_id: Optional[UserId] = None,
+        uid: Optional[str] = None,
+        username: Optional[str] = None,
     ) -> Optional[InternalUser]:
         query = sa.select(UserRow).options(*eager_load_user_options()).where(~UserRow.deleted)
         if user_id:
@@ -51,7 +64,10 @@ class UserStore:
         query = (
             sa.select(UserRow.id)
             .join(UserPrefsRow)
-            .where(UserRow.phone_number.in_(phone_numbers), UserPrefsRow.searchable_by_phone_number)
+            .where(
+                UserRow.phone_number.in_(phone_numbers),
+                UserPrefsRow.searchable_by_phone_number,
+            )
             .limit(limit)
         )
         result = await self.db.execute(query)
@@ -189,6 +205,8 @@ class UserStore:
             prefs.comment_liked_notifications = request.comment_liked_notifications
         if request.searchable_by_phone_number is not None:
             prefs.searchable_by_phone_number = request.searchable_by_phone_number
+        if request.post_notifications is not None:
+            prefs.post_notifications = request.post_notifications
         await self.db.commit()
         await self.db.refresh(prefs)
         return UserPrefs.from_orm(prefs)
