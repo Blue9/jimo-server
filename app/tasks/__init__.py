@@ -1,4 +1,5 @@
 from app.tasks.push_notifications import (
+    notify_post_created,
     notify_post_liked,
     notify_follow,
     notify_post_saved,

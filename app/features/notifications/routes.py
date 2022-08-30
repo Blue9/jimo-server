@@ -26,6 +26,7 @@ async def register_token(
     db: AsyncSession = Depends(get_db),
     wrapped_user: JimoUser = Depends(get_caller_user),
 ):
+    """Register the Firebase Cloud Messaging token."""
     user: InternalUser = wrapped_user.user
     await tokens.register_fcm_token(db, user.id, request.token)
     return {"success": True}
@@ -37,6 +38,7 @@ async def remove_token(
     db: AsyncSession = Depends(get_db),
     wrapped_user: JimoUser = Depends(get_caller_user),
 ):
+    """De-register the Firebase Cloud Messaging token."""
     user: InternalUser = wrapped_user.user
     await tokens.remove_fcm_token(db, user.id, request.token)
     return {"success": True}

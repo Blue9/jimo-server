@@ -19,13 +19,13 @@ class PublicUser(Base):
 
 
 class UserPrefs(Base):
-    post_notifications: Optional[bool] = False  # Here for backwards-compatibility, remove later
     follow_notifications: bool
     post_liked_notifications: bool
     # New fields, so they have to be optional
     comment_notifications: Optional[bool]
     comment_liked_notifications: Optional[bool]
     searchable_by_phone_number: Optional[bool]
+    post_notifications: Optional[bool] = False
 
 
 class UserFieldErrors(Base):

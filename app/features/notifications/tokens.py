@@ -6,6 +6,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
+# FCM = Firebase Cloud Messaging
 async def register_fcm_token(db: AsyncSession, user_id: uuid.UUID, token: str):
     query = select(FCMTokenRow).where(FCMTokenRow.user_id == user_id, FCMTokenRow.token == token)
     exists_query = await db.execute(exists(query).select())
@@ -14,6 +15,9 @@ async def register_fcm_token(db: AsyncSession, user_id: uuid.UUID, token: str):
         return
     fcm_token = FCMTokenRow(user_id=user_id, token=token)
     db.add(fcm_token)
+    # This ensures we have 1 token per user. In the future this can be removed if we want to support notifying multiple
+    # devices, but this keeps the table clean.
+    await db.execute(delete(FCMTokenRow).where(FCMTokenRow.user_id == user_id, FCMTokenRow.token != token))
     try:
         await db.commit()
     except IntegrityError:

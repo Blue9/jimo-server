@@ -145,6 +145,7 @@ class UserPrefsRow(Base):
     comment_notifications = Column(Boolean, nullable=False, server_default=true())
     comment_liked_notifications = Column(Boolean, nullable=False, server_default=true())
     searchable_by_phone_number = Column(Boolean, nullable=False, server_default=true())
+    post_notifications = Column(Boolean, nullable=False, server_default=true())
     updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     user: "RelationshipProperty[UserRow]" = relationship("UserRow")
