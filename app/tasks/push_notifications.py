@@ -99,7 +99,7 @@ async def _send_notification(db: AsyncSession, user_id: UserId, body: str, badge
 
 
 async def _actually_send_notification(fcm_token: str, body: str, badge: Optional[int], **kwargs):
-    apns = _get_optional_apns(badge, **kwargs)
+    apns = _get_apns(badge, **kwargs)
     message = messaging.Message(notification=messaging.Notification(body=body), apns=apns, token=fcm_token)
     try:
         loop = get_event_loop()
@@ -108,8 +108,7 @@ async def _actually_send_notification(fcm_token: str, body: str, badge: Optional
         print(f"Exception when notifying: {e}, {e.__dict__}")
 
 
-def _get_optional_apns(badge: Optional[int], **custom_data) -> Optional[messaging.APNSConfig]:
-    if badge is None:
-        return None
-    payload = messaging.APNSPayload(messaging.Aps(sound="default", badge=badge), **custom_data)
+def _get_apns(badge: Optional[int], **custom_data) -> messaging.APNSConfig:
+    sound = None if badge is None else "default"
+    payload = messaging.APNSPayload(messaging.Aps(sound=sound, badge=badge, custom_data=custom_data), **custom_data)
     return messaging.APNSConfig(payload=payload)
