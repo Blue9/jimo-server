@@ -1,4 +1,4 @@
-FROM python:3.9.3-slim as base
+FROM python:3.11.0-slim as base
 
 ENV PYTHONUNBUFFERED=1
 
@@ -7,7 +7,7 @@ FROM base as builder
 
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_NO_CACHE_DIR=1 \
-    POETRY_VERSION=1.1.11
+    POETRY_VERSION=1.2.2
 
 RUN apt-get update && apt-get install -y \
     build-essential \

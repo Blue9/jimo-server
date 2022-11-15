@@ -5,21 +5,23 @@ description = ""
 authors = ["Your Name <you@example.com>"]
 
 [tool.poetry.dependencies]
-python = "^3.9"
-pydantic = "^1.9.0"
-fastapi = "^0.78.0"
+python = "^3.11"
+pydantic = "^1.10.2"
+fastapi = "^0.87.0"
 SQLAlchemy = {extras = ["mypy"], version = "^1.4.37"}
-uvicorn = { extras = ["standard"], version = "^0.17.6" }
+uvicorn = {extras = ["standard"], version = "^0.19.0"}
 gunicorn = "^20.1.0"
 ulid-py = "^1.1.0"
-GeoAlchemy2 = "^0.11.1"
-psycopg2 = "^2.9.3"
-firebase-admin = "^5.2.0"
+geoalchemy2 = "^0.12.5"
+psycopg2 = "^2.9.5"
+firebase-admin = "^6.0.1"
 python-multipart = "^0.0.5"
-alembic = "^1.7.7"
-asyncpg = "^0.25.0"
-slowapi = "^0.1.5"
-httpx = "^0.22.0"
+alembic = "^1.8.1"
+asyncpg = "^0.27.0"
+slowapi = "^0.1.6"
+httpx = "^0.23.0"
+sqlalchemy = {extras = ["mypy"], version = "^1.4.44"}
+greenlet = "^2.0.1"
 
 [tool.poetry.dev-dependencies]
 flake8 = "^4.0.1"

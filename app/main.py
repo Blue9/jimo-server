@@ -77,7 +77,7 @@ def rate_limit_exceeded_handler(_request: Request, _exc: RateLimitExceeded) -> R
 
 @app.get("/")
 async def index():
-    return {"success": True}
+    return {"hey there": "dm me @jimoapp"}
 
 
 @app.post("/images", response_model=ImageUploadResponse)
