@@ -13,38 +13,39 @@
 ## Running the server
 
 1. (Optional) Create a virtual environment using pyenv, venv, or a similar tool, and activate it.
-2. In `server/`, run `poetry install` (you may need to install [Poetry](https://python-poetry.org/) first).
+2. Install [Poetry](https://python-poetry.org/) here.
+2. Run `poetry install`.
     - If you created a virtual environment, the dependencies will be installed to it; otherwise, poetry will create one for you.
 3. Set the environment variables:
 
-Variable | Value
----|---
-`DATABASE_URL` | Full database url (w/ credentials).
-`GOOGLE_APPLICATION_CREDENTIALS` | Path to the service account JSON file.
-`ALLOW_ORIGIN` | (Optional) Allow requests from the given host. Can be set to `*`.
-`ENABLE_DOCS` | (Optional) If set to 1, enable the `/docs`, `/redoc`, and `/openapi.json` endpoints. Disabled by default.
-`STORAGE_BUCKET` | The Firebase storage bucket to save images to. Defaults to `goodplaces-app.appspot.com`.
 
-4. (One-time setup) In `server/`, run `poetry run python init_db.py`. This will set up all the database tables. If you are using your own virtual environment you can also just run `python init_db.py`.
-5. In `server/`, run `poetry run python runserver.py`. This will start the server with hot reloading turned on. If you are using your own virtual environment you can also just run `python runserver.py`.
+| Variable                         | Value|
+|----------------------------------|---|
+ | `DATABASE_URL`                   | Full database url (w/ credentials).|
+ | `GOOGLE_APPLICATION_CREDENTIALS` | Path to the service account JSON file.|
+ | `ALLOW_ORIGIN`                   | (Optional) Allow requests from the given host. Can be set to `*`.|
+ | `ENABLE_DOCS`                    | (Optional) If set to 1, enable the `/docs`, `/redoc`, and `/openapi.json` endpoints. Disabled by default.|
+ | `STORAGE_BUCKET`                 | The Firebase storage bucket to save images to. Defaults to `goodplaces-app.appspot.com`.|
+
+4. Run `python migrate.py`.
+5. Run `export ENABLE_DOCS=1` and then run `python runserver.py`.
+6. View the docs at `http://localhost/docs` or `http://localhost/redoc`. OpenAPI definitions are available at `http://localhost/openapi.json`.
 
 
 ## Other commands
 
-Run the following commands in `server/`.
-
-Command | Action
----|---
-`flake8 .` | Lint files
-`pytest` | Run tests
-`alembic revision --autogenerate -m <message>` | Generate database migration (run this after <br /> changing the db schema). **IMPORTANT**: Double <br /> check the generated file (in `alembic/versions/`) <br /> to make sure the migration is correct. Alembic <br /> can't always generate the right migrations.
-`alembic upgrade head` | Run database migrations.
+| Command                                        | Action|
+|------------------------------------------------|---|
+ | `flake8 .`                                     | Lint files|
+ | `pytest`                                       | Run tests|
+ | `alembic revision --autogenerate -m <message>` | Generate database migration (run this after <br /> changing the db schema). **IMPORTANT**: Double <br /> check the generated file (in `alembic/versions/`) <br /> to make sure the migration is correct. Alembic <br /> can't always generate the right migrations.|
+ | `alembic upgrade head`                         | Run database migrations.|
 
 
 ## Backend overview
 
-The backend is split up into three parts, `models/`, `routers/`, and `controllers/`. Models include the database tables and request and response types. We use SQLALchemy to define the database types and [Pydantic](https://pydantic-docs.helpmanual.io/) to define the request and response types (this comes with FastAPI). Routers define the endpoints and are handled by FastAPI. Controllers connect models to routers and handle request logic.
+The backend is split up two main folders: `core` and `features`.
 
-For every request, we receive an `authorization` header and a `db` object. The `authorization` header is a bearer token used to authenticate requests. Since we use Firebase for auth we can verify the token by checking it with Firebase (see `controllers/auth.py`). The `db` object is a SQLAlchemy session that lets us interact with the database. For example, if we wanted to get the user with the username `gautam` (or `None` if no such user exists) we could do `db.query(User).filter(User.username == "gautam").first()`.
+For every request, we receive an `authorization` header and a `db` object. The `authorization` header is a bearer token used to authenticate requests. We use Firebase for auth and verify the token by checking it with them.
 
 We also define a response model for every request (see the `response_model` param for each route). This is usually a Pydantic model, and when you return an object from a route, FastAPI will try to automatically parse it to the given Pydantic type. This is useful because Pydantic lets us define validators on our types, so we can make sure that the data we return to a user is valid. We also do this for some requests, where the body is a Pydantic type so we can easily validate the request.
