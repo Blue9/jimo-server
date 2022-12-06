@@ -201,13 +201,14 @@ async def get_discover_feed_v2(
         return PostFeedResponse(posts=[])
     post_ids = sorted(post_ids, reverse=True)
     # Step 2: Convert to posts
-    feed = await get_posts_from_post_ids(
+    posts = await get_posts_from_post_ids(
         current_user=user,
         post_ids=post_ids,
         post_store=post_store,
         user_store=user_store,
     )
-    response = PostFeedResponse(posts=feed)
+    random.shuffle(posts)
+    response = PostFeedResponse(posts=posts)
     return JSONResponse(content=jsonable_encoder(response))
 
 

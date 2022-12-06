@@ -133,8 +133,8 @@ async def get_followers(
     to_user = await validate_user(relation_store, caller_user_id=current_user.id, user=maybe_to_user)
     user_ids, next_cursor = await relation_store.get_followers(to_user.id, cursor, limit)
     relations = await relation_store.get_relations(current_user.id, user_ids)
-    users = await user_store.get_users(user_ids)
-    items = [dict(user=users[user_id], relation=relations.get(user_id)) for user_id in user_ids]
+    users_map = await user_store.get_users(user_ids)
+    items = [dict(user=user, relation=relations.get(user_id)) for user_id, user in users_map.items()]
     return dict(users=items, cursor=next_cursor)
 
 
@@ -153,8 +153,8 @@ async def get_following(
     from_user = await validate_user(relation_store, caller_user_id=current_user.id, user=maybe_from_user)
     user_ids, next_cursor = await relation_store.get_following(from_user.id, cursor, limit)
     relations = await relation_store.get_relations(current_user.id, user_ids)
-    users = await user_store.get_users(user_ids)
-    items = [dict(user=users[user_id], relation=relations.get(user_id)) for user_id in user_ids]
+    users_map = await user_store.get_users(user_ids)
+    items = [dict(user=user, relation=relations.get(user_id)) for user_id, user in users_map.items()]
     return dict(users=items, cursor=next_cursor)
 
 
