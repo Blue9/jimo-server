@@ -21,6 +21,8 @@ class FeedStore:
     async def get_feed_ids(self, user_id: UserId, cursor: Optional[CursorId] = None, limit: int = 10) -> list[PostId]:
         """Get the user's feed, returning a list of post ids."""
         query = self._feed_ids_query(user_id)
+        # Skip bib gourmand account in feed because we posted 3.4k times at once
+        query = query.where(PostRow.user_id != '0183479c-a153-ab5f-f571-b1498a0957a4')
         if cursor:
             query = query.where(PostRow.id < cursor)
         result = await self.db.execute(query.order_by(PostRow.id.desc()).limit(limit))
