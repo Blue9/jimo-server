@@ -13,6 +13,12 @@ class PlaceStore:
     def __init__(self, db: AsyncSession):
         self.db = db
 
+    async def get_place(self, place_id: PlaceId) -> Optional[Place]:
+        query = sa.select(PlaceRow).where(PlaceRow.id == place_id)
+        result = await self.db.execute(query)
+        place_row = result.scalars().first()
+        return Place.from_orm(place_row) if place_row else None
+
     async def find_or_create_place(
         self,
         name: str,
@@ -21,10 +27,26 @@ class PlaceStore:
         search_radius_meters: float = 10,
     ) -> Place:
         """Try to find an existing place matching the given request, otherwise create a place and return it."""
-        place = await self._find_place(name, latitude, longitude, search_radius_meters=search_radius_meters)
+        place = await self.find_place(name, latitude, longitude, search_radius_meters=search_radius_meters)
         if place is not None:
             return place
         return await self._create_place(name, latitude, longitude)
+
+    async def find_place(
+        self, name: str, latitude: float, longitude: float, search_radius_meters: float = 10
+    ) -> Optional[Place]:
+        query = sa.select(PlaceRow).where(PlaceRow.name == name)
+        if search_radius_meters > 0:
+            point = sa.func.ST_GeographyFromText(f"POINT({longitude} {latitude})")
+            # TODO: Would like to use ST_DWithin but non-deterministically running into
+            #  "no spatial operator found for 'st_dwithin'" (appears when running all tests at once (or test_posts and
+            #  test_map) together, but it doesn't appear when running test_posts alone, will investigate later
+            query = query.where(sa.func.ST_Distance(point, PlaceRow.location) < search_radius_meters)
+        else:
+            query = query.where(PlaceRow.latitude == latitude, PlaceRow.longitude == longitude)
+        result = await self.db.execute(query)
+        maybe_place = result.scalars().first()
+        return Place.from_orm(maybe_place) if maybe_place else None
 
     async def update_place_metadata(
         self,
@@ -107,22 +129,6 @@ class PlaceStore:
         result = await self.db.execute(query)
         post_ids = result.scalars().all()
         return post_ids
-
-    async def _find_place(
-        self, name: str, latitude: float, longitude: float, search_radius_meters: float = 10
-    ) -> Optional[Place]:
-        query = sa.select(PlaceRow).where(PlaceRow.name == name)
-        if search_radius_meters > 0:
-            point = sa.func.ST_GeographyFromText(f"POINT({longitude} {latitude})")
-            # TODO: Would like to use ST_DWithin but non-deterministically running into
-            #  "no spatial operator found for 'st_dwithin'" (appears when running all tests at once (or test_posts and
-            #  test_map) together, but it doesn't appear when running test_posts alone, will investigate later
-            query = query.where(sa.func.ST_Distance(point, PlaceRow.location) < search_radius_meters)
-        else:
-            query = query.where(PlaceRow.latitude == latitude, PlaceRow.longitude == longitude)
-        result = await self.db.execute(query)
-        maybe_place = result.scalars().first()
-        return Place.from_orm(maybe_place) if maybe_place else None
 
     async def _create_place(self, name: str, latitude: float, longitude: float) -> Place:
         """Create a place in the database with the given details."""

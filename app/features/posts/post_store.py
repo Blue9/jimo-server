@@ -17,6 +17,8 @@ from app.core.database.models import (
     PostLikeRow,
     PostReportRow,
     PostSaveRow,
+    UserRelationRow,
+    UserRow,
 )
 
 
