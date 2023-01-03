@@ -4,7 +4,7 @@ from typing import Optional
 
 from pydantic import Field
 
-from app.core.types import Base, UserId, InternalBase, ImageId
+from app.core.types import Base, InternalBase, UserId, ImageId
 
 
 class PublicUser(Base):
@@ -29,11 +29,11 @@ class UserPrefs(Base):
 
 
 class UserFieldErrors(Base):
-    uid: Optional[str]
-    username: Optional[str]
-    first_name: Optional[str]
-    last_name: Optional[str]
-    other: Optional[str]
+    uid: str | None = None
+    username: str | None = None
+    first_name: str | None = None
+    last_name: str | None = None
+    other: str | None = None
 
 
 class UserRelation(Enum):
@@ -45,7 +45,7 @@ NumMutualFriends = int
 SuggestedUserIdItem = tuple[UserId, NumMutualFriends]
 
 
-class InternalUser(InternalBase):
+class InternalUser(PublicUser, InternalBase):
     id: UserId
     uid: str
     username: str

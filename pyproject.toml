@@ -19,8 +19,7 @@ alembic = "^1.8.1"
 asyncpg = "^0.27.0"
 slowapi = "^0.1.6"
 httpx = "^0.23.0"
-sqlalchemy = "^1.4.45"
-sqlalchemy2-stubs = "^0.0.2a29"
+sqlalchemy = "2.0.0rc1"
 greenlet = "^2.0.1"
 
 [tool.poetry.dev-dependencies]
@@ -29,6 +28,9 @@ pytest = "^7.1.2"
 pytest-asyncio = "^0.18.3"
 black = "^22.3.0"
 types-cachetools = "^5.2.1"
+
+[tool.poetry.group.dev.dependencies]
+mypy = "^0.991"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

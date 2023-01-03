@@ -14,8 +14,8 @@ class PostWithoutLikeSaveStatus(Base):
     place: Place
     category: str
     content: str
-    image_url: Optional[str]
-    image_id: Optional[ImageId]
+    image_url: str | None = None
+    image_id: ImageId | None = None
     created_at: datetime
     like_count: int
     comment_count: int

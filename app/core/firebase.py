@@ -99,7 +99,7 @@ class FirebaseAdmin(FirebaseAdminProtocol):
         return await self.get_uid_from_token(id_token)
 
     # Storage
-    async def upload_image(self, user_uid: str, image_id: uuid.UUID, file_obj: IO) -> Optional[Tuple[str, str]]:
+    async def upload_image(self, user_uid: str, image_id: uuid.UUID, file_obj: IO) -> tuple[str, str] | None:
         """Upload the given image to Firebase, returning the blob name and public URL if uploading was successful."""
         loop = get_event_loop()
         bucket = storage.bucket(app=self._app)
@@ -115,7 +115,7 @@ class FirebaseAdmin(FirebaseAdminProtocol):
             log.exception("Failed to upload image")
             return None
         await loop.run_in_executor(None, blob.make_public)
-        return blob.name, blob.public_url
+        return blob.name, blob.public_url  # type: ignore
 
     async def make_image_private(self, blob_name: str):
         """Revoke read access for anonymous users. Used when deleting posts."""

@@ -68,7 +68,9 @@ async def test_find_place_success(client):
         assert response.status_code == 200
         response_json = response.json()
         place: Place = Place.parse_obj(response_json["place"])
-        assert place == Place(id=PLACE_ID, name="place_one", region_name=None, location=Location(latitude=0, longitude=0))
+        assert place == Place(
+            id=PLACE_ID, name="place_one", region_name=None, location=Location(latitude=0, longitude=0)
+        )
 
 
 async def test_get_place_details(client):

@@ -1,5 +1,3 @@
-from typing import Optional
-
 from pydantic import validator
 
 from app.core.types import Base, PostId, CursorId
@@ -24,7 +22,7 @@ class CreateCommentRequest(Base):
 
 class CommentPageResponse(Base):
     comments: list[Comment]
-    cursor: Optional[CursorId]
+    cursor: CursorId | None
 
 
 class LikeCommentResponse(Base):

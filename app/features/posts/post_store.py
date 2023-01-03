@@ -17,8 +17,6 @@ from app.core.database.models import (
     PostLikeRow,
     PostReportRow,
     PostSaveRow,
-    UserRelationRow,
-    UserRow,
 )
 
 
@@ -74,7 +72,7 @@ class PostStore:
         query = query.order_by(PostRow.id.desc()).limit(limit)
         result = await self.db.execute(query)
         post_ids = result.scalars().all()
-        return post_ids
+        return post_ids  # type: ignore
 
     async def get_posts(self, post_ids: list[PostId]) -> dict[PostId, InternalPost]:
         """Get the given posts that aren't deleted."""
@@ -91,14 +89,14 @@ class PostStore:
     async def get_liked_posts(self, user_id: UserId, post_ids: list[PostId]) -> set[PostId]:
         query = sa.select(PostLikeRow.post_id).where(PostLikeRow.user_id == user_id, PostLikeRow.post_id.in_(post_ids))
         result = await self.db.execute(query)
-        post_ids = result.scalars().all()
-        return set(post_ids)
+        liked_posts: list[PostId] = result.scalars().all()  # type: ignore
+        return set(liked_posts)
 
     async def get_saved_posts(self, user_id: UserId, post_ids: list[PostId]) -> set[PostId]:
         query = sa.select(PostSaveRow.post_id).where(PostSaveRow.user_id == user_id, PostSaveRow.post_id.in_(post_ids))
         result = await self.db.execute(query)
-        post_ids = result.scalars().all()
-        return set(post_ids)
+        saved_posts: list[PostId] = result.scalars().all()  # type: ignore
+        return set(saved_posts)
 
     async def get_saved_posts_by_user(
         self, user_id: UserId, cursor: Optional[CursorId], limit: int = 10

@@ -90,7 +90,7 @@ class ActivityFeedStore:
                 PostLikeRow.post_id == PostRow.id,
                 PostRow.user_id == user_id,
                 ~PostRow.deleted,
-                user_id != PostLikeRow.user_id,
+                PostLikeRow.user_id != user_id,
                 PostLikeRow.liked_by.has(deleted=False),
             )
         )
@@ -131,7 +131,7 @@ class ActivityFeedStore:
                 PostSaveRow.post_id == PostRow.id,
                 PostRow.user_id == user_id,
                 ~PostRow.deleted,
-                user_id != PostSaveRow.user_id,
+                PostSaveRow.user_id != user_id,
                 PostSaveRow.saved_by.has(deleted=False),
             )
         )
@@ -214,4 +214,4 @@ class ActivityFeedStore:
     async def _get_db_posts(self, post_ids: list[PostId]) -> list[PostRow]:
         posts_query = select(PostRow).options(*eager_load_post_options()).where(PostRow.id.in_(post_ids))
         result = await self.db.execute(posts_query)
-        return result.scalars().all()
+        return result.scalars().all()  # type: ignore

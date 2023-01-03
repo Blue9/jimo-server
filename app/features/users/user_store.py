@@ -1,4 +1,4 @@
-from typing import Optional, Tuple, Sequence
+from typing import Optional, Sequence
 
 import sqlalchemy as sa
 from sqlalchemy.exc import IntegrityError
@@ -56,7 +56,7 @@ class UserStore:
     async def get_users(self, user_ids: list[UserId]) -> dict[UserId, InternalUser]:
         query = sa.select(UserRow).options(*eager_load_user_options()).where(UserRow.id.in_(user_ids), ~UserRow.deleted)
         result = await self.db.execute(query)
-        users: list[UserRow] = result.scalars().all()
+        users = result.scalars().all()
         return {user.id: InternalUser.from_orm(user) for user in users}
 
     async def get_users_by_phone_number(self, phone_numbers: Sequence[PhoneNumber], limit: int = 100) -> list[UserId]:
@@ -72,7 +72,7 @@ class UserStore:
         )
         result = await self.db.execute(query)
         user_ids = result.scalars().all()
-        return user_ids
+        return user_ids  # type: ignore
 
     async def get_user_preferences(self, user_id: UserId) -> UserPrefs:
         query = sa.select(UserPrefsRow).where(UserPrefsRow.user_id == user_id)
@@ -94,7 +94,7 @@ class UserStore:
         """Return all featured users."""
         query = sa.select(UserRow.id).where(UserRow.is_featured)
         result = await self.db.execute(query)
-        return result.scalars().all()
+        return result.scalars().all()  # type: ignore
 
     async def get_suggested_users(self, user_id: UserId, limit: int = 25) -> list[SuggestedUserIdItem]:
         """Get the list of suggested users for the given user_id."""
@@ -119,7 +119,7 @@ class UserStore:
             last_name=last_name,
             phone_number=phone_number,
         )
-        prefs = UserPrefsRow(user=new_user)  # type: ignore
+        prefs = UserPrefsRow(user=new_user)
         try:
             self.db.add(new_user)
             self.db.add(prefs)
@@ -147,7 +147,7 @@ class UserStore:
         first_name: Optional[str] = None,
         last_name: Optional[str] = None,
         profile_picture_id: Optional[ImageId] = None,
-    ) -> Tuple[Optional[InternalUser], Optional[UserFieldErrors]]:
+    ) -> tuple[InternalUser | None, UserFieldErrors | None]:
         """Update the given user with the given details."""
         query = sa.select(UserRow).where(UserRow.id == user_id)
         result = await self.db.execute(query)
@@ -230,7 +230,7 @@ class UserStore:
             sa.select(UserRelationRow.to_user_id, sa.func.count(UserRelationRow.to_user_id))
             .select_from(UserRelationRow)
             .join(cte, cte.c.id == UserRelationRow.from_user_id)
-            .where(UserRelationRow.to_user_id.notin_(sa.select(cte.c.id)))
+            .where(UserRelationRow.to_user_id.not_in(sa.select(cte.c.id)))
             .where(UserRelationRow.to_user_id != user_id)
             .group_by(UserRelationRow.to_user_id)
             .order_by(sa.func.count(UserRelationRow.to_user_id).desc())

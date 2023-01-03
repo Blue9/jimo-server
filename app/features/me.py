@@ -13,7 +13,7 @@ from app import tasks
 from app.core.database.engine import get_db
 from app.core.database.models import UserRelationRow, UserRow, UserRelationType
 from app.core.firebase import FirebaseUser, get_firebase_user
-from app.core.types import SimpleResponse
+from app.core.types import SimpleResponse, UserId
 from app.features.images import image_utils
 from app.features.places.entities import Location
 from app.features.posts.entities import Post
@@ -228,15 +228,16 @@ async def get_suggested_users(
     user_store: UserStore = Depends(get_user_store),
     wrapped_user: JimoUser = Depends(get_caller_user),
 ):
-    """Get the list of suggested jimo accounts for the current user."""
+    """Get the list of suggested Jimo accounts for the current user."""
     user: InternalUser = wrapped_user.user
     suggested_users: list[SuggestedUserIdItem] = await user_store.get_suggested_users(user.id, limit=50)
     if len(suggested_users) == 0:
         return SuggestedUsersResponse(users=[])
     user_map = await user_store.get_users([item[0] for item in suggested_users])
     users = [
-        SuggestedUserItem(user=user_map.get(user_id), num_mutual_friends=num_mutual_friends)
+        SuggestedUserItem(user=user_map.get(user_id), num_mutual_friends=num_mutual_friends)  # type: ignore
         for user_id, num_mutual_friends in suggested_users
+        if user_id in user_map
     ]
     random.shuffle(users)
     return SuggestedUsersResponse(users=users[:25])
@@ -283,9 +284,9 @@ async def follow_many(
     users_to_follow_query = (
         select(UserRow.id)
         .where(UserRow.username_lower.in_(username_list), ~UserRow.deleted)
-        .where(UserRow.id.notin_(followed_or_blocked_subquery))
+        .where(UserRow.id.not_in(followed_or_blocked_subquery))
     )
-    users_to_follow: list[uuid.UUID] = (await db.execute(users_to_follow_query)).scalars().all()
+    users_to_follow: list[UserId] = (await db.execute(users_to_follow_query)).scalars().all()  # type: ignore
     for to_follow in users_to_follow:
         db.add(
             UserRelationRow(

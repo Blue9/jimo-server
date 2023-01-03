@@ -44,8 +44,8 @@ class CommentStore:
             CommentLikeRow.user_id == user_id, CommentLikeRow.comment_id.in_(comment_ids)
         )
         result = await self.db.execute(query)
-        comment_ids: list[CommentId] = result.scalars().all()  # type: ignore
-        return set(comment_ids)
+        liked_comment_ids = result.scalars().all()
+        return set(liked_comment_ids)
 
     async def create_comment(self, user_id: UserId, post_id: PostId, content: str) -> InternalComment:
         comment = CommentRow(user_id=user_id, post_id=post_id, content=content)

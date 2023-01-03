@@ -269,10 +269,10 @@ async def get_comments(
         post_store, relation_store, caller_user_id=user.id, post_id=post_id
     )
     page_limit = 10
-    comments: list[CommentWithoutLikeStatus] = await comment_store.get_comments(
+    comments_without_likes: list[CommentWithoutLikeStatus] = await comment_store.get_comments(
         post_id=post.id, after_comment_id=cursor, limit=page_limit
     )
-    liked_comments = await comment_store.get_liked_comments(user.id, [c.id for c in comments])
+    liked_comments = await comment_store.get_liked_comments(user.id, [c.id for c in comments_without_likes])
     comments = [
         Comment(
             id=c.id,
@@ -283,7 +283,7 @@ async def get_comments(
             like_count=c.like_count,
             liked=c.id in liked_comments,
         )
-        for c in comments
+        for c in comments_without_likes
     ]
-    cursor = comments[-1].id if len(comments) == page_limit else None
+    cursor = comments_without_likes[-1].id if len(comments_without_likes) == page_limit else None
     return CommentPageResponse(comments=comments, cursor=cursor)

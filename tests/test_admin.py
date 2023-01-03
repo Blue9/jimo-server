@@ -103,13 +103,15 @@ async def test_get_admin_or_raise(session):
 
 async def test_auth_for_all_get_endpoints(session, client):
     all_routes = main_app.routes
-    admin_routes = [route for route in all_routes if route.path.startswith("/admin") and "GET" in route.methods]
+    admin_routes = [
+        route for route in all_routes if route.path.startswith("/admin") and "GET" in route.methods  # type: ignore
+    ]
     url_param_map = {"{username}": "user", "{post_id}": str(INITIAL_POST_ID)}
     for route in admin_routes:
-        route_deps = list(map(lambda dep: dep.call, route.dependant.dependencies))
+        route_deps = list(map(lambda dep: dep.call, route.dependant.dependencies))  # type: ignore
         assert get_admin_or_raise in route_deps
         async with request_as_admin(session):
-            path = route.path
+            path = route.path  # type: ignore
             for param, value in url_param_map.items():
                 path = path.replace(param, value)
             response = await client.get(path)

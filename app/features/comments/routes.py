@@ -90,13 +90,13 @@ async def like_comment(
     wrapped_user: JimoUser = Depends(get_caller_user),
 ):
     user = wrapped_user.user
-    comment: Optional[InternalComment] = await comment_store.get_comment(comment_id)
+    comment: InternalComment | None = await comment_store.get_comment(comment_id)
     if comment is None or not (await post_store.post_exists(post_id=comment.post_id)):
         raise HTTPException(404)
     await comment_store.like_comment(comment_id, user.id)
 
     async def task():
-        if user.id != comment.user_id:
+        if comment and user.id != comment.user_id:
             prefs = await user_store.get_user_preferences(comment.user_id)
             if prefs.comment_liked_notifications:
                 await tasks.notify_comment_liked(db, comment, liked_by=user)
