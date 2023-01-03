@@ -6,8 +6,7 @@ import pytest_asyncio
 
 from app.core.database.models import UserRow, PlaceRow, PostRow
 from app.core.firebase import get_firebase_user, FirebaseUser
-from app.features.map.types import DeprecatedGetMapRequest, GetMapResponse
-from app.features.places.entities import Location, Region, Place
+from app.features.places.entities import Location, Place
 from app.features.places.types import GetPlaceDetailsResponse
 from app.main import app as main_app
 from tests.mock_firebase import MockFirebaseAdmin
@@ -64,7 +63,7 @@ def request_as(uid: str):
 
 async def test_find_place_success(client):
     with request_as(uid="b"):
-        response = await client.get(f"/places/matching", params=dict(name="place_one", latitude=0, longitude=0))
+        response = await client.get("/places/matching", params=dict(name="place_one", latitude=0, longitude=0))
         assert response.status_code == 200
         response_json = response.json()
         place: Place = Place.parse_obj(response_json["place"])

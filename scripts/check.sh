@@ -1,1 +1,1 @@
-mypy $(git ls-files "app/*.py")
+mypy $(git ls-files "./*.py")

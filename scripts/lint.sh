@@ -1,1 +1,1 @@
-flake8 $(git ls-files "app/*.py")
+flake8 $(git ls-files "./*.py")
