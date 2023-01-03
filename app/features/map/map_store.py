@@ -1,8 +1,7 @@
 from typing import Optional
 
 import sqlalchemy as sa
-from geoalchemy2 import Geography
-from sqlalchemy import func, cast
+from sqlalchemy import func
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -140,6 +139,7 @@ def base_map_query(region: RectangularRegion) -> sa.sql.Select:
         region.center.latitude - region.latitude_delta_degrees,  # y_min
         region.center.longitude + region.longitude_delta_degrees,  # x_max
         region.center.latitude + region.latitude_delta_degrees,  # y_max
+        4326,
     )
     query = (
         sa.select(
@@ -158,7 +158,7 @@ def base_map_query(region: RectangularRegion) -> sa.sql.Select:
             ImageUploadRow.id == UserRow.profile_picture_id,
             isouter=True,
         )
-        .where(func.ST_DWithin(PlaceRow.location, cast(postgis_region, Geography), 0))
+        .where(func.ST_Intersects(postgis_region, PlaceRow.location))
         .where(~UserRow.deleted)
         .where(~PostRow.deleted)
     )
@@ -169,7 +169,7 @@ def deprecated_base_map_query(region: Region) -> sa.sql.Select:
     """
     Deprecated map query function. Use base_map_query() with a rectangular region instead.
 
-    Reason: ST_DWithin is faster than ST_Distance and on iOS the MapKit view is given as a
+    Reason: ST_Intersects is faster than ST_Distance and on iOS the MapKit view is given as a
     rectangular region.
     """
     center = func.ST_GeographyFromText(f"POINT({region.longitude} {region.latitude})")
