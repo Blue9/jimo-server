@@ -29,9 +29,9 @@ async def find_place(
     latitude: float = Query(ge=-90, le=90),
     longitude: float = Query(ge=-180, le=180),
     place_store: PlaceStore = Depends(get_place_store),
-    # wrapped_user: JimoUser = Depends(get_caller_user),
+    wrapped_user: JimoUser = Depends(get_caller_user),
 ):
-    # _ = wrapped_user.user
+    _ = wrapped_user.user
     place: Place | None = await place_store.find_place(name, latitude, longitude, search_radius_meters=100)
     if place is None:
         return {}
