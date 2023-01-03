@@ -6,7 +6,7 @@ import pytest_asyncio
 
 from app.core.database.models import UserRow, PlaceRow, PostRow
 from app.core.firebase import get_firebase_user, FirebaseUser
-from app.features.map.types import GetMapRequest, MapResponseV3
+from app.features.map.types import DeprecatedGetMapRequest, GetMapResponse
 from app.features.places.entities import Region
 from app.main import app as main_app
 from tests.mock_firebase import MockFirebaseAdmin
@@ -63,11 +63,11 @@ def request_as(uid: str):
 
 async def test_get_map(client):
     with request_as(uid="b"):
-        request = GetMapRequest(region=Region(latitude=0, longitude=0, radius=10e6), categories=None)
+        request = DeprecatedGetMapRequest(region=Region(latitude=0, longitude=0, radius=10e6), categories=None)
         response = await client.post("/map/global", json=request.dict())
         assert response.status_code == 200
         response_json = response.json()
-        map_response = MapResponseV3.parse_obj(response_json)
+        map_response = GetMapResponse.parse_obj(response_json)
         pins = map_response.pins
         assert len(pins) == 1
         assert pins[0].place_id == PLACE_ID

@@ -1,12 +1,13 @@
+import asyncio
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.core.types import PostId, PlaceId
-from app.features.map.types import PlaceLoadRequest, CustomPlaceLoadRequest
+from app.features.map.types import DeprecatedPlaceLoadRequest, DeprecatedCustomPlaceLoadRequest
 from app.features.places.entities import Place
 from app.features.places.place_store import PlaceStore
-from app.features.places.types import GetPlaceResponse
+from app.features.places.types import GetPlaceDetailsResponse, FindPlaceResponse
 from app.features.posts.entities import Post
 from app.features.posts.post_store import PostStore
 from app.features.posts.post_utils import get_posts_from_post_ids
@@ -22,22 +23,22 @@ from app.features.users.user_store import UserStore
 router = APIRouter()
 
 
-@router.get("", response_model=Place)
-async def get_place(
+@router.get("/matching", response_model=FindPlaceResponse)
+async def find_place(
     name: str,
-    latitude: float,
-    longitude: float,
+    latitude: float = Query(ge=-90, le=90),
+    longitude: float = Query(ge=-180, le=180),
     place_store: PlaceStore = Depends(get_place_store),
-    wrapped_user: JimoUser = Depends(get_caller_user),
+    # wrapped_user: JimoUser = Depends(get_caller_user),
 ):
-    _ = wrapped_user.user
-    place: Place | None = await place_store.find_place(name, latitude, longitude)
+    # _ = wrapped_user.user
+    place: Place | None = await place_store.find_place(name, latitude, longitude, search_radius_meters=100)
     if place is None:
-        raise HTTPException(404)
-    return place
+        return {}
+    return {"place": place}
 
 
-@router.get("/{place_id}/details", response_model=GetPlaceResponse)
+@router.get("/{place_id}/details", response_model=GetPlaceDetailsResponse)
 async def get_place(
     place_id: PlaceId,
     post_store: PostStore = Depends(get_post_store),
@@ -49,26 +50,36 @@ async def get_place(
     place: Optional[Place] = await place_store.get_place(place_id)
     if place is None:
         raise HTTPException(404, detail="Place not found")
-    community_post_ids = await place_store.get_community_posts(place_id=place_id)
-    following_post_ids = await place_store.get_friend_posts(place_id=place_id, user_id=user.id)
-    all_post_ids = list(set(community_post_ids + following_post_ids))
+    community_post_ids, featured_post_ids, following_post_ids = await asyncio.gather(
+        place_store.get_community_posts(place_id=place_id),
+        place_store.get_featured_user_posts(place_id=place_id),
+        place_store.get_friend_posts(place_id=place_id, user_id=user.id),
+    )
+    all_post_ids = list(set(community_post_ids + featured_post_ids + following_post_ids))
     posts = await get_posts_from_post_ids(
         current_user=user, post_ids=all_post_ids, post_store=post_store, user_store=user_store
     )
     posts_map = {post.id: post for post in posts}
+    used = set(featured_post_ids)
+    following_post_ids = [post_id for post_id in following_post_ids if post_id not in used]
+    used |= set(following_post_ids)
+    community_post_ids = [post_id for post_id in community_post_ids if post_id not in used]
 
     def to_posts(post_ids: list[PostId]) -> list[Post]:
         return [posts_map[post_id] for post_id in post_ids if post_id in posts_map]
 
-    return GetPlaceResponse(
-        place=place, community_posts=to_posts(community_post_ids), following_posts=to_posts(following_post_ids)
+    return GetPlaceDetailsResponse(
+        place=place,
+        community_posts=to_posts(community_post_ids),
+        featured_posts=to_posts(featured_post_ids),
+        following_posts=to_posts(following_post_ids),
     )
 
 
 @router.post("/{place_id}/getMutualPostsV3/global", response_model=list[Post])
 async def get_community_posts(
     place_id: PlaceId,
-    request: PlaceLoadRequest,
+    request: DeprecatedPlaceLoadRequest,
     post_store: PostStore = Depends(get_post_store),
     place_store: PlaceStore = Depends(get_place_store),
     user_store: UserStore = Depends(get_user_store),
@@ -88,7 +99,7 @@ async def get_community_posts(
 @router.post("/{place_id}/getMutualPostsV3/following", response_model=list[Post])
 async def get_friend_posts(
     place_id: PlaceId,
-    request: PlaceLoadRequest,
+    request: DeprecatedPlaceLoadRequest,
     post_store: PostStore = Depends(get_post_store),
     place_store: PlaceStore = Depends(get_place_store),
     user_store: UserStore = Depends(get_user_store),
@@ -110,7 +121,7 @@ async def get_friend_posts(
 @router.post("/{place_id}/getMutualPostsV3/saved-posts", response_model=list[Post])
 async def get_saved_posts(
     place_id: PlaceId,
-    request: PlaceLoadRequest,
+    request: DeprecatedPlaceLoadRequest,
     post_store: PostStore = Depends(get_post_store),
     place_store: PlaceStore = Depends(get_place_store),
     user_store: UserStore = Depends(get_user_store),
@@ -132,7 +143,7 @@ async def get_saved_posts(
 @router.post("/{place_id}/getMutualPostsV3/custom", response_model=list[Post])
 async def get_custom_posts(
     place_id: PlaceId,
-    request: CustomPlaceLoadRequest,
+    request: DeprecatedCustomPlaceLoadRequest,
     post_store: PostStore = Depends(get_post_store),
     place_store: PlaceStore = Depends(get_place_store),
     user_store: UserStore = Depends(get_user_store),

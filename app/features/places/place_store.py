@@ -4,7 +4,15 @@ import sqlalchemy as sa
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database.models import PlaceRow, PlaceDataRow, PostRow, UserRelationRow, UserRelationType, PostSaveRow
+from app.core.database.models import (
+    PlaceRow,
+    PlaceDataRow,
+    PostRow,
+    UserRelationRow,
+    UserRelationType,
+    PostSaveRow,
+    UserRow,
+)
 from app.core.types import UserId, PlaceId, PostId, Category
 from app.features.places.entities import Region, AdditionalPlaceData, Place
 
@@ -78,7 +86,18 @@ class PlaceStore:
         )
         if categories:
             query = query.where(PostRow.category.in_(categories))
-        result = await self.db.execute(query)
+        result = await self.db.execute(query.order_by(PostRow.id.desc()))
+        post_ids = result.scalars().all()
+        return post_ids
+
+    async def get_featured_user_posts(self, place_id: PlaceId) -> list[PostId]:
+        query = (
+            sa.select(PostRow.id)
+            .join(UserRow, UserRow.id == PostRow.user_id)
+            .where(UserRow.is_featured)
+            .where(PostRow.place_id == place_id, ~PostRow.deleted)
+        )
+        result = await self.db.execute(query.order_by(PostRow.id.desc()))
         post_ids = result.scalars().all()
         return post_ids
 
@@ -96,7 +115,7 @@ class PlaceStore:
         )
         if categories:
             query = query.where(PostRow.category.in_(categories))
-        result = await self.db.execute(query)
+        result = await self.db.execute(query.order_by(PostRow.id.desc()))
         post_ids = result.scalars().all()
         return post_ids
 
