@@ -12,7 +12,7 @@ from app.core.firebase import FirebaseUser, get_firebase_user
 from app.core.types import SimpleResponse, UserId, PostId
 from app.features.posts import post_utils
 from app.features.posts.post_store import PostStore
-from app.features.posts.types import PostFeedResponse
+from app.features.posts.types import PaginatedPosts
 from app.features.stores import get_user_store, get_relation_store, get_post_store
 from app.features.users.dependencies import (
     get_caller_user,
@@ -70,7 +70,7 @@ async def get_user(
     return await validate_user(relation_store, caller_user_id=caller_user.id, user=user)
 
 
-@router.get("/{username}/posts", response_model=PostFeedResponse)
+@router.get("/{username}/posts", response_model=PaginatedPosts)
 async def get_posts(
     cursor: Optional[uuid.UUID] = None,
     limit: Optional[int] = 15,
@@ -92,10 +92,10 @@ async def get_posts(
     # Step 1: Get post ids
     post_ids = await post_store.get_post_ids(user.id, cursor=cursor, limit=page_size)
     if len(post_ids) == 0:
-        return PostFeedResponse(posts=[], cursor=None)
+        return PaginatedPosts(posts=[], cursor=None)
     posts = await post_utils.get_posts_from_post_ids(caller_user, post_ids, post_store, user_store)
     next_cursor: Optional[PostId] = min(post.id for post in posts) if len(posts) >= page_size else None
-    return PostFeedResponse(posts=posts, cursor=next_cursor)
+    return PaginatedPosts(posts=posts, cursor=next_cursor)
 
 
 @router.get("/{username}/relation", response_model=RelationToUser)

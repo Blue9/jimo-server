@@ -1,3 +1,4 @@
+import asyncio
 import uuid
 from typing import Optional
 
@@ -17,10 +18,12 @@ async def get_posts_from_post_ids(
     user_store: UserStore,
 ) -> list[Post]:
     # Step 1: Get internal posts
-    internal_posts = await post_store.get_posts(post_ids)
     # Step 2: Get like and save statuses for each post
-    liked_post_ids = await post_store.get_liked_posts(current_user.id, post_ids)
-    saved_post_ids = await post_store.get_saved_posts(current_user.id, post_ids)
+    internal_posts, liked_post_ids, saved_post_ids = await asyncio.gather(
+        post_store.get_posts(post_ids),
+        post_store.get_liked_posts(current_user.id, post_ids),
+        post_store.get_saved_posts(current_user.id, post_ids),
+    )
     # Step 3: Get users for each post
     user_ids = list(set(post.user_id for _, post in internal_posts.items()))
     users: dict[uuid.UUID, InternalUser] = await user_store.get_users(user_ids=user_ids)

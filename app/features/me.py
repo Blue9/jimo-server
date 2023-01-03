@@ -20,7 +20,7 @@ from app.features.posts.entities import Post
 from app.features.posts.feed_store import FeedStore
 from app.features.posts.post_store import PostStore
 from app.features.posts.post_utils import get_posts_from_post_ids
-from app.features.posts.types import PostFeedResponse
+from app.features.posts.types import PaginatedPosts
 from app.features.stores import (
     get_user_store,
     get_post_store,
@@ -131,7 +131,7 @@ async def upload_profile_picture(
         raise HTTPException(400, detail=errors.dict() if errors else None)
 
 
-@router.get("/feed", response_model=PostFeedResponse)
+@router.get("/feed", response_model=PaginatedPosts)
 async def get_feed(
     cursor: Optional[uuid.UUID] = None,
     feed_store: FeedStore = Depends(get_feed_store),
@@ -145,7 +145,7 @@ async def get_feed(
     # Step 1: Get post ids
     post_ids = await feed_store.get_feed_ids(user.id, cursor=cursor, limit=page_size)
     if len(post_ids) == 0:
-        return PostFeedResponse(posts=[], cursor=None)
+        return PaginatedPosts(posts=[], cursor=None)
     # Step 2: Convert to posts
     feed = await get_posts_from_post_ids(
         current_user=user,
@@ -154,7 +154,7 @@ async def get_feed(
         user_store=user_store,
     )
     next_cursor: Optional[uuid.UUID] = min(post.id for post in feed) if len(feed) >= page_size else None
-    return PostFeedResponse(posts=feed, cursor=next_cursor)
+    return PaginatedPosts(posts=feed, cursor=next_cursor)
 
 
 @router.get("/discover", response_model=list[Post])
@@ -181,7 +181,7 @@ async def get_discover_feed(
     return JSONResponse(content=jsonable_encoder(feed))
 
 
-@router.get("/discoverV2", response_model=PostFeedResponse)
+@router.get("/discoverV2", response_model=PaginatedPosts)
 async def get_discover_feed_v2(
     long: Optional[float] = Query(None, ge=-180, le=180),
     lat: Optional[float] = Query(None, ge=-90, le=90),
@@ -198,7 +198,7 @@ async def get_discover_feed_v2(
         location = Location(latitude=lat, longitude=long)
     post_ids = await feed_store.get_discover_feed_ids(user.id, location=location, limit=99)
     if len(post_ids) == 0:
-        return PostFeedResponse(posts=[])
+        return PaginatedPosts(posts=[])
     post_ids = sorted(post_ids, reverse=True)
     # Step 2: Convert to posts
     posts = await get_posts_from_post_ids(
@@ -208,7 +208,7 @@ async def get_discover_feed_v2(
         user_store=user_store,
     )
     random.shuffle(posts)
-    response = PostFeedResponse(posts=posts)
+    response = PaginatedPosts(posts=posts)
     return JSONResponse(content=jsonable_encoder(response))
 
 
@@ -310,7 +310,7 @@ async def follow_many(
     return SimpleResponse(success=True)
 
 
-@router.get("/saved-posts", response_model=PostFeedResponse)
+@router.get("/saved-posts", response_model=PaginatedPosts)
 async def get_saved_posts(
     cursor: Optional[uuid.UUID] = None,
     post_store: PostStore = Depends(get_post_store),
@@ -323,7 +323,7 @@ async def get_saved_posts(
     user = jimo_user.user
     post_saves = await post_store.get_saved_posts_by_user(user.id, cursor=cursor, limit=page_size)
     if len(post_saves) == 0:
-        return PostFeedResponse(posts=[], cursor=None)
+        return PaginatedPosts(posts=[], cursor=None)
     post_save_ids, post_ids = zip(*[(save.id, save.post_id) for save in post_saves])
     # Step 2: Convert to posts
     posts = await get_posts_from_post_ids(
@@ -333,4 +333,4 @@ async def get_saved_posts(
         user_store=user_store,
     )
     next_cursor: Optional[uuid.UUID] = min(post_save_ids) if len(posts) >= page_size else None
-    return PostFeedResponse(posts=posts, cursor=next_cursor)
+    return PaginatedPosts(posts=posts, cursor=next_cursor)

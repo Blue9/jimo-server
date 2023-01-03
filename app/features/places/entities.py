@@ -22,6 +22,24 @@ class Location(Base):
         return longitude
 
 
+class RectangularRegion(Base):
+    center: Location
+    longitude_delta_degrees: float
+    latitude_delta_degrees: float
+
+    @validator("longitude_delta_degrees")
+    def validate_long_span(cls, long_span):
+        if long_span < 0 or long_span > 45:
+            raise ValueError("Invalid longitude span")
+        return long_span
+
+    @validator("latitude_delta_degrees")
+    def validate_lat_span(cls, lat_span):
+        if lat_span < 0 or lat_span > 45:
+            raise ValueError("Invalid latitude span")
+        return lat_span
+
+
 class Region(Location):
     radius: float
 

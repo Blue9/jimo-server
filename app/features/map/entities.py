@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Literal
 
 from app.features.places.entities import Location
 from app.core.types import Base, PlaceId
@@ -14,3 +14,6 @@ class MapPin(Base):
     place_id: PlaceId
     location: Location
     icon: MapPinIcon
+
+
+MapType = Literal["community", "following", "saved", "custom", "me"]

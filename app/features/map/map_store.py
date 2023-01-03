@@ -1,7 +1,8 @@
 from typing import Optional
 
 import sqlalchemy as sa
-from sqlalchemy import func
+from geoalchemy2 import Geography
+from sqlalchemy import func, cast
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,8 +15,8 @@ from app.core.database.models import (
     UserRelationType,
     PostSaveRow,
 )
-from app.features.map.entities import MapPin, MapPinIcon
-from app.features.places.entities import Location, Region
+from app.features.map.entities import MapPin, MapPinIcon, MapType
+from app.features.places.entities import Location, Region, RectangularRegion
 from app.core.types import PlaceId, Category, UserId
 
 
@@ -23,13 +24,41 @@ class MapStore:
     def __init__(self, db: AsyncSession):
         self.db = db
 
+    async def get_map(
+        self,
+        user_id: UserId,
+        region: RectangularRegion,
+        categories: list[Category],
+        user_filter: MapType,
+        user_ids: list[UserId] | None,
+    ) -> list[MapPin]:
+        query = base_map_query(region)
+        if user_filter == "custom":
+            if user_ids is None or len(user_ids) == 0:
+                return []
+            query = query.where(PostRow.user_id.in_(user_ids))
+        elif user_filter == "me":
+            query = query.where(PostRow.user_id == user_id)
+        elif user_filter == "following":
+            friends = sa.select(UserRelationRow.to_user_id).where(
+                UserRelationRow.from_user_id == user_id, UserRelationRow.relation == UserRelationType.following
+            )
+            query = query.where((PostRow.user_id == user_id) | PostRow.user_id.in_(friends))
+        elif user_filter == "saved":
+            saved_posts = sa.select(PostSaveRow.post_id).where(PostSaveRow.user_id == user_id)
+            query = query.where(PostRow.id.in_(saved_posts))
+        else:  # user_filter == "community"
+            query = query.where(PostRow.image_id.isnot(None) | (PostRow.content != ""))
+        return await self._get_map(query, categories=categories, limit=500)
+
     async def get_community_map(
         self,
         region: Region,
         categories: Optional[list[Category]] = None,
         limit: int = 500,
     ) -> list[MapPin]:
-        query = base_map_query(region).where(PostRow.image_id.isnot(None) | (PostRow.content != ""))
+        """Deprecated."""
+        query = deprecated_base_map_query(region).where(PostRow.image_id.isnot(None) | (PostRow.content != ""))
         return await self._get_map(query, categories=categories, limit=limit)
 
     async def get_friend_map(
@@ -39,10 +68,11 @@ class MapStore:
         categories: Optional[list[Category]] = None,
         limit: int = 500,
     ) -> list[MapPin]:
+        """Deprecated."""
         friends = sa.select(UserRelationRow.to_user_id).where(
             UserRelationRow.from_user_id == user_id, UserRelationRow.relation == UserRelationType.following
         )
-        query = base_map_query(region).where((PostRow.user_id == user_id) | PostRow.user_id.in_(friends))
+        query = deprecated_base_map_query(region).where((PostRow.user_id == user_id) | PostRow.user_id.in_(friends))
         return await self._get_map(query, categories=categories, limit=limit)
 
     async def get_saved_posts_map(
@@ -52,8 +82,9 @@ class MapStore:
         categories: Optional[list[Category]] = None,
         limit: int = 500,
     ) -> list[MapPin]:
+        """Deprecated."""
         saved_posts = sa.select(PostSaveRow.post_id).where(PostSaveRow.user_id == user_id)
-        query = base_map_query(region).where(PostRow.id.in_(saved_posts))
+        query = deprecated_base_map_query(region).where(PostRow.id.in_(saved_posts))
         return await self._get_map(query, categories=categories, limit=limit)
 
     async def get_custom_map(
@@ -63,7 +94,8 @@ class MapStore:
         categories: Optional[list[Category]] = None,
         limit: int = 500,
     ) -> list[MapPin]:
-        query = base_map_query(region).where(PostRow.user_id.in_(user_ids))
+        """Deprecated."""
+        query = deprecated_base_map_query(region).where(PostRow.user_id.in_(user_ids))
         return await self._get_map(query, categories=categories, limit=limit)
 
     async def _get_map(
@@ -102,7 +134,44 @@ class MapStore:
         return pins
 
 
-def base_map_query(region: Region) -> sa.sql.Select:
+def base_map_query(region: RectangularRegion) -> sa.sql.Select:
+    postgis_region = func.ST_MakeEnvelope(
+        region.center.longitude - region.longitude_delta_degrees,  # x_min
+        region.center.latitude - region.latitude_delta_degrees,  # y_min
+        region.center.longitude + region.longitude_delta_degrees,  # x_max
+        region.center.latitude + region.latitude_delta_degrees,  # y_max
+    )
+    query = (
+        sa.select(
+            PlaceRow.id,
+            PlaceRow.latitude,
+            PlaceRow.longitude,
+            PostRow.category,
+            ImageUploadRow.firebase_public_url,
+            PostRow.user_id,
+        )
+        .select_from(PlaceRow)
+        .join(PostRow, PostRow.place_id == PlaceRow.id)
+        .join(UserRow, UserRow.id == PostRow.user_id)
+        .join(
+            ImageUploadRow,
+            ImageUploadRow.id == UserRow.profile_picture_id,
+            isouter=True,
+        )
+        .where(func.ST_DWithin(PlaceRow.location, cast(postgis_region, Geography), 0))
+        .where(~UserRow.deleted)
+        .where(~PostRow.deleted)
+    )
+    return query
+
+
+def deprecated_base_map_query(region: Region) -> sa.sql.Select:
+    """
+    Deprecated map query function. Use base_map_query() with a rectangular region instead.
+
+    Reason: ST_DWithin is faster than ST_Distance and on iOS the MapKit view is given as a
+    rectangular region.
+    """
     center = func.ST_GeographyFromText(f"POINT({region.longitude} {region.latitude})")
     query = (
         sa.select(

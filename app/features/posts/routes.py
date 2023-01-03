@@ -1,4 +1,3 @@
-import uuid
 from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Depends
@@ -7,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app import tasks
 from app.core.database.engine import get_db
 from app.core.firebase import FirebaseUser, get_firebase_user
-from app.core.types import SimpleResponse
+from app.core.types import SimpleResponse, PostId, CursorId
 from app.features.comments.comment_store import CommentStore
 from app.features.comments.entities import CommentWithoutLikeStatus
 from app.features.comments.types import CommentPageResponse, Comment
@@ -41,7 +40,7 @@ log = get_logger(__name__)
 
 @router.get("/{post_id}", response_model=Post)
 async def get_post(
-    post_id: uuid.UUID,
+    post_id: PostId,
     user_store: UserStore = Depends(get_user_store),
     post_store: PostStore = Depends(get_post_store),
     relation_store: RelationStore = Depends(get_relation_store),
@@ -101,7 +100,7 @@ async def create_post(
 
 @router.put("/{post_id}", response_model=Post)
 async def update_post(
-    post_id: uuid.UUID,
+    post_id: PostId,
     req: CreatePostRequest,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
     place_store: PlaceStore = Depends(get_place_store),
@@ -138,7 +137,7 @@ async def update_post(
 
 @router.delete("/{post_id}", response_model=DeletePostResponse)
 async def delete_post(
-    post_id: uuid.UUID,
+    post_id: PostId,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
     post_store: PostStore = Depends(get_post_store),
     wrapped_user: JimoUser = Depends(get_caller_user),
@@ -156,7 +155,7 @@ async def delete_post(
 
 @router.post("/{post_id}/likes", response_model=LikePostResponse)
 async def like_post(
-    post_id: uuid.UUID,
+    post_id: PostId,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     user_store: UserStore = Depends(get_user_store),
@@ -183,7 +182,7 @@ async def like_post(
 
 @router.delete("/{post_id}/likes", response_model=LikePostResponse)
 async def unlike_post(
-    post_id: uuid.UUID,
+    post_id: PostId,
     post_store: PostStore = Depends(get_post_store),
     relation_store: RelationStore = Depends(get_relation_store),
     wrapped_user: JimoUser = Depends(get_caller_user),
@@ -199,7 +198,7 @@ async def unlike_post(
 
 @router.post("/{post_id}/save", response_model=SimpleResponse)
 async def save_post(
-    post_id: uuid.UUID,
+    post_id: PostId,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     user_store: UserStore = Depends(get_user_store),
@@ -225,7 +224,7 @@ async def save_post(
 
 @router.post("/{post_id}/unsave", response_model=SimpleResponse)
 async def unsave_post(
-    post_id: uuid.UUID,
+    post_id: PostId,
     post_store: PostStore = Depends(get_post_store),
     relation_store: RelationStore = Depends(get_relation_store),
     wrapped_user: JimoUser = Depends(get_caller_user),
@@ -241,7 +240,7 @@ async def unsave_post(
 
 @router.post("/{post_id}/report", response_model=SimpleResponse)
 async def report_post(
-    post_id: uuid.UUID,
+    post_id: PostId,
     request: ReportPostRequest,
     post_store: PostStore = Depends(get_post_store),
     relation_store: RelationStore = Depends(get_relation_store),
@@ -258,8 +257,8 @@ async def report_post(
 
 @router.get("/{post_id}/comments", response_model=CommentPageResponse)
 async def get_comments(
-    post_id: uuid.UUID,
-    cursor: Optional[uuid.UUID] = None,
+    post_id: PostId,
+    cursor: Optional[CursorId] = None,
     post_store: PostStore = Depends(get_post_store),
     comment_store: CommentStore = Depends(get_comment_store),
     relation_store: RelationStore = Depends(get_relation_store),

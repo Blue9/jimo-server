@@ -52,7 +52,7 @@ class ReportPostRequest(Base):
         return details
 
 
-class PostFeedResponse(Base):
+class PaginatedPosts(Base):
     posts: list[Post]
     cursor: Optional[CursorId]
 

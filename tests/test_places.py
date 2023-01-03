@@ -7,7 +7,8 @@ import pytest_asyncio
 from app.core.database.models import UserRow, PlaceRow, PostRow
 from app.core.firebase import get_firebase_user, FirebaseUser
 from app.features.map.types import DeprecatedGetMapRequest, GetMapResponse
-from app.features.places.entities import Region
+from app.features.places.entities import Location, Region, Place
+from app.features.places.types import GetPlaceDetailsResponse
 from app.main import app as main_app
 from tests.mock_firebase import MockFirebaseAdmin
 
@@ -47,7 +48,7 @@ async def setup_fixture(session):
         user_id=user_b.id,
         place_id=place.id,
         category="food",
-        content="",
+        content="really really cool",
     )
     session.add(user_a_post)
     session.add(user_b_post)
@@ -61,13 +62,21 @@ def request_as(uid: str):
     main_app.dependency_overrides = {}
 
 
-async def test_get_map(client):
+async def test_find_place_success(client):
     with request_as(uid="b"):
-        request = DeprecatedGetMapRequest(region=Region(latitude=0, longitude=0, radius=10e6), categories=None)
-        response = await client.post("/map/global", json=request.dict())
+        response = await client.get(f"/places/matching", params=dict(name="place_one", latitude=0, longitude=0))
         assert response.status_code == 200
         response_json = response.json()
-        map_response = GetMapResponse.parse_obj(response_json)
-        pins = map_response.pins
-        assert len(pins) == 1
-        assert pins[0].place_id == PLACE_ID
+        place: Place = Place.parse_obj(response_json["place"])
+        assert place == Place(id=PLACE_ID, name="place_one", region_name=None, location=Location(latitude=0, longitude=0))
+
+
+async def test_get_place_details(client):
+    with request_as(uid="b"):
+        response = await client.get(f"/places/{PLACE_ID}/details")
+        assert response.status_code == 200
+        response_json = response.json()
+        get_place_response: GetPlaceDetailsResponse = GetPlaceDetailsResponse.parse_obj(response_json)
+        assert len(get_place_response.community_posts) == 1
+        assert len(get_place_response.following_posts) == 1
+        assert get_place_response.place.id == PLACE_ID
