@@ -26,7 +26,7 @@ from app.features.stores import (
     get_post_store,
     get_feed_store,
 )
-from app.features.users.dependencies import JimoUser, get_caller_user
+from app.features.users.dependencies import get_caller_user
 from app.features.users.entities import PublicUser, UserPrefs, SuggestedUserIdItem, InternalUser
 from app.features.users.types import (
     UpdateProfileResponse,
@@ -61,10 +61,9 @@ async def update_user(
     request: UpdateProfileRequest,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
     user_store: UserStore = Depends(get_user_store),
-    wrapped_user: JimoUser = Depends(get_caller_user),
+    old_user: InternalUser = Depends(get_caller_user),
 ):
     """Update the current user's profile."""
-    old_user: InternalUser = wrapped_user.user
     updated_user, error = await user_store.update_user(
         old_user.id,
         username=request.username,
@@ -83,20 +82,19 @@ async def update_user(
 @router.post("/delete", response_model=SimpleResponse)
 async def delete_user(
     user_store: UserStore = Depends(get_user_store),
-    wrapped_user: JimoUser = Depends(get_caller_user),
+    user: InternalUser = Depends(get_caller_user),
 ):
     """Mark the current user for deletion."""
-    await user_store.soft_delete_user(user_id=wrapped_user.user.id)
+    await user_store.soft_delete_user(user_id=user.id)
     return SimpleResponse(success=True)
 
 
 @router.get("/preferences", response_model=UserPrefs)
 async def get_preferences(
     user_store: UserStore = Depends(get_user_store),
-    wrapped_user: JimoUser = Depends(get_caller_user),
+    user: InternalUser = Depends(get_caller_user),
 ):
     """Get the current user's preferences."""
-    user: InternalUser = wrapped_user.user
     return await user_store.get_user_preferences(user.id)
 
 
@@ -104,10 +102,9 @@ async def get_preferences(
 async def update_preferences(
     request: UserPrefs,
     user_store: UserStore = Depends(get_user_store),
-    wrapped_user: JimoUser = Depends(get_caller_user),
+    user: InternalUser = Depends(get_caller_user),
 ):
     """Update the current user's preferences."""
-    user: InternalUser = wrapped_user.user
     return await user_store.update_preferences(user.id, request)
 
 
@@ -117,14 +114,13 @@ async def upload_profile_picture(
     firebase_user: FirebaseUser = Depends(get_firebase_user),
     db: AsyncSession = Depends(get_db),
     user_store: UserStore = Depends(get_user_store),
-    wrapped_user: JimoUser = Depends(get_caller_user),
+    user: InternalUser = Depends(get_caller_user),
 ):
     """Set the current user's profile picture."""
-    old_user: InternalUser = wrapped_user.user
-    image_upload = await image_utils.upload_image(file, old_user, firebase_user.shared_firebase, db)
-    new_user, errors = await user_store.update_user(old_user.id, profile_picture_id=image_upload.id)
-    if old_user.profile_picture_blob_name:
-        await firebase_user.shared_firebase.delete_image(old_user.profile_picture_blob_name)
+    image_upload = await image_utils.upload_image(file, user, firebase_user.shared_firebase, db)
+    new_user, errors = await user_store.update_user(user.id, profile_picture_id=image_upload.id)
+    if user.profile_picture_blob_name:
+        await firebase_user.shared_firebase.delete_image(user.profile_picture_blob_name)
     if new_user is not None:
         return new_user
     else:
@@ -136,12 +132,11 @@ async def get_feed(
     cursor: Optional[uuid.UUID] = None,
     feed_store: FeedStore = Depends(get_feed_store),
     post_store: PostStore = Depends(get_post_store),
-    wrapped_user: JimoUser = Depends(get_caller_user),
+    user: InternalUser = Depends(get_caller_user),
     user_store: UserStore = Depends(get_user_store),
 ):
     """Get the feed for the current user."""
     page_size = 10
-    user: InternalUser = wrapped_user.user
     # Step 1: Get post ids
     post_ids = await feed_store.get_feed_ids(user.id, cursor=cursor, limit=page_size)
     if len(post_ids) == 0:
@@ -161,11 +156,10 @@ async def get_feed(
 async def get_discover_feed(
     feed_store: FeedStore = Depends(get_feed_store),
     post_store: PostStore = Depends(get_post_store),
-    wrapped_user: JimoUser = Depends(get_caller_user),
+    user: InternalUser = Depends(get_caller_user),
     user_store: UserStore = Depends(get_user_store),
 ):
     """Get the discover feed for the current user."""
-    user: InternalUser = wrapped_user.user
     # Step 1: Get post ids
     post_ids = await feed_store.get_discover_feed_ids(user.id, limit=99)  # Prevent additional row on iOS
     if len(post_ids) == 0:
@@ -187,11 +181,10 @@ async def get_discover_feed_v2(
     lat: Optional[float] = Query(None, ge=-90, le=90),
     feed_store: FeedStore = Depends(get_feed_store),
     post_store: PostStore = Depends(get_post_store),
-    wrapped_user: JimoUser = Depends(get_caller_user),
+    user: InternalUser = Depends(get_caller_user),
     user_store: UserStore = Depends(get_user_store),
 ):
     """Get the discover feed for the current user."""
-    user: InternalUser = wrapped_user.user
     # Step 1: Get post ids
     location = None
     if long is not None and lat is not None:
@@ -215,7 +208,7 @@ async def get_discover_feed_v2(
 @router.get("/suggested", response_model=list[PublicUser])
 async def get_featured_users(
     user_store: UserStore = Depends(get_user_store),
-    _wrapped_user: JimoUser = Depends(get_caller_user),
+    _user: InternalUser = Depends(get_caller_user),
 ):
     """Get the list of featured jimo accounts."""
     featured_user_ids = await user_store.get_featured_users()
@@ -226,10 +219,9 @@ async def get_featured_users(
 @router.get("/suggested-users", response_model=SuggestedUsersResponse)
 async def get_suggested_users(
     user_store: UserStore = Depends(get_user_store),
-    wrapped_user: JimoUser = Depends(get_caller_user),
+    user: InternalUser = Depends(get_caller_user),
 ):
     """Get the list of suggested Jimo accounts for the current user."""
-    user: InternalUser = wrapped_user.user
     suggested_users: list[SuggestedUserIdItem] = await user_store.get_suggested_users(user.id, limit=50)
     if len(suggested_users) == 0:
         return SuggestedUsersResponse(users=[])
@@ -247,10 +239,9 @@ async def get_suggested_users(
 async def get_existing_users(
     request: PhoneNumberList,
     user_store: UserStore = Depends(get_user_store),
-    wrapped_user: JimoUser = Depends(get_caller_user),
+    user: InternalUser = Depends(get_caller_user),
 ):
     """Get the existing users from the list of e164 formatted phone numbers."""
-    user: InternalUser = wrapped_user.user
     if user.phone_number is not None:
         phone_numbers = [number for number in request.phone_numbers if number != user.phone_number]
     else:
@@ -269,10 +260,9 @@ async def follow_many(
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     user_store: UserStore = Depends(get_user_store),
-    wrapped_user: JimoUser = Depends(get_caller_user),
+    user: InternalUser = Depends(get_caller_user),
 ):
     """Follow the given users."""
-    user: InternalUser = wrapped_user.user
     username_list = [username.lower() for username in request.usernames if username.lower() != user.username_lower]
     # Users to follow = all the existing users in the list that do not block us and that we do not follow or block
     followed_or_blocked_subquery = union_all(
@@ -315,13 +305,12 @@ async def follow_many(
 async def get_saved_posts(
     cursor: Optional[uuid.UUID] = None,
     post_store: PostStore = Depends(get_post_store),
-    jimo_user: JimoUser = Depends(get_caller_user),
+    user: InternalUser = Depends(get_caller_user),
     user_store: UserStore = Depends(get_user_store),
 ):
     """Get the given user's posts."""
     page_size = 15
     # Step 1: Get post ids
-    user = jimo_user.user
     post_saves = await post_store.get_saved_posts_by_user(user.id, cursor=cursor, limit=page_size)
     if len(post_saves) == 0:
         return PaginatedPosts(posts=[], cursor=None)

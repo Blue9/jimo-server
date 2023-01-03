@@ -16,7 +16,7 @@ from app.features.stores import (
     get_place_store,
     get_user_store,
 )
-from app.features.users.dependencies import get_caller_user, JimoUser
+from app.features.users.dependencies import get_caller_user
 from app.features.users.entities import InternalUser
 from app.features.users.user_store import UserStore
 
@@ -29,9 +29,8 @@ async def find_place(
     latitude: float = Query(ge=-90, le=90),
     longitude: float = Query(ge=-180, le=180),
     place_store: PlaceStore = Depends(get_place_store),
-    wrapped_user: JimoUser = Depends(get_caller_user),
+    _user: InternalUser = Depends(get_caller_user),
 ):
-    _ = wrapped_user.user
     place: Place | None = await place_store.find_place(name, latitude, longitude, search_radius_meters=100)
     if place is None:
         return {}
@@ -39,14 +38,13 @@ async def find_place(
 
 
 @router.get("/{place_id}/details", response_model=GetPlaceDetailsResponse)
-async def get_place(
+async def get_place_details(
     place_id: PlaceId,
     post_store: PostStore = Depends(get_post_store),
     place_store: PlaceStore = Depends(get_place_store),
     user_store: UserStore = Depends(get_user_store),
-    wrapped_user: JimoUser = Depends(get_caller_user),
+    user: InternalUser = Depends(get_caller_user),
 ):
-    user = wrapped_user.user
     place: Optional[Place] = await place_store.get_place(place_id)
     if place is None:
         raise HTTPException(404, detail="Place not found")
@@ -83,10 +81,9 @@ async def get_community_posts(
     post_store: PostStore = Depends(get_post_store),
     place_store: PlaceStore = Depends(get_place_store),
     user_store: UserStore = Depends(get_user_store),
-    wrapped_user: JimoUser = Depends(get_caller_user),
+    user: InternalUser = Depends(get_caller_user),
 ):
     """Get the community posts for the given place."""
-    user: InternalUser = wrapped_user.user
     post_ids: list[PostId] = await place_store.get_community_posts(place_id, categories=request.categories)
     return await get_posts_from_post_ids(
         current_user=user,
@@ -103,10 +100,9 @@ async def get_friend_posts(
     post_store: PostStore = Depends(get_post_store),
     place_store: PlaceStore = Depends(get_place_store),
     user_store: UserStore = Depends(get_user_store),
-    wrapped_user: JimoUser = Depends(get_caller_user),
+    user: InternalUser = Depends(get_caller_user),
 ):
     """Get friends' posts for the given place."""
-    user: InternalUser = wrapped_user.user
     post_ids: list[PostId] = await place_store.get_friend_posts(
         place_id=place_id, user_id=user.id, categories=request.categories  # type: ignore
     )
@@ -125,10 +121,9 @@ async def get_saved_posts(
     post_store: PostStore = Depends(get_post_store),
     place_store: PlaceStore = Depends(get_place_store),
     user_store: UserStore = Depends(get_user_store),
-    wrapped_user: JimoUser = Depends(get_caller_user),
+    user: InternalUser = Depends(get_caller_user),
 ):
     """Get the list of posts for the given place, using the given strategy."""
-    user: InternalUser = wrapped_user.user
     post_ids: list[PostId] = await place_store.get_saved_posts(
         place_id=place_id, user_id=user.id, categories=request.categories
     )
@@ -147,10 +142,9 @@ async def get_custom_posts(
     post_store: PostStore = Depends(get_post_store),
     place_store: PlaceStore = Depends(get_place_store),
     user_store: UserStore = Depends(get_user_store),
-    wrapped_user: JimoUser = Depends(get_caller_user),
+    user: InternalUser = Depends(get_caller_user),
 ):
     """Get the list of posts for the given place."""
-    user: InternalUser = wrapped_user.user
     post_ids: list[PostId] = await place_store.get_custom_posts(
         place_id=place_id, user_ids=request.users, categories=request.categories
     )

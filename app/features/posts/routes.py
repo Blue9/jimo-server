@@ -28,7 +28,7 @@ from app.features.stores import (
     get_place_store,
     get_comment_store,
 )
-from app.features.users.dependencies import get_caller_user, JimoUser
+from app.features.users.dependencies import get_caller_user
 from app.features.users.entities import InternalUser
 from app.features.users.relation_store import RelationStore
 from app.features.users.user_store import UserStore
@@ -44,10 +44,9 @@ async def get_post(
     user_store: UserStore = Depends(get_user_store),
     post_store: PostStore = Depends(get_post_store),
     relation_store: RelationStore = Depends(get_relation_store),
-    wrapped_user: JimoUser = Depends(get_caller_user),
+    current_user: InternalUser = Depends(get_caller_user),
 ):
     """Get the given post."""
-    current_user: InternalUser = wrapped_user.user
     post: InternalPost = await post_utils.get_post_and_validate_or_raise(
         post_store, relation_store, current_user.id, post_id
     )
@@ -77,10 +76,9 @@ async def create_post(
     db: AsyncSession = Depends(get_db),
     place_store: PlaceStore = Depends(get_place_store),
     post_store: PostStore = Depends(get_post_store),
-    wrapped_user: JimoUser = Depends(get_caller_user),
+    user: InternalUser = Depends(get_caller_user),
 ):
     """Create a new post."""
-    user: InternalUser = wrapped_user.user
     try:
         if request.place_id:
             place_id = request.place_id
@@ -105,11 +103,10 @@ async def update_post(
     firebase_user: FirebaseUser = Depends(get_firebase_user),
     place_store: PlaceStore = Depends(get_place_store),
     post_store: PostStore = Depends(get_post_store),
-    wrapped_user: JimoUser = Depends(get_caller_user),
+    user: InternalUser = Depends(get_caller_user),
 ):
     """Update the given post."""
     try:
-        user: InternalUser = wrapped_user.user
         old_post: Optional[InternalPost] = await post_store.get_post(post_id)
         if old_post is None:
             raise HTTPException(404)
@@ -140,10 +137,9 @@ async def delete_post(
     post_id: PostId,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
     post_store: PostStore = Depends(get_post_store),
-    wrapped_user: JimoUser = Depends(get_caller_user),
+    user: InternalUser = Depends(get_caller_user),
 ):
     """Delete the given post."""
-    user: InternalUser = wrapped_user.user
     post: Optional[InternalPost] = await post_store.get_post(post_id)
     if post is not None and post.user_id == user.id:
         await post_store.delete_post(post.id)
@@ -161,10 +157,9 @@ async def like_post(
     user_store: UserStore = Depends(get_user_store),
     post_store: PostStore = Depends(get_post_store),
     relation_store: RelationStore = Depends(get_relation_store),
-    wrapped_user: JimoUser = Depends(get_caller_user),
+    user: InternalUser = Depends(get_caller_user),
 ):
     """Like the given post if the user has not already liked the post."""
-    user: InternalUser = wrapped_user.user
     post = await post_utils.get_post_and_validate_or_raise(
         post_store, relation_store, caller_user_id=user.id, post_id=post_id
     )
@@ -185,10 +180,9 @@ async def unlike_post(
     post_id: PostId,
     post_store: PostStore = Depends(get_post_store),
     relation_store: RelationStore = Depends(get_relation_store),
-    wrapped_user: JimoUser = Depends(get_caller_user),
+    user: InternalUser = Depends(get_caller_user),
 ):
     """Unlike the given post if the user has already liked the post."""
-    user: InternalUser = wrapped_user.user
     post = await post_utils.get_post_and_validate_or_raise(
         post_store, relation_store, caller_user_id=user.id, post_id=post_id
     )
@@ -204,10 +198,9 @@ async def save_post(
     user_store: UserStore = Depends(get_user_store),
     post_store: PostStore = Depends(get_post_store),
     relation_store: RelationStore = Depends(get_relation_store),
-    wrapped_user: JimoUser = Depends(get_caller_user),
+    user: InternalUser = Depends(get_caller_user),
 ):
     """Save the given post if the user has not already saved the post."""
-    user: InternalUser = wrapped_user.user
     post = await post_utils.get_post_and_validate_or_raise(
         post_store, relation_store, caller_user_id=user.id, post_id=post_id
     )
@@ -227,11 +220,10 @@ async def unsave_post(
     post_id: PostId,
     post_store: PostStore = Depends(get_post_store),
     relation_store: RelationStore = Depends(get_relation_store),
-    wrapped_user: JimoUser = Depends(get_caller_user),
+    user: InternalUser = Depends(get_caller_user),
 ):
     """Unsave the given post."""
-    user: InternalUser = wrapped_user.user
-    post = await post_utils.get_post_and_validate_or_raise(
+    post: InternalPost = await post_utils.get_post_and_validate_or_raise(
         post_store, relation_store, caller_user_id=user.id, post_id=post_id
     )
     await post_store.unsave_post(user.id, post.id)
@@ -244,10 +236,9 @@ async def report_post(
     request: ReportPostRequest,
     post_store: PostStore = Depends(get_post_store),
     relation_store: RelationStore = Depends(get_relation_store),
-    wrapped_user: JimoUser = Depends(get_caller_user),
+    reported_by: InternalUser = Depends(get_caller_user),
 ):
     """Report the given post."""
-    reported_by: InternalUser = wrapped_user.user
     post = await post_utils.get_post_and_validate_or_raise(
         post_store, relation_store, caller_user_id=reported_by.id, post_id=post_id
     )
@@ -262,9 +253,8 @@ async def get_comments(
     post_store: PostStore = Depends(get_post_store),
     comment_store: CommentStore = Depends(get_comment_store),
     relation_store: RelationStore = Depends(get_relation_store),
-    wrapped_user: JimoUser = Depends(get_caller_user),
+    user: InternalUser = Depends(get_caller_user),
 ) -> CommentPageResponse:
-    user = wrapped_user.user
     post = await post_utils.get_post_and_validate_or_raise(
         post_store, relation_store, caller_user_id=user.id, post_id=post_id
     )
