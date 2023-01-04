@@ -75,7 +75,7 @@ async def update_user(
         if updated_user.profile_picture_blob_name != old_user.profile_picture_blob_name:
             # Remove the old image
             await firebase_user.shared_firebase.delete_image(old_user.profile_picture_blob_name)
-    response = UpdateProfileResponse(user=updated_user, error=error)
+    response = UpdateProfileResponse(user=updated_user, error=error)  # type: ignore
     return response
 
 

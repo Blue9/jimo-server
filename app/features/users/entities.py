@@ -45,7 +45,7 @@ NumMutualFriends = int
 SuggestedUserIdItem = tuple[UserId, NumMutualFriends]
 
 
-class InternalUser(PublicUser, InternalBase):
+class InternalUser(InternalBase):
     id: UserId
     uid: str
     username: str
