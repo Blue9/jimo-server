@@ -36,7 +36,7 @@ class RelationStore:
             query = query.where(UserRelationRow.id < before_id)
         query = query.order_by(UserRelationRow.id.desc()).limit(limit)
         result = await self.db.execute(query)
-        rows: list[UserRelationRow] = result.scalars().all()
+        rows = result.scalars().all()
         user_ids: list[UserId] = [row.from_user_id for row in rows]
         cursor = rows[-1].id if len(rows) == limit else None
         return user_ids, cursor
@@ -51,7 +51,7 @@ class RelationStore:
             query = query.where(UserRelationRow.id < before_id)
         query = query.order_by(UserRelationRow.id.desc()).limit(limit)
         result = await self.db.execute(query)
-        rows: list[UserRelationRow] = result.scalars().all()
+        rows = result.scalars().all()
         user_ids: list[UserId] = [row.to_user_id for row in rows]
         cursor = rows[-1].id if len(rows) == limit else None
         return user_ids, cursor
@@ -61,7 +61,7 @@ class RelationStore:
             UserRelationRow.from_user_id == from_user_id, UserRelationRow.to_user_id.in_(to_user_ids)
         )
         result = await self.db.execute(query)
-        rows: list[UserRelationRow] = result.scalars().all()
+        rows = result.scalars().all()
         return {row.to_user_id: UserRelation[row.relation.value] for row in rows}
 
     async def follow_user(self, from_user_id: UserId, to_user_id: UserId) -> None:

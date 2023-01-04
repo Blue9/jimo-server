@@ -1,6 +1,5 @@
 from datetime import datetime
 from enum import Enum
-from typing import Optional
 from uuid import UUID
 
 from pydantic import validator
@@ -33,8 +32,8 @@ class NotificationItem(Base):
     created_at: datetime
     user: PublicUser
     item_id: UUID
-    post: Optional[Post]
-    comment: Optional[Comment]
+    post: Post | None = None
+    comment: Comment | None = None
 
     @validator("created_at")
     def validate_created_at(cls, created_at):
@@ -44,4 +43,4 @@ class NotificationItem(Base):
 
 class NotificationFeedResponse(Base):
     notifications: list[NotificationItem]
-    cursor: Optional[CursorId]
+    cursor: CursorId | None = None

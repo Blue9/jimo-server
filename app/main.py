@@ -23,11 +23,7 @@ from app.features.notifications.routes import router as notification_router
 from app.features.places.routes import router as place_router
 from app.features.posts.routes import router as post_router
 from app.features.search.routes import router as search_router
-from app.features.users.dependencies import (
-    get_authorization_header,
-    JimoUser,
-    get_caller_user,
-)
+from app.features.users.dependencies import get_authorization_header, get_caller_user
 from app.features.users.entities import InternalUser
 from app.features.users.routes import router as user_router
 from app.utils import get_logger
@@ -85,10 +81,9 @@ async def upload_image(
     file: UploadFile = File(...),
     firebase_user: FirebaseUser = Depends(get_firebase_user),
     db: AsyncSession = Depends(get_db),
-    wrapped_user: JimoUser = Depends(get_caller_user),
+    user: InternalUser = Depends(get_caller_user),
 ):
     """Upload the given image to Firebase if allowed, returning the image id (used for posts + profile pictures)."""
-    user: InternalUser = wrapped_user.user
     image_upload = await image_utils.upload_image(file, user, firebase_user.shared_firebase, db)
     return ImageUploadResponse(image_id=image_upload.id)
 

@@ -27,14 +27,14 @@ async def notify_post_created(
         .join(UserPrefsRow, UserRelationRow.from_user_id == UserPrefsRow.user_id)
         .where(UserRelationRow.to_user_id == post_author.id, UserPrefsRow.post_notifications)
     )
-    query = sa.select(FCMTokenRow.token).where(FCMTokenRow.user_id.in_(followed_user_ids_subquery))
+    query = sa.select(FCMTokenRow).where(FCMTokenRow.user_id.in_(followed_user_ids_subquery))
     result = await db.execute(query)
     # TODO: should we paginate this?
-    tokens: list[str] = result.scalars().all()
+    tokens = result.scalars().all()
     notification_body = f"{post_author.username_lower} just posted {post.place.name}"
     for token in tokens:
         await _actually_send_notification(
-            fcm_token=token,
+            fcm_token=token.token,
             body=notification_body,
             badge=None,
             post_id=str(post.id),

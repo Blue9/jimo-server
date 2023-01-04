@@ -26,7 +26,7 @@ class FeedStore:
         if cursor:
             query = query.where(PostRow.id < cursor)
         result = await self.db.execute(query.order_by(PostRow.id.desc()).limit(limit))
-        return result.scalars().all()
+        return result.scalars().all()  # type: ignore
 
     async def get_discover_feed_ids(
         self, user_id: UserId, location: Optional[Location] = None, limit: int = 100
@@ -37,7 +37,7 @@ class FeedStore:
             .join(UserRow, UserRow.id == PostRow.user_id)
             .where(
                 PostRow.user_id != user_id,
-                PostRow.image_id.isnot(None),
+                PostRow.image_id.is_not(None),
                 ~PostRow.deleted,
                 ~UserRow.deleted,
             )
@@ -53,7 +53,7 @@ class FeedStore:
             query = query.where(PostRow.id.in_(nearest_posts_subquery))
         query = query.order_by(sa.func.random()).limit(limit)
         result = await self.db.execute(query)
-        return result.scalars().all()
+        return result.scalars().all()  # type: ignore
 
     def _feed_ids_query(self, user_id: UserId) -> sa.sql.Select:
         followed_users_subquery = self._followed_users_subquery(user_id)

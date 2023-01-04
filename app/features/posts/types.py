@@ -10,8 +10,8 @@ from app.features.posts.entities import Post
 class MaybeCreatePlaceRequest(Base):
     name: str
     location: Location
-    region: Optional[Region]
-    additional_data: Optional[AdditionalPlaceData]
+    region: Region | None = None
+    additional_data: AdditionalPlaceData | None = None
 
     @validator("name")
     def validate_name(cls, name):
@@ -54,7 +54,7 @@ class ReportPostRequest(Base):
 
 class PaginatedPosts(Base):
     posts: list[Post]
-    cursor: Optional[CursorId]
+    cursor: CursorId | None = None
 
 
 class LikePostResponse(Base):

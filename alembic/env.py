@@ -1,14 +1,14 @@
 from logging.config import fileConfig
 
+import sqlalchemy as sa
 from alembic import context
 
 from app.core.config import SQLALCHEMY_DATABASE_URL
 from app.core.database.models import Base
+from migrate import engine
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
-from migrate import engine
-
 config = context.config
 
 # Interpret the config file for Python logging.
@@ -82,7 +82,7 @@ def run_migrations_online():
         )
 
         with context.begin_transaction():
-            connection.execute("SELECT pg_advisory_xact_lock(10000);")
+            connection.execute(sa.text("SELECT pg_advisory_xact_lock(10000);"))
             context.run_migrations()
 
 

@@ -82,12 +82,12 @@ class PlaceStore:
         query = (
             sa.select(PostRow.id)
             .where(PostRow.place_id == place_id, ~PostRow.deleted)
-            .where(PostRow.image_id.isnot(None) | (PostRow.content != ""))
+            .where(PostRow.image_id.is_not(None) | (PostRow.content != ""))
         )
         if categories:
             query = query.where(PostRow.category.in_(categories))
         result = await self.db.execute(query.order_by(PostRow.id.desc()))
-        post_ids = result.scalars().all()
+        post_ids: list[PostId] = result.scalars().all()  # type: ignore
         return post_ids
 
     async def get_featured_user_posts(self, place_id: PlaceId) -> list[PostId]:
@@ -98,7 +98,7 @@ class PlaceStore:
             .where(PostRow.place_id == place_id, ~PostRow.deleted)
         )
         result = await self.db.execute(query.order_by(PostRow.id.desc()))
-        post_ids = result.scalars().all()
+        post_ids: list[PostId] = result.scalars().all()  # type: ignore
         return post_ids
 
     async def get_friend_posts(
@@ -116,7 +116,7 @@ class PlaceStore:
         if categories:
             query = query.where(PostRow.category.in_(categories))
         result = await self.db.execute(query.order_by(PostRow.id.desc()))
-        post_ids = result.scalars().all()
+        post_ids: list[PostId] = result.scalars().all()  # type: ignore
         return post_ids
 
     async def get_saved_posts(
@@ -131,7 +131,7 @@ class PlaceStore:
         if categories:
             query = query.where(PostRow.category.in_(categories))
         result = await self.db.execute(query)
-        post_ids = result.scalars().all()
+        post_ids: list[PostId] = result.scalars().all()  # type: ignore
         return post_ids
 
     async def get_custom_posts(
@@ -146,7 +146,7 @@ class PlaceStore:
         if categories:
             query = query.where(PostRow.category.in_(categories))
         result = await self.db.execute(query)
-        post_ids = result.scalars().all()
+        post_ids: list[PostId] = result.scalars().all()  # type: ignore
         return post_ids
 
     async def _create_place(self, name: str, latitude: float, longitude: float) -> Place:

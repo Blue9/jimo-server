@@ -7,7 +7,7 @@ from app.core.database.models import FeedbackRow
 from app.features.users.entities import InternalUser
 from app.core.types import SimpleResponse
 from app.features.feedback.types import FeedbackRequest
-from app.features.users.dependencies import JimoUser, get_caller_user
+from app.features.users.dependencies import get_caller_user
 
 router = APIRouter()
 
@@ -16,9 +16,8 @@ router = APIRouter()
 async def submit_feedback(
     request: FeedbackRequest,
     db: AsyncSession = Depends(get_db),
-    wrapped_user: JimoUser = Depends(get_caller_user),
+    user: InternalUser = Depends(get_caller_user),
 ):
-    user: InternalUser = wrapped_user.user
     feedback = FeedbackRow(user_id=user.id, contents=request.contents, follow_up=request.follow_up)
     try:
         db.add(feedback)

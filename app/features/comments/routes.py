@@ -18,7 +18,8 @@ from app.features.stores import (
     get_relation_store,
     get_user_store,
 )
-from app.features.users.dependencies import get_caller_user, JimoUser
+from app.features.users.dependencies import get_caller_user
+from app.features.users.entities import InternalUser
 from app.features.users.relation_store import RelationStore
 from app.features.users.user_store import UserStore
 
@@ -34,9 +35,8 @@ async def create_comment(
     comment_store: CommentStore = Depends(get_comment_store),
     relation_store: RelationStore = Depends(get_relation_store),
     user_store: UserStore = Depends(get_user_store),
-    wrapped_user: JimoUser = Depends(get_caller_user),
+    user: InternalUser = Depends(get_caller_user),
 ):
-    user = wrapped_user.user
     post = await post_utils.get_post_and_validate_or_raise(
         post_store, relation_store, caller_user_id=user.id, post_id=request.post_id
     )
@@ -64,9 +64,8 @@ async def delete_comment(
     comment_id: CommentId,
     post_store: PostStore = Depends(get_post_store),
     comment_store: CommentStore = Depends(get_comment_store),
-    wrapped_user: JimoUser = Depends(get_caller_user),
+    user: InternalUser = Depends(get_caller_user),
 ):
-    user = wrapped_user.user
     comment: Optional[InternalComment] = await comment_store.get_comment(comment_id)
     if comment is None:
         raise HTTPException(404)
@@ -87,16 +86,15 @@ async def like_comment(
     comment_store: CommentStore = Depends(get_comment_store),
     post_store: PostStore = Depends(get_post_store),
     user_store: UserStore = Depends(get_user_store),
-    wrapped_user: JimoUser = Depends(get_caller_user),
+    user: InternalUser = Depends(get_caller_user),
 ):
-    user = wrapped_user.user
-    comment: Optional[InternalComment] = await comment_store.get_comment(comment_id)
+    comment: InternalComment | None = await comment_store.get_comment(comment_id)
     if comment is None or not (await post_store.post_exists(post_id=comment.post_id)):
         raise HTTPException(404)
     await comment_store.like_comment(comment_id, user.id)
 
     async def task():
-        if user.id != comment.user_id:
+        if comment and user.id != comment.user_id:
             prefs = await user_store.get_user_preferences(comment.user_id)
             if prefs.comment_liked_notifications:
                 await tasks.notify_comment_liked(db, comment, liked_by=user)
@@ -110,9 +108,8 @@ async def unlike_comment(
     comment_id: CommentId,
     comment_store: CommentStore = Depends(get_comment_store),
     post_store: PostStore = Depends(get_post_store),
-    wrapped_user: JimoUser = Depends(get_caller_user),
+    user: InternalUser = Depends(get_caller_user),
 ):
-    user = wrapped_user.user
     comment: Optional[InternalComment] = await comment_store.get_comment(comment_id)
     if comment is None or not (await post_store.post_exists(post_id=comment.post_id)):
         raise HTTPException(404)

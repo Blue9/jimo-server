@@ -47,7 +47,7 @@ class MapStore:
             saved_posts = sa.select(PostSaveRow.post_id).where(PostSaveRow.user_id == user_id)
             query = query.where(PostRow.id.in_(saved_posts))
         else:  # user_filter == "community"
-            query = query.where(PostRow.image_id.isnot(None) | (PostRow.content != ""))
+            query = query.where((PostRow.image_id.is_not(None)) | (PostRow.content != ""))
         return await self._get_map(query, categories=categories, limit=500)
 
     async def get_community_map(
@@ -57,7 +57,7 @@ class MapStore:
         limit: int = 500,
     ) -> list[MapPin]:
         """Deprecated."""
-        query = deprecated_base_map_query(region).where(PostRow.image_id.isnot(None) | (PostRow.content != ""))
+        query = deprecated_base_map_query(region).where((PostRow.image_id.is_not(None)) | (PostRow.content != ""))
         return await self._get_map(query, categories=categories, limit=limit)
 
     async def get_friend_map(

@@ -95,7 +95,7 @@ async def get_users(
         .limit(page.limit)
     )
     data = (await db.execute(query)).scalars().all()
-    return AdminResponsePage(total=total, data=data)
+    return AdminResponsePage(total=total, data=data)  # type: ignore
 
 
 @router.post("/users", response_model=AdminAPIUser)
@@ -179,7 +179,7 @@ async def get_admins(
     )
     admins_query = await db.execute(query)
     admins = admins_query.scalars().all()
-    return AdminResponsePage(total=total, data=admins)
+    return dict(total=total, data=admins)
 
 
 # Featured users
@@ -202,7 +202,7 @@ async def get_featured_users(
     )
     rows = await db.execute(query)
     featured_users = rows.scalars().all()
-    return AdminResponsePage(total=total, data=featured_users)
+    return AdminResponsePage(total=total, data=featured_users)  # type: ignore
 
 
 @router.get("/deleted-users", response_model=AdminResponsePage[AdminAPIUser])
@@ -224,7 +224,7 @@ async def get_deleted_users(
     )
     rows = await db.execute(query)
     deleted_users = rows.scalars().all()
-    return AdminResponsePage(total=total, data=deleted_users)
+    return dict(total=total, data=deleted_users)
 
 
 # Posts
@@ -246,7 +246,7 @@ async def get_all_posts(
     )
     rows = await db.execute(query)
     posts = rows.scalars().all()
-    return AdminResponsePage(total=total, data=posts)
+    return dict(total=total, data=posts)
 
 
 @router.get("/posts/{post_id}", response_model=AdminAPIPost)
@@ -283,7 +283,7 @@ async def update_post(
     await db.commit()
     updated_post_result = await db.execute(query)
     updated_post: PostRow = updated_post_result.scalars().first()  # type: ignore
-    if updated_post.image is not None:
+    if updated_post is not None and updated_post.image is not None:
         if updated_post.deleted:
             await firebase_user.shared_firebase.make_image_private(updated_post.image_blob_name)
         else:
@@ -312,7 +312,7 @@ async def get_post_reports(
         .limit(page.limit)
     )
     reports = (await db.execute(query)).scalars().all()
-    return AdminResponsePage(total=total, data=reports)
+    return dict(total=total, data=reports)
 
 
 @router.get("/feedback", response_model=AdminResponsePage[AdminAPIFeedback])
@@ -332,4 +332,4 @@ async def get_feedback(
         .limit(page.limit)
     )
     feedback = (await db.execute(query)).scalars().all()
-    return AdminResponsePage(total=total, data=feedback)
+    return dict(total=total, data=feedback)

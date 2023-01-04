@@ -23,4 +23,4 @@ class SearchStore:
         )
         query = query.order_by(UserRow.follower_count.desc()).limit(25)
         result = await self.db.execute(query)
-        return result.scalars().all()
+        return result.scalars().all()  # type: ignore

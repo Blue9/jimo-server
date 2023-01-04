@@ -43,7 +43,8 @@ async def upload_image(
 
 
 async def check_valid_image(file: UploadFile):
-    if file.content_type != "image/jpeg" or imghdr.what(file.file) != "jpeg":
+    # file.file is a file-like object
+    if file.content_type != "image/jpeg" or imghdr.what(file.file) != "jpeg":  # type: ignore
         raise HTTPException(400, detail="File must be a jpeg")
     file_size = 0
     for chunk in file.file:
@@ -79,7 +80,7 @@ async def maybe_get_image_with_lock(db: AsyncSession, user_id: UserId, image_id:
         .where(
             ImageUploadRow.user_id == user_id,
             ImageUploadRow.id == image_id,
-            ImageUploadRow.firebase_public_url.isnot(None),
+            ImageUploadRow.firebase_public_url.is_not(None),
             ~ImageUploadRow.used,
         )
         .with_for_update()

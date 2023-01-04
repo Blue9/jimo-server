@@ -2,7 +2,7 @@ import io
 from typing import Optional
 
 from alembic.config import Config
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
 from alembic import command
@@ -29,7 +29,7 @@ def main():
 
 def init_db():
     with engine.connect() as connection:
-        connection.execute("""CREATE EXTENSION IF NOT EXISTS postgis""")
+        connection.execute(text("CREATE EXTENSION IF NOT EXISTS postgis"))
     Base.metadata.create_all(bind=engine)
     with SessionLocal() as session:
         categories.add_categories_to_db(session)
