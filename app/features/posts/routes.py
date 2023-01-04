@@ -197,6 +197,7 @@ async def save_post(
     db: AsyncSession = Depends(get_db),
     user_store: UserStore = Depends(get_user_store),
     post_store: PostStore = Depends(get_post_store),
+    place_store: PlaceStore = Depends(get_place_store),
     relation_store: RelationStore = Depends(get_relation_store),
     user: InternalUser = Depends(get_caller_user),
 ):
@@ -205,6 +206,8 @@ async def save_post(
         post_store, relation_store, caller_user_id=user.id, post_id=post_id
     )
     await post_store.save_post(user.id, post.id)
+    # TODO(gmekkat): Remove after migrating to saved places
+    await place_store.save_place(user_id=user.id, place_id=post.place.id)
 
     async def task():
         prefs = await user_store.get_user_preferences(post.user_id)

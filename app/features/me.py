@@ -11,15 +11,18 @@ from app import tasks
 from app.core.database.engine import get_db
 from app.core.database.models import UserRelationRow, UserRow, UserRelationType
 from app.core.firebase import FirebaseUser, get_firebase_user
-from app.core.types import SimpleResponse, UserId
+from app.core.types import PlaceId, SimpleResponse, UserId
 from app.features.images import image_utils
-from app.features.places.entities import Location
+from app.features.places.entities import Location, Place
+from app.features.places.place_store import PlaceStore
+from app.features.places.types import PaginatedPlaces
 from app.features.posts.entities import Post
 from app.features.posts.feed_store import FeedStore
 from app.features.posts.post_store import PostStore
 from app.features.posts.post_utils import get_posts_from_post_ids
 from app.features.posts.types import PaginatedPosts
 from app.features.stores import (
+    get_place_store,
     get_user_store,
     get_post_store,
     get_feed_store,
@@ -305,7 +308,7 @@ async def get_saved_posts(
     user: InternalUser = Depends(get_caller_user),
     user_store: UserStore = Depends(get_user_store),
 ):
-    """Get the given user's posts."""
+    """Get the given user's saved posts."""
     page_size = 15
     # Step 1: Get post ids
     post_saves = await post_store.get_saved_posts_by_user(user.id, cursor=cursor, limit=page_size)
@@ -321,3 +324,16 @@ async def get_saved_posts(
     )
     next_cursor: Optional[uuid.UUID] = min(post_save_ids) if len(posts) >= page_size else None
     return PaginatedPosts(posts=posts, cursor=next_cursor)
+
+
+@router.get("/saved-places", response_model=PaginatedPlaces)
+async def get_saved_places(
+    cursor: Optional[uuid.UUID] = None,
+    place_store: PlaceStore = Depends(get_place_store),
+    user: InternalUser = Depends(get_caller_user),
+):
+    """Get the given user's saved places."""
+    page_size = 15
+    places = await place_store.get_saved_places(user.id, cursor=cursor, limit=page_size)
+    next_cursor: Place | None = min(places, key=lambda place: place.id) if len(places) >= page_size else None
+    return PaginatedPlaces(places=places, cursor=next_cursor.id if next_cursor else None)

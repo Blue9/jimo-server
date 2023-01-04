@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database.models import (
     PlaceRow,
     PlaceDataRow,
+    PlaceSaveRow,
     PostRow,
     UserRelationRow,
     UserRelationType,
@@ -55,6 +56,30 @@ class PlaceStore:
         result = await self.db.execute(query)
         maybe_place = result.scalars().first()
         return Place.from_orm(maybe_place) if maybe_place else None
+
+    async def save_place(self, user_id: UserId, place_id: PlaceId) -> None:
+        place_save = PlaceSaveRow(user_id=user_id, place_id=place_id)
+        self.db.add(place_save)
+        try:
+            await self.db.commit()
+        except IntegrityError:
+            # Ignore error when trying to save a post twice
+            await self.db.rollback()
+            return
+
+    async def unsave_place(self, user_id: UserId, place_id: PlaceId) -> None:
+        query = sa.delete(PlaceSaveRow).where(PlaceSaveRow.user_id == user_id, PlaceSaveRow.place_id == place_id)
+        await self.db.execute(query)
+        await self.db.commit()
+
+    async def get_saved_places(self, user_id: UserId, cursor: PlaceId | None = None, limit: int = 15) -> list[Place]:
+        query = sa.select(PlaceRow).join(PlaceSaveRow).where(PlaceSaveRow.user_id == user_id)
+        if cursor:
+            query = query.where(PlaceSaveRow.id < cursor)
+        query = query.order_by(PlaceSaveRow.id.desc()).limit(limit)
+        result = await self.db.execute(query)
+        places: list[PlaceRow] = result.scalars.all()
+        return [Place.construct(place) for place in places]
 
     async def update_place_metadata(
         self,

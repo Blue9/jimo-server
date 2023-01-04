@@ -3,7 +3,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from app.core.types import PostId, PlaceId
+from app.core.types import PostId, PlaceId, SimpleResponse
 from app.features.map.types import DeprecatedPlaceLoadRequest, DeprecatedCustomPlaceLoadRequest
 from app.features.places.entities import Place
 from app.features.places.place_store import PlaceStore
@@ -45,7 +45,7 @@ async def get_place_details(
     user_store: UserStore = Depends(get_user_store),
     user: InternalUser = Depends(get_caller_user),
 ):
-    place: Optional[Place] = await place_store.get_place(place_id)
+    place: Place | None = await place_store.get_place(place_id)
     if place is None:
         raise HTTPException(404, detail="Place not found")
     community_post_ids, featured_post_ids, following_post_ids = await asyncio.gather(
@@ -74,6 +74,27 @@ async def get_place_details(
     )
 
 
+@router.post("/{place_id}/saves", response_model=SimpleResponse)
+async def save_place(
+    place_id: PlaceId,
+    place_store: PlaceStore = Depends(get_place_store),
+    user: InternalUser = Depends(get_caller_user),
+):
+    await place_store.save_place(user_id=user.id, place_id=place_id)
+    return SimpleResponse(success=True)
+
+
+@router.delete("/{place_id}/saves", response_model=SimpleResponse)
+async def unsave_place(
+    place_id: PlaceId,
+    place_store: PlaceStore = Depends(get_place_store),
+    user: InternalUser = Depends(get_caller_user),
+):
+    await place_store.unsave_place(user_id=user.id, place_id=place_id)
+    return SimpleResponse(success=True)
+
+
+# region deprecated
 @router.post("/{place_id}/getMutualPostsV3/global", response_model=list[Post])
 async def _deprecated_get_community_posts(
     place_id: PlaceId,
@@ -154,3 +175,6 @@ async def _deprecated_get_custom_posts(
         post_store=post_store,
         user_store=user_store,
     )
+
+
+# endregion deprecated

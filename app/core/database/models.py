@@ -31,12 +31,12 @@ from sqlalchemy.sql import expression
 from app.core.database.defaults import gen_ulid
 
 
+Base: Any = declarative_base()
+
+# region Users
 class UserRelationType(enum.Enum):
     following = "following"
     blocked = "blocked"
-
-
-Base: Any = declarative_base()
 
 
 class UserRelationRow(Base):
@@ -117,12 +117,18 @@ class UserPrefsRow(Base):
     user: Mapped[UserRow] = relationship(UserRow)
 
 
+# endregion Users
+
+# region Categories
 class CategoryRow(Base):
     __tablename__ = "category"
 
     name = mapped_column(Text, primary_key=True)
 
 
+# endregion Categories
+
+# region Places
 class PlaceRow(Base):
     __tablename__ = "place"
 
@@ -153,6 +159,22 @@ class PlaceRow(Base):
         UniqueConstraint("name", "latitude", "longitude", name="_place_name_location"),
         Index("idx_place_location", location, postgresql_using="gist"),
     )
+
+
+class PlaceSaveRow(Base):
+    """
+    Saved places by users.
+    """
+
+    __tablename__ = "place_save"
+    id = mapped_column(UUID(as_uuid=True), primary_key=True, default=gen_ulid)
+    user_id = mapped_column(UUID(as_uuid=True), ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
+    place_id = mapped_column(UUID(as_uuid=True), ForeignKey("place.id", ondelete="CASCADE"), nullable=False)
+    created_at = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    place: Mapped[PlaceRow] = relationship("PlaceRow", primaryjoin="PlaceSaveRow.place_id == PlaceRow.id")
+
+    __table_args__ = (UniqueConstraint("user_id", "place_id", name="_place_save_user_place_uc"),)
 
 
 class PlaceDataRow(Base):
@@ -196,6 +218,9 @@ class PlaceDataRow(Base):
     )
 
 
+# endregion Places
+
+# region Posts
 class PostRow(Base):
     __tablename__ = "post"
 
@@ -282,7 +307,27 @@ class PostSaveRow(Base):
     )
 
 
-# Comments
+class PostReportRow(Base):
+    __tablename__ = "post_report"
+
+    id = mapped_column(UUID(as_uuid=True), primary_key=True, default=gen_ulid)
+    post_id = mapped_column(UUID(as_uuid=True), ForeignKey("post.id", ondelete="CASCADE"), nullable=False)
+    reported_by_user_id = mapped_column(UUID(as_uuid=True), ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
+    details = mapped_column(Text, nullable=True)
+    created_at = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    post: Mapped[PostRow] = relationship("PostRow")
+    reported_by: Mapped[UserRow] = relationship("UserRow")
+
+    # Can only report a post once
+    __table_args__ = (UniqueConstraint("post_id", "reported_by_user_id", name="_report_post_user_uc"),)
+
+
+# endregion Posts
+
+# region Comments
+
+
 class CommentLikeRow(Base):
     __tablename__ = "comment_like"
 
@@ -320,22 +365,7 @@ class CommentRow(Base):
     __table_args__ = (Index("comment_post_id_idx", post_id),)
 
 
-# Reports
-
-
-class PostReportRow(Base):
-    __tablename__ = "post_report"
-    id = mapped_column(UUID(as_uuid=True), primary_key=True, default=gen_ulid)
-    post_id = mapped_column(UUID(as_uuid=True), ForeignKey("post.id", ondelete="CASCADE"), nullable=False)
-    reported_by_user_id = mapped_column(UUID(as_uuid=True), ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
-    details = mapped_column(Text, nullable=True)
-    created_at = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
-
-    post: Mapped[PostRow] = relationship("PostRow")
-    reported_by: Mapped[UserRow] = relationship("UserRow")
-
-    # Can only report a post once
-    __table_args__ = (UniqueConstraint("post_id", "reported_by_user_id", name="_report_post_user_uc"),)
+# endregion Comments
 
 
 class ImageUploadRow(Base):
