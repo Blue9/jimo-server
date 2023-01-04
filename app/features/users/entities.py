@@ -64,3 +64,15 @@ class InternalUser(InternalBase):
     post_count: int
     follower_count: int
     following_count: int
+
+    def to_public(self):
+        return PublicUser(
+            userId=self.id,
+            username=self.username_lower,
+            first_name=self.first_name,
+            last_name=self.last_name,
+            profile_picture_url=self.profile_picture_url,
+            post_count=self.post_count,
+            follower_count=self.follower_count,
+            following_count=self.following_count,
+        )

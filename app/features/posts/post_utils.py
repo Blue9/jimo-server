@@ -4,6 +4,7 @@ from typing import Optional
 
 from fastapi import HTTPException
 
+from app.core.types import PostId, UserId
 from app.features.users.entities import InternalUser
 from app.features.posts.entities import Post, InternalPost
 from app.features.posts.post_store import PostStore
@@ -13,7 +14,7 @@ from app.features.users.user_store import UserStore
 
 async def get_posts_from_post_ids(
     current_user: InternalUser,
-    post_ids: list[uuid.UUID],
+    post_ids: list[PostId],
     post_store: PostStore,
     user_store: UserStore,
 ) -> list[Post]:
@@ -26,7 +27,7 @@ async def get_posts_from_post_ids(
     )
     # Step 3: Get users for each post
     user_ids = list(set(post.user_id for _, post in internal_posts.items()))
-    users: dict[uuid.UUID, InternalUser] = await user_store.get_users(user_ids=user_ids)
+    users: dict[UserId, InternalUser] = await user_store.get_users(user_ids=user_ids)
 
     posts = []
     for post_id in post_ids:
@@ -37,7 +38,7 @@ async def get_posts_from_post_ids(
         user = users.get(post.user_id)
         if user is None:
             continue
-        public_post = Post(
+        public_post = Post.construct(
             id=post_id,
             place=place,
             category=post.category,
@@ -47,7 +48,7 @@ async def get_posts_from_post_ids(
             created_at=post.created_at,
             like_count=post.like_count,
             comment_count=post.comment_count,
-            user=user,
+            user=user.to_public(),
             liked=post.id in liked_post_ids,
             saved=post.id in saved_post_ids,
         )

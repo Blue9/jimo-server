@@ -67,7 +67,7 @@ async def create_user(
         last_name=request.last_name,
         phone_number=phone_number,
     )
-    return CreateUserResponse(created=user, error=error)
+    return CreateUserResponse.construct(created=user.to_public() if user else None, error=error)
 
 
 @router.get("/{username}", response_model=PublicUser)

@@ -3,8 +3,6 @@ import uuid
 from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile, File, Query
-from fastapi.encoders import jsonable_encoder
-from fastapi.responses import JSONResponse
 from sqlalchemy import union_all, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -153,13 +151,13 @@ async def get_feed(
 
 
 @router.get("/discover", response_model=list[Post])
-async def get_discover_feed(
+async def _deprecated_get_discover_feed(
     feed_store: FeedStore = Depends(get_feed_store),
     post_store: PostStore = Depends(get_post_store),
     user: InternalUser = Depends(get_caller_user),
     user_store: UserStore = Depends(get_user_store),
 ):
-    """Get the discover feed for the current user."""
+    """DEPRECATED Get the discover feed for the current user."""
     # Step 1: Get post ids
     post_ids = await feed_store.get_discover_feed_ids(user.id, limit=99)  # Prevent additional row on iOS
     if len(post_ids) == 0:
@@ -172,11 +170,11 @@ async def get_discover_feed(
         post_store=post_store,
         user_store=user_store,
     )
-    return JSONResponse(content=jsonable_encoder(feed))
+    return feed
 
 
 @router.get("/discoverV2", response_model=PaginatedPosts)
-async def get_discover_feed_v2(
+async def get_discover_feed(
     long: Optional[float] = Query(None, ge=-180, le=180),
     lat: Optional[float] = Query(None, ge=-90, le=90),
     feed_store: FeedStore = Depends(get_feed_store),
@@ -189,9 +187,9 @@ async def get_discover_feed_v2(
     location = None
     if long is not None and lat is not None:
         location = Location(latitude=lat, longitude=long)
-    post_ids = await feed_store.get_discover_feed_ids(user.id, location=location, limit=99)
+    post_ids = await feed_store.get_discover_feed_ids(user.id, location=location, limit=30)
     if len(post_ids) == 0:
-        return PaginatedPosts(posts=[])
+        return {"posts": []}
     post_ids = sorted(post_ids, reverse=True)
     # Step 2: Convert to posts
     posts = await get_posts_from_post_ids(
@@ -201,8 +199,7 @@ async def get_discover_feed_v2(
         user_store=user_store,
     )
     random.shuffle(posts)
-    response = PaginatedPosts(posts=posts)
-    return JSONResponse(content=jsonable_encoder(response))
+    return {"posts": posts}
 
 
 @router.get("/suggested", response_model=list[PublicUser])

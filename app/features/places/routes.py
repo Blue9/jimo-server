@@ -75,7 +75,7 @@ async def get_place_details(
 
 
 @router.post("/{place_id}/getMutualPostsV3/global", response_model=list[Post])
-async def get_community_posts(
+async def _deprecated_get_community_posts(
     place_id: PlaceId,
     request: DeprecatedPlaceLoadRequest,
     post_store: PostStore = Depends(get_post_store),
@@ -94,7 +94,7 @@ async def get_community_posts(
 
 
 @router.post("/{place_id}/getMutualPostsV3/following", response_model=list[Post])
-async def get_friend_posts(
+async def _deprecated_get_friend_posts(
     place_id: PlaceId,
     request: DeprecatedPlaceLoadRequest,
     post_store: PostStore = Depends(get_post_store),
@@ -115,7 +115,7 @@ async def get_friend_posts(
 
 
 @router.post("/{place_id}/getMutualPostsV3/saved-posts", response_model=list[Post])
-async def get_saved_posts(
+async def _deprecated_get_saved_posts(
     place_id: PlaceId,
     request: DeprecatedPlaceLoadRequest,
     post_store: PostStore = Depends(get_post_store),
@@ -136,7 +136,7 @@ async def get_saved_posts(
 
 
 @router.post("/{place_id}/getMutualPostsV3/custom", response_model=list[Post])
-async def get_custom_posts(
+async def _deprecated_get_custom_posts(
     place_id: PlaceId,
     request: DeprecatedCustomPlaceLoadRequest,
     post_store: PostStore = Depends(get_post_store),

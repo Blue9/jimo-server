@@ -48,9 +48,9 @@ async def create_comment(
             await tasks.notify_comment(db, post, post.place.name, comment.content, comment_by=user)
 
     background_tasks.add_task(notification_task)
-    return Comment(
+    return Comment.construct(
         id=comment.id,
-        user=user,
+        user=user.to_public(),
         post_id=comment.post_id,
         content=comment.content,
         created_at=comment.created_at,

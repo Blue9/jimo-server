@@ -54,7 +54,7 @@ async def get_post(
     if post_author is None:
         log.error("Expected user to exist, found None", post.user_id)
         raise HTTPException(404)
-    return Post(
+    return Post.construct(
         id=post.id,
         place=post.place,
         category=post.category,
@@ -63,7 +63,7 @@ async def get_post(
         created_at=post.created_at,
         like_count=post.like_count,
         comment_count=post.comment_count,
-        user=post_author,
+        user=post_author.to_public(),
         liked=await post_store.is_post_liked(post_id, liked_by=current_user.id),
         saved=await post_store.is_post_saved(post_id, saved_by=current_user.id),
     )
@@ -91,7 +91,7 @@ async def create_post(
         )
         background_tasks.add_task(tasks.slack_post_created, user.username, post)
         background_tasks.add_task(tasks.notify_post_created, db, post, user)
-        return Post(**post.dict(), user=user, liked=False, saved=False)
+        return Post(**post.dict(), user=user.to_public(), liked=False, saved=False)
     except ValueError as e:
         raise HTTPException(400, detail=str(e))
 
@@ -124,7 +124,7 @@ async def update_post(
             await firebase_user.shared_firebase.delete_image(old_post.image_blob_name)  # type: ignore
         return Post(
             **updated_post.dict(),
-            user=user,
+            user=user.to_public(),
             liked=await post_store.is_post_liked(post_id, user.id),
             saved=await post_store.is_post_saved(post_id, user.id)
         )
@@ -264,7 +264,7 @@ async def get_comments(
     )
     liked_comments = await comment_store.get_liked_comments(user.id, [c.id for c in comments_without_likes])
     comments = [
-        Comment(
+        Comment.construct(
             id=c.id,
             user=c.user,
             post_id=c.post_id,
