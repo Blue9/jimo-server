@@ -39,10 +39,14 @@ class MapStore:
         elif user_filter == "me":
             query = query.where(PostRow.user_id == user_id)
         elif user_filter == "following":
-            friends = sa.select(UserRelationRow.to_user_id).where(
-                UserRelationRow.from_user_id == user_id, UserRelationRow.relation == UserRelationType.following
-            )
-            query = query.where((PostRow.user_id == user_id) | PostRow.user_id.in_(friends))
+            # TODO check if this is right
+            query = query.join(
+                UserRelationRow,
+                (UserRelationRow.from_user_id == user_id)
+                & (PostRow.user_id == UserRelationRow.to_user_id)
+                & (UserRelationRow.relation == UserRelationType.following),
+                isouter=True,
+            ).where(UserRelationRow.to_user_id.is_not(None) | (PostRow.user_id == user_id))
         elif user_filter == "saved":
             saved_posts = sa.select(PostSaveRow.post_id).where(PostSaveRow.user_id == user_id)
             query = query.where(PostRow.id.in_(saved_posts))
