@@ -104,7 +104,7 @@ class MapStore:
     async def _get_map(
         self, query: sa.sql.Select, categories: Optional[list[Category]] = None, limit: int = 500
     ) -> list[MapPin]:
-        if categories:
+        if categories and len(categories) < 6:
             query = query.where(PostRow.category.in_(categories))
         query = query.order_by(PostRow.id.desc()).limit(limit)
         rows = (await self.db.execute(query)).all()
@@ -139,10 +139,10 @@ class MapStore:
 
 def base_map_query(region: RectangularRegion) -> sa.sql.Select:
     postgis_region = func.ST_MakeEnvelope(
-        region.center.longitude - region.longitude_delta_degrees,  # x_min
-        region.center.latitude - region.latitude_delta_degrees,  # y_min
-        region.center.longitude + region.longitude_delta_degrees,  # x_max
-        region.center.latitude + region.latitude_delta_degrees,  # y_max
+        region.x_min,
+        region.y_min,
+        region.x_max,
+        region.y_max,
         4326,
     )
     query = (

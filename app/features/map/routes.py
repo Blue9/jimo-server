@@ -15,7 +15,7 @@ async def load_map(
     map_store: MapStore = Depends(get_map_store),
     user: InternalUser = Depends(get_caller_user),
 ):
-    """Get the map."""
+    """Get the map. The passed in region should be in SRID 4326."""
     pins = await map_store.get_map(
         user_id=user.id,
         region=request.region,
