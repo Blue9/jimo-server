@@ -162,7 +162,7 @@ def base_map_query(region: RectangularRegion) -> sa.sql.Select:
             ImageUploadRow.id == UserRow.profile_picture_id,
             isouter=True,
         )
-        .where(func.ST_Intersects(postgis_region, PlaceRow.location))
+        .where(PlaceRow.location.intersects(postgis_region))
         .where(~UserRow.deleted)
         .where(~PostRow.deleted)
     )
@@ -173,7 +173,7 @@ def deprecated_base_map_query(region: Region) -> sa.sql.Select:
     """
     Deprecated map query function. Use base_map_query() with a rectangular region instead.
 
-    Reason: ST_Intersects is faster than ST_Distance and on iOS the MapKit view is given as a
+    Reason: && is faster than ST_Distance and on iOS the MapKit view is given as a
     rectangular region.
     """
     center = func.ST_GeographyFromText(f"POINT({region.longitude} {region.latitude})")
