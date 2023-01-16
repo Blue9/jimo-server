@@ -39,14 +39,10 @@ class MapStore:
         elif user_filter == "me":
             query = query.where(PostRow.user_id == user_id)
         elif user_filter == "following":
-            # TODO check if this is right
-            query = query.join(
-                UserRelationRow,
-                (UserRelationRow.from_user_id == user_id)
-                & (PostRow.user_id == UserRelationRow.to_user_id)
-                & (UserRelationRow.relation == UserRelationType.following),
-                isouter=True,
-            ).where(UserRelationRow.to_user_id.is_not(None) | (PostRow.user_id == user_id))
+            friends = sa.select(UserRelationRow.to_user_id).where(
+                UserRelationRow.from_user_id == user_id, UserRelationRow.relation == UserRelationType.following
+            )
+            query = query.where((PostRow.user_id == user_id) | PostRow.user_id.in_(friends))
         elif user_filter == "saved":
             saved_posts = sa.select(PostSaveRow.post_id).where(PostSaveRow.user_id == user_id)
             query = query.where(PostRow.id.in_(saved_posts))
@@ -62,7 +58,7 @@ class MapStore:
     ) -> list[MapPin]:
         """Deprecated."""
         query = deprecated_base_map_query(region).where((PostRow.image_id.is_not(None)) | (PostRow.content != ""))
-        return await self._get_map(query, categories=categories, limit=limit)
+        return await self._deprecated_get_map(query, categories=categories, limit=limit)
 
     async def get_friend_map(
         self,
@@ -76,7 +72,7 @@ class MapStore:
             UserRelationRow.from_user_id == user_id, UserRelationRow.relation == UserRelationType.following
         )
         query = deprecated_base_map_query(region).where((PostRow.user_id == user_id) | PostRow.user_id.in_(friends))
-        return await self._get_map(query, categories=categories, limit=limit)
+        return await self._deprecated_get_map(query, categories=categories, limit=limit)
 
     async def get_saved_posts_map(
         self,
@@ -88,7 +84,7 @@ class MapStore:
         """Deprecated."""
         saved_posts = sa.select(PostSaveRow.post_id).where(PostSaveRow.user_id == user_id)
         query = deprecated_base_map_query(region).where(PostRow.id.in_(saved_posts))
-        return await self._get_map(query, categories=categories, limit=limit)
+        return await self._deprecated_get_map(query, categories=categories, limit=limit)
 
     async def get_custom_map(
         self,
@@ -99,11 +95,28 @@ class MapStore:
     ) -> list[MapPin]:
         """Deprecated."""
         query = deprecated_base_map_query(region).where(PostRow.user_id.in_(user_ids))
-        return await self._get_map(query, categories=categories, limit=limit)
+        return await self._deprecated_get_map(query, categories=categories, limit=limit)
 
     async def _get_map(
         self, query: sa.sql.Select, categories: Optional[list[Category]] = None, limit: int = 500
     ) -> list[MapPin]:
+        if categories and len(categories) < 6:
+            query = query.where(PostRow.category.in_(categories))
+        query = query.limit(limit)
+        rows = (await self.db.execute(query)).all()
+        return [
+            MapPin(
+                place_id=place_id,
+                location=Location(latitude=lat, longitude=long),
+                icon=MapPinIcon(category=categories[0], icon_url=icon_urls[0], num_posts=num_posts),
+            )
+            for (place_id, lat, long, num_posts, categories, icon_urls) in rows
+        ]
+
+    async def _deprecated_get_map(
+        self, query: sa.sql.Select, categories: Optional[list[Category]] = None, limit: int = 500
+    ) -> list[MapPin]:
+        """Deprecated in favor of _get_map()."""
         if categories and len(categories) < 6:
             query = query.where(PostRow.category.in_(categories))
         query = query.order_by(PostRow.id.desc()).limit(limit)
@@ -150,9 +163,9 @@ def base_map_query(region: RectangularRegion) -> sa.sql.Select:
             PlaceRow.id,
             PlaceRow.latitude,
             PlaceRow.longitude,
-            PostRow.category,
-            ImageUploadRow.firebase_public_url,
-            PostRow.user_id,
+            func.count(PostRow.id).label("num_posts"),
+            func.jsonb_agg(PostRow.category.distinct()),
+            func.jsonb_agg(ImageUploadRow.firebase_public_url.distinct()),
         )
         .select_from(PlaceRow)
         .join(PostRow, PostRow.place_id == PlaceRow.id)
@@ -163,8 +176,8 @@ def base_map_query(region: RectangularRegion) -> sa.sql.Select:
             isouter=True,
         )
         .where(PlaceRow.location.intersects(postgis_region))
-        .where(~UserRow.deleted)
-        .where(~PostRow.deleted)
+        .group_by(PlaceRow.id)
+        .order_by(func.count(PostRow.id).desc())
     )
     return query
 
