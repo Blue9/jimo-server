@@ -68,7 +68,7 @@ class InternalUser(InternalBase):
     def to_public(self):
         return PublicUser(
             userId=self.id,
-            username=self.username_lower,
+            username=self.username,
             first_name=self.first_name,
             last_name=self.last_name,
             profile_picture_url=self.profile_picture_url,
