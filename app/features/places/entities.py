@@ -23,21 +23,34 @@ class Location(Base):
 
 
 class RectangularRegion(Base):
-    center: Location
-    longitude_delta_degrees: float
-    latitude_delta_degrees: float
+    x_min: float
+    y_min: float
+    x_max: float
+    y_max: float
 
-    @validator("longitude_delta_degrees")
-    def validate_long_span(cls, long_span):
-        if long_span < 0 or long_span > 45:
-            raise ValueError("Invalid longitude span")
-        return long_span
+    @validator("x_min")
+    def validate_x_min(cls, x_min):
+        if x_min < -180 or x_min > 180:
+            raise ValueError("Invalid min longitude")
+        return x_min
 
-    @validator("latitude_delta_degrees")
-    def validate_lat_span(cls, lat_span):
-        if lat_span < 0 or lat_span > 45:
-            raise ValueError("Invalid latitude span")
-        return lat_span
+    @validator("y_min")
+    def validate_y_min(cls, y_min):
+        if y_min < -90 or y_min > 90:
+            raise ValueError("Invalid min latitude")
+        return y_min
+
+    @validator("x_max")
+    def validate_x_max(cls, x_max):
+        if x_max < -180 or x_max > 180:
+            raise ValueError("Invalid max longitude")
+        return x_max
+
+    @validator("y_max")
+    def validate_y_max(cls, y_max):
+        if y_max < -90 or y_max > 90:
+            raise ValueError("Invalid max latitude")
+        return y_max
 
 
 class Region(Location):
