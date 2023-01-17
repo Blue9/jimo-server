@@ -244,6 +244,7 @@ class PostRow(Base):
             unique=True,
             postgresql_where=(~deleted),
         ),
+        Index("idx_post_place_id", "place_id"),
         Index("idx_post_custom_location", custom_location, postgresql_using="gist"),
     )
 
