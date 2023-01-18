@@ -171,6 +171,8 @@ class PlaceSaveRow(Base):
     id = mapped_column(UUID(as_uuid=True), primary_key=True, default=gen_ulid)
     user_id = mapped_column(UUID(as_uuid=True), ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
     place_id = mapped_column(UUID(as_uuid=True), ForeignKey("place.id", ondelete="CASCADE"), nullable=False)
+    category = mapped_column(Text, ForeignKey("category.name"), nullable=False)
+    note = mapped_column(Text, nullable=False)
     created_at = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     place: Mapped[PlaceRow] = relationship("PlaceRow", primaryjoin="PlaceSaveRow.place_id == PlaceRow.id")

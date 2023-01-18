@@ -15,7 +15,7 @@ from app.core.types import SimpleResponse, UserId
 from app.features.images import image_utils
 from app.features.places.entities import Location, Place
 from app.features.places.place_store import PlaceStore
-from app.features.places.types import PaginatedPlaces
+from app.features.places.types import SavedPlacesResponse
 from app.features.posts.entities import Post
 from app.features.posts.feed_store import FeedStore
 from app.features.posts.post_store import PostStore
@@ -326,7 +326,7 @@ async def get_saved_posts(
     return PaginatedPosts(posts=posts, cursor=next_cursor)
 
 
-@router.get("/saved-places", response_model=PaginatedPlaces)
+@router.get("/saved-places", response_model=SavedPlacesResponse)
 async def get_saved_places(
     cursor: Optional[uuid.UUID] = None,
     place_store: PlaceStore = Depends(get_place_store),
@@ -334,6 +334,6 @@ async def get_saved_places(
 ):
     """Get the given user's saved places."""
     page_size = 15
-    places = await place_store.get_saved_places(user.id, cursor=cursor, limit=page_size)
-    next_cursor: Place | None = min(places, key=lambda place: place.id) if len(places) >= page_size else None
-    return PaginatedPlaces(places=places, cursor=next_cursor.id if next_cursor else None)
+    saves = await place_store.get_saved_places(user.id, cursor=cursor, limit=page_size)
+    next_cursor: uuid.UUID | None = min([save.id for save in saves]) if len(saves) >= page_size else None
+    return SavedPlacesResponse(saves=saves, cursor=next_cursor)

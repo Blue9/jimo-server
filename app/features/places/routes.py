@@ -6,7 +6,7 @@ from app.core.types import PostId, PlaceId, SimpleResponse
 from app.features.map.types import DeprecatedPlaceLoadRequest, DeprecatedCustomPlaceLoadRequest
 from app.features.places.entities import Place
 from app.features.places.place_store import PlaceStore
-from app.features.places.types import GetPlaceDetailsResponse, FindPlaceResponse
+from app.features.places.types import GetPlaceDetailsResponse, FindPlaceResponse, SavePlaceRequest, SavedPlace
 from app.features.posts.entities import Post
 from app.features.posts.post_store import PostStore
 from app.features.posts.post_utils import get_posts_from_post_ids
@@ -76,10 +76,11 @@ async def get_place_details(
 @router.post("/{place_id}/saves", response_model=SimpleResponse)
 async def save_place(
     place_id: PlaceId,
+    request: SavePlaceRequest,
     place_store: PlaceStore = Depends(get_place_store),
     user: InternalUser = Depends(get_caller_user),
 ):
-    await place_store.save_place(user_id=user.id, place_id=place_id)
+    await place_store.save_place(user_id=user.id, place_id=place_id, category=request.category, note=request.note)
     return SimpleResponse(success=True)
 
 
