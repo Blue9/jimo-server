@@ -11,7 +11,7 @@ from app import tasks
 from app.core.database.engine import get_db
 from app.core.database.models import UserRelationRow, UserRow, UserRelationType
 from app.core.firebase import FirebaseUser, get_firebase_user
-from app.core.types import PlaceId, SimpleResponse, UserId
+from app.core.types import SimpleResponse, UserId
 from app.features.images import image_utils
 from app.features.places.entities import Location, Place
 from app.features.places.place_store import PlaceStore

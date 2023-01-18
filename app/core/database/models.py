@@ -33,6 +33,7 @@ from app.core.database.defaults import gen_ulid
 
 Base: Any = declarative_base()
 
+
 # region Users
 class UserRelationType(enum.Enum):
     following = "following"
@@ -174,7 +175,10 @@ class PlaceSaveRow(Base):
 
     place: Mapped[PlaceRow] = relationship("PlaceRow", primaryjoin="PlaceSaveRow.place_id == PlaceRow.id")
 
-    __table_args__ = (UniqueConstraint("user_id", "place_id", name="_place_save_user_place_uc"),)
+    __table_args__ = (
+        UniqueConstraint(user_id, place_id, name="_place_save_user_place_uc"),
+        Index("idx_place_save_place_id", place_id),
+    )
 
 
 class PlaceDataRow(Base):

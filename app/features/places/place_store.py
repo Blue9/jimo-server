@@ -78,8 +78,8 @@ class PlaceStore:
             query = query.where(PlaceSaveRow.id < cursor)
         query = query.order_by(PlaceSaveRow.id.desc()).limit(limit)
         result = await self.db.execute(query)
-        places: list[PlaceRow] = result.scalars.all()
-        return [Place.construct(place) for place in places]
+        places: list[PlaceRow] = result.scalars().all()  # type: ignore
+        return [Place.from_orm(place) for place in places]
 
     async def update_place_metadata(
         self,
