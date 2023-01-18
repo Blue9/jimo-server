@@ -1,3 +1,4 @@
+from uuid import UUID
 from app.core.types import Base, CursorId
 from app.features.places.entities import Place
 from app.features.posts.entities import Post
@@ -14,6 +15,18 @@ class GetPlaceDetailsResponse(Base):
     following_posts: list[Post]
 
 
-class PaginatedPlaces(Base):
-    places: list[Place]
+class SavedPlace(Base):
+    id: UUID
+    place: Place
+    category: str
+    note: str
+
+
+class SavedPlacesResponse(Base):
+    saves: list[SavedPlace]
     cursor: CursorId | None = None
+
+
+class SavePlaceRequest(Base):
+    category: str
+    note: str

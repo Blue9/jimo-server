@@ -16,6 +16,7 @@ from app.core.database.models import (
 )
 from app.core.types import UserId, PlaceId, PostId, Category
 from app.features.places.entities import Region, AdditionalPlaceData, Place
+from app.features.places.types import SavedPlace
 
 
 class PlaceStore:
@@ -57,14 +58,20 @@ class PlaceStore:
         maybe_place = result.scalars().first()
         return Place.from_orm(maybe_place) if maybe_place else None
 
-    async def save_place(self, user_id: UserId, place_id: PlaceId) -> None:
-        place_save = PlaceSaveRow(user_id=user_id, place_id=place_id)
+    async def save_place(self, user_id: UserId, place_id: PlaceId, category: str, note: str) -> None:
+        place_save = PlaceSaveRow(user_id=user_id, place_id=place_id, category=category, note=note)
         self.db.add(place_save)
         try:
             await self.db.commit()
         except IntegrityError:
-            # Ignore error when trying to save a post twice
+            # Already saved place, update note
             await self.db.rollback()
+            await self.db.execute(
+                sa.update(PlaceSaveRow)
+                .where(PlaceSaveRow.user_id == user_id, PlaceSaveRow.place_id == place_id)
+                .values(category=category, note=note)
+            )
+            await self.db.commit()
             return
 
     async def unsave_place(self, user_id: UserId, place_id: PlaceId) -> None:
@@ -72,14 +79,24 @@ class PlaceStore:
         await self.db.execute(query)
         await self.db.commit()
 
-    async def get_saved_places(self, user_id: UserId, cursor: PlaceId | None = None, limit: int = 15) -> list[Place]:
-        query = sa.select(PlaceRow).join(PlaceSaveRow).where(PlaceSaveRow.user_id == user_id)
+    async def get_saved_places(
+        self, user_id: UserId, cursor: PlaceId | None = None, limit: int = 15
+    ) -> list[SavedPlace]:
+        query = (
+            sa.select(PlaceSaveRow.id, PlaceRow, PlaceSaveRow.category, PlaceSaveRow.note)
+            .select_from(PlaceSaveRow)
+            .join(PlaceRow)
+            .where(PlaceSaveRow.user_id == user_id)
+        )
         if cursor:
             query = query.where(PlaceSaveRow.id < cursor)
         query = query.order_by(PlaceSaveRow.id.desc()).limit(limit)
         result = await self.db.execute(query)
-        places: list[PlaceRow] = result.scalars().all()  # type: ignore
-        return [Place.from_orm(place) for place in places]
+        saves = result.all()
+        return [
+            SavedPlace.construct(id=id, place=place, category=category, note=note)
+            for id, place, category, note in saves
+        ]
 
     async def update_place_metadata(
         self,
