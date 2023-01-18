@@ -14,7 +14,6 @@ from app.core.database.models import (
     CommentRow,
     PostRow,
     PostLikeRow,
-    PostSaveRow,
     UserRow,
     UserRelationRow,
     UserRelationType,
@@ -40,9 +39,8 @@ class ActivityFeedStore:
     ) -> tuple[list[NotificationItem], Optional[CursorId]]:
         follow_feed = await self.get_follow_feed(user_id, cursor, limit)
         post_like_feed = await self.get_post_like_feed(post_store, user_id, cursor, limit)
-        post_save_feed = await self.get_post_save_feed(post_store, user_id, cursor, limit)
         comment_feed = await self.get_comment_feed(post_store, user_id, cursor, limit)
-        merged = follow_feed + post_like_feed + post_save_feed + comment_feed
+        merged = follow_feed + post_like_feed + comment_feed
         items = sorted(merged, key=lambda i: i.item_id, reverse=True)[:limit]
         next_cursor = items[-1].item_id if len(items) >= limit else None
         return items, next_cursor
@@ -116,47 +114,6 @@ class ActivityFeedStore:
                 )
             )
         return like_items
-
-    async def get_post_save_feed(
-        self,
-        post_store: PostStore,
-        user_id: UserId,
-        cursor: Optional[CursorId] = None,
-        limit: int = 50,
-    ) -> list[NotificationItem]:
-        query = (
-            select(PostSaveRow, PostRow)
-            .options(joinedload(PostSaveRow.saved_by).options(*eager_load_user_options()), *eager_load_post_options())
-            .where(
-                PostSaveRow.post_id == PostRow.id,
-                PostRow.user_id == user_id,
-                ~PostRow.deleted,
-                PostSaveRow.user_id != user_id,
-                PostSaveRow.saved_by.has(deleted=False),
-            )
-        )
-        if cursor is not None:
-            query = query.where(PostSaveRow.id < cursor)
-
-        result = await self.db.execute(query.order_by(PostSaveRow.id.desc()).limit(limit))
-        save_results = result.all()
-        post_ids = [post.id for _, post in save_results]
-        liked_posts = await post_store.get_liked_posts(user_id, post_ids)
-        saved_posts = await post_store.get_saved_posts(user_id, post_ids)
-        items = []
-        for post_save, post in save_results:
-            fields = PostWithoutLikeSaveStatus.from_orm(post).dict()
-            external_post = Post(**fields, liked=post.id in liked_posts, saved=post.id in saved_posts)
-            items.append(
-                NotificationItem(
-                    type=ItemType.save,
-                    created_at=post_save.created_at,
-                    user=post_save.saved_by,
-                    item_id=post_save.id,
-                    post=external_post,
-                )
-            )
-        return items
 
     async def get_comment_feed(
         self,

@@ -1,4 +1,4 @@
-from app.core.types import Base
+from app.core.types import Base, CursorId
 from app.features.places.entities import Place
 from app.features.posts.entities import Post
 
@@ -12,3 +12,8 @@ class GetPlaceDetailsResponse(Base):
     community_posts: list[Post]
     featured_posts: list[Post]
     following_posts: list[Post]
+
+
+class PaginatedPlaces(Base):
+    places: list[Place]
+    cursor: CursorId | None = None
