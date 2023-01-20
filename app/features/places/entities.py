@@ -1,4 +1,5 @@
 from typing import Optional
+from uuid import UUID
 
 from pydantic import Field, validator, root_validator
 
@@ -78,6 +79,12 @@ class Place(Base):
                 location=Location(latitude=values["latitude"], longitude=values["longitude"]),
             )
         return values
+
+
+class SavedPlace(Base):
+    id: UUID
+    place: Place
+    note: str
 
 
 class AdditionalPlaceData(Base):

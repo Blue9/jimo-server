@@ -10,7 +10,7 @@ from app.core.database.models import UserRow, PlaceRow, ImageUploadRow, PostRow
 from app.core.firebase import get_firebase_user, FirebaseUser
 from app.features.places.entities import Location
 from app.features.posts.entities import PostWithoutLikeSaveStatus
-from app.features.posts.types import CreatePostRequest, MaybeCreatePlaceRequest
+from app.features.posts.types import CreatePostRequest, MaybeCreatePlaceWithMetadataRequest
 from app.main import app as main_app
 from tests.mock_firebase import MockFirebaseAdmin
 
@@ -112,7 +112,7 @@ async def test_update_post(client):
     # Update using place request
     request = CreatePostRequest(
         place_id=None,
-        place=MaybeCreatePlaceRequest(name="place_two", location=Location(latitude=10, longitude=10)),
+        place=MaybeCreatePlaceWithMetadataRequest(name="place_two", location=Location(latitude=10, longitude=10)),
         category="shopping",
         content="new content",
         image_id=IMAGE_A_ID,
@@ -128,7 +128,7 @@ async def test_update_post(client):
     # Update image ID -> None, make sure old image is deleted
     request = CreatePostRequest(
         place_id=None,
-        place=MaybeCreatePlaceRequest(name="place_two", location=Location(latitude=10, longitude=10)),
+        place=MaybeCreatePlaceWithMetadataRequest(name="place_two", location=Location(latitude=10, longitude=10)),
         category="shopping",
         content="new content",
         image_id=None,

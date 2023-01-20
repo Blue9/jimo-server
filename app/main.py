@@ -8,6 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
+from timing_asgi import TimingMiddleware, TimingClient
+from timing_asgi.integrations import StarletteScopeToName
 
 from app.core import config
 from app.core.database.engine import get_db
@@ -28,9 +30,19 @@ from app.features.users.entities import InternalUser
 from app.features.users.routes import router as user_router
 from app.utils import get_logger
 
+
 log = get_logger(__name__)
 log.info("Initializing server")
 app = FastAPI(openapi_url="/openapi.json" if config.ENABLE_DOCS else None)
+
+
+class PrintTimings(TimingClient):
+    def timing(self, metric_name, timing, tags):
+        log.debug(dict(route=metric_name.removeprefix("main.app.features."), timing=timing, tags=tags))
+
+
+app.add_middleware(TimingMiddleware, client=PrintTimings(), metric_namer=StarletteScopeToName("main", app))
+
 if config.ENABLE_DOCS:
     log.warning("Docs enabled")
 if config.ALLOW_ORIGIN:
