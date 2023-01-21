@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Optional
 from uuid import UUID
 
@@ -85,6 +86,19 @@ class SavedPlace(Base):
     id: UUID
     place: Place
     note: str
+    created_at: datetime
+
+    @validator("created_at")
+    def validate_created_at(cls, created_at):
+        # Needed so Swift can automatically decode
+        return created_at.replace(microsecond=0)
+
+    @validator("note")
+    def validate_content(cls, note):
+        note = note.strip()
+        if len(note) > 2000:
+            raise ValueError("Note too long (max length 2000 chars)")
+        return note
 
 
 class AdditionalPlaceData(Base):

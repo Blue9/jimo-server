@@ -1,5 +1,3 @@
-from uuid import UUID
-
 from pydantic import root_validator
 from app.core.types import Base, CursorId, PlaceId, PostId
 from app.features.places.entities import Place, SavedPlace

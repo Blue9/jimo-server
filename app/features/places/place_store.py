@@ -68,8 +68,10 @@ class PlaceStore:
         maybe_place_save = result.scalars().first()
         return SavedPlace.from_orm(maybe_place_save) if maybe_place_save else None
 
-    async def save_place(self, user_id: UserId, place_id: PlaceId, note: str) -> SavedPlace:
-        place_save = PlaceSaveRow(user_id=user_id, place_id=place_id, note=note)
+    async def save_place(
+        self, user_id: UserId, place_id: PlaceId, note: str, category: str | None = None
+    ) -> SavedPlace:
+        place_save = PlaceSaveRow(user_id=user_id, place_id=place_id, note=note, category=category)
         self.db.add(place_save)
         try:
             await self.db.commit()

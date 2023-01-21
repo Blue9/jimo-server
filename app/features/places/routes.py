@@ -69,7 +69,6 @@ async def get_place_details(
 
     def to_posts(post_ids: list[PostId]) -> list[Post]:
         return [posts_map[post_id] for post_id in post_ids if post_id in posts_map]
-
     return GetPlaceDetailsResponse(
         place=place,
         my_post=my_post,

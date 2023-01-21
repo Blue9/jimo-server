@@ -69,7 +69,7 @@ class MapStore:
             4326,
         )
         query = (
-            sa.select(PlaceRow.id, PlaceRow.latitude, PlaceRow.longitude, PostRow.category)
+            sa.select(PlaceRow.id, PlaceRow.latitude, PlaceRow.longitude, PlaceSaveRow.category, PostRow.category)
             .select_from(PlaceSaveRow)
             .join(PlaceRow)
             .join(
@@ -88,10 +88,10 @@ class MapStore:
                 place_id=place_id,
                 location=Location(latitude=lat, longitude=long),
                 icon=MapPinIcon(
-                    category=category, icon_url=user_icon_url, num_posts=int(bool(category))
+                    category=category or fallback_category, icon_url=user_icon_url, num_posts=int(bool(category))
                 ),
             )
-            for (place_id, lat, long, category) in rows
+            for (place_id, lat, long, fallback_category, category) in rows
         ]
 
     async def _get_map(

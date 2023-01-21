@@ -8,8 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
-from timing_asgi import TimingMiddleware, TimingClient
-from timing_asgi.integrations import StarletteScopeToName
+from timing_asgi import TimingMiddleware, TimingClient  # type: ignore
+from timing_asgi.integrations import StarletteScopeToName  # type: ignore
 
 from app.core import config
 from app.core.database.engine import get_db
