@@ -98,7 +98,7 @@ class PlaceStore:
         self, user_id: UserId, cursor: PlaceId | None = None, limit: int = 15
     ) -> list[SavedPlace]:
         query = (
-            sa.select(PlaceSaveRow.id, PlaceRow, PlaceSaveRow.category, PlaceSaveRow.note)
+            sa.select(PlaceSaveRow.id, PlaceRow, PlaceSaveRow.category, PlaceSaveRow.note, PlaceSaveRow.created_at)
             .select_from(PlaceSaveRow)
             .join(PlaceRow)
             .where(PlaceSaveRow.user_id == user_id)
@@ -108,7 +108,10 @@ class PlaceStore:
         query = query.order_by(PlaceSaveRow.id.desc()).limit(limit)
         result = await self.db.execute(query)
         saves = result.all()
-        return [SavedPlace.construct(id=id, place=place, note=note) for id, place, category, note in saves]
+        return [
+            SavedPlace.construct(id=id, place=place, note=note, created_at=created_at)
+            for id, place, category, note, created_at in saves
+        ]
 
     async def update_place_metadata(
         self,
