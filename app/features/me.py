@@ -11,11 +11,12 @@ from app import tasks
 from app.core.database.engine import get_db
 from app.core.database.models import UserRelationRow, UserRow, UserRelationType
 from app.core.firebase import FirebaseUser, get_firebase_user
-from app.core.types import SimpleResponse, UserId
+from app.core.types import PlaceId, SimpleResponse, UserId
 from app.features.images import image_utils
-from app.features.places.entities import Location, Place
+from app.features.places import place_utils
+from app.features.places.entities import Location
 from app.features.places.place_store import PlaceStore
-from app.features.places.types import SavedPlacesResponse
+from app.features.places.types import SavePlaceRequest, SavedPlace, SavedPlacesResponse
 from app.features.posts.entities import Post
 from app.features.posts.feed_store import FeedStore
 from app.features.posts.post_store import PostStore
@@ -337,3 +338,27 @@ async def get_saved_places(
     saves = await place_store.get_saved_places(user.id, cursor=cursor, limit=page_size)
     next_cursor: uuid.UUID | None = min([save.id for save in saves]) if len(saves) >= page_size else None
     return SavedPlacesResponse(saves=saves, cursor=next_cursor)
+
+
+@router.post("/saved-places", response_model=SavedPlace)
+async def save_place(
+    request: SavePlaceRequest,
+    place_store: PlaceStore = Depends(get_place_store),
+    user: InternalUser = Depends(get_caller_user),
+):
+    # We can ignore the type because of SavePlaceRequest's validation (requires that place_id or place are present)
+    place_id = request.place_id or await place_utils.get_or_create_place(
+        user_id=user.id, request=request.place, place_store=place_store  # type: ignore
+    )
+    # TODO: we don't validate request.place_id
+    return await place_store.save_place(user_id=user.id, place_id=place_id, note=request.note)
+
+
+@router.delete("/saved-places/{place_id}", response_model=SimpleResponse)
+async def unsave_place(
+    place_id: PlaceId,
+    place_store: PlaceStore = Depends(get_place_store),
+    user: InternalUser = Depends(get_caller_user),
+):
+    await place_store.unsave_place(user_id=user.id, place_id=place_id)
+    return SimpleResponse(success=True)

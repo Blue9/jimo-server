@@ -3,6 +3,7 @@ from typing import Optional
 import sqlalchemy as sa
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 
 from app.core.database.models import (
     PlaceRow,
@@ -58,8 +59,19 @@ class PlaceStore:
         maybe_place = result.scalars().first()
         return Place.from_orm(maybe_place) if maybe_place else None
 
-    async def save_place(self, user_id: UserId, place_id: PlaceId, category: str, note: str) -> None:
-        place_save = PlaceSaveRow(user_id=user_id, place_id=place_id, category=category, note=note)
+    async def get_place_save(self, user_id: UserId, place_id: PlaceId) -> SavedPlace | None:
+        result = await self.db.execute(
+            sa.select(PlaceSaveRow)
+            .options(joinedload(PlaceSaveRow.place))
+            .where(PlaceSaveRow.user_id == user_id, PlaceSaveRow.place_id == place_id)
+        )
+        maybe_place_save = result.scalars().first()
+        return SavedPlace.from_orm(maybe_place_save) if maybe_place_save else None
+
+    async def save_place(
+        self, user_id: UserId, place_id: PlaceId, note: str, category: str | None = None
+    ) -> SavedPlace:
+        place_save = PlaceSaveRow(user_id=user_id, place_id=place_id, note=note, category=category)
         self.db.add(place_save)
         try:
             await self.db.commit()
@@ -69,10 +81,13 @@ class PlaceStore:
             await self.db.execute(
                 sa.update(PlaceSaveRow)
                 .where(PlaceSaveRow.user_id == user_id, PlaceSaveRow.place_id == place_id)
-                .values(category=category, note=note)
+                .values(note=note)
             )
             await self.db.commit()
-            return
+        created_save = await self.get_place_save(user_id=user_id, place_id=place_id)
+        if created_save is None:
+            raise ValueError("Could not save place")
+        return created_save
 
     async def unsave_place(self, user_id: UserId, place_id: PlaceId) -> None:
         query = sa.delete(PlaceSaveRow).where(PlaceSaveRow.user_id == user_id, PlaceSaveRow.place_id == place_id)
@@ -83,7 +98,7 @@ class PlaceStore:
         self, user_id: UserId, cursor: PlaceId | None = None, limit: int = 15
     ) -> list[SavedPlace]:
         query = (
-            sa.select(PlaceSaveRow.id, PlaceRow, PlaceSaveRow.category, PlaceSaveRow.note)
+            sa.select(PlaceSaveRow.id, PlaceRow, PlaceSaveRow.category, PlaceSaveRow.note, PlaceSaveRow.created_at)
             .select_from(PlaceSaveRow)
             .join(PlaceRow)
             .where(PlaceSaveRow.user_id == user_id)
@@ -94,8 +109,8 @@ class PlaceStore:
         result = await self.db.execute(query)
         saves = result.all()
         return [
-            SavedPlace.construct(id=id, place=place, category=category, note=note)
-            for id, place, category, note in saves
+            SavedPlace.construct(id=id, place=place, note=note, created_at=created_at)
+            for id, place, category, note, created_at in saves
         ]
 
     async def update_place_metadata(

@@ -7,7 +7,7 @@ from app.features.places.entities import Location, Region, AdditionalPlaceData
 from app.features.posts.entities import Post
 
 
-class MaybeCreatePlaceRequest(Base):
+class MaybeCreatePlaceWithMetadataRequest(Base):
     name: str
     location: Location
     region: Region | None = None
@@ -23,7 +23,7 @@ class MaybeCreatePlaceRequest(Base):
 
 class CreatePostRequest(Base):
     place_id: Optional[PlaceId]
-    place: Optional[MaybeCreatePlaceRequest]
+    place: Optional[MaybeCreatePlaceWithMetadataRequest]
     category: str
     content: str
     image_id: Optional[ImageId]

@@ -204,7 +204,7 @@ async def save_post(
     )
     await post_store.save_post(user.id, post.id)
     # TODO(gmekkat): Remove after migrating to saved places
-    await place_store.save_place(user_id=user.id, place_id=post.place.id, category=post.category, note="")
+    await place_store.save_place(user_id=user.id, place_id=post.place.id, note="")
     return {"success": True}
 
 

@@ -18,10 +18,11 @@ async def load_map(
     """Get the map. The passed in region should be in SRID 4326."""
     pins = await map_store.get_map(
         user_id=user.id,
+        user_icon_url=user.profile_picture_url,
         region=request.region,
-        categories=request.categories or [],
         user_filter=request.map_type,
         user_ids=request.user_ids,
+        categories=request.categories,
     )
     return GetMapResponse(pins=pins)
 

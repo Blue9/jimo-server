@@ -79,5 +79,7 @@ async def test_get_place_details(client):
         response_json = response.json()
         get_place_response: GetPlaceDetailsResponse = GetPlaceDetailsResponse.parse_obj(response_json)
         assert len(get_place_response.community_posts) == 1
-        assert len(get_place_response.following_posts) == 1
+        assert len(get_place_response.following_posts) == 0
+        assert get_place_response.my_post is not None
+        assert get_place_response.my_post.id == USER_B_POST_ID
         assert get_place_response.place.id == PLACE_ID
