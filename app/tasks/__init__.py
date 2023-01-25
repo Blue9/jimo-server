@@ -7,4 +7,4 @@ from app.tasks.push_notifications import (
     notify_comment_liked,
 )
 
-from app.tasks.slack import slack_post_created
+from app.tasks.slack import slack_post_created, slack_place_saved

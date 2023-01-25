@@ -200,6 +200,7 @@ async def unlike_post(
 @router.post("/{post_id}/save", response_model=SavePostResponse)
 async def save_post(
     post_id: PostId,
+    background_tasks: BackgroundTasks,
     post_store: PostStore = Depends(get_post_store),
     place_store: PlaceStore = Depends(get_place_store),
     relation_store: RelationStore = Depends(get_relation_store),
@@ -214,6 +215,7 @@ async def save_post(
     saved_place = await place_store.save_place(
         user_id=user.id, place_id=post.place.id, note="Want to go", category=post.category
     )
+    background_tasks.add_task(tasks.slack_place_saved, user.username, saved_place)
     return {"success": True, "save": saved_place}
 
 

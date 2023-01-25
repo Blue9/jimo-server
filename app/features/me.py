@@ -332,6 +332,7 @@ async def get_saved_places(
 @router.post("/saved-places", response_model=SavePlaceResponse)
 async def save_place(
     request: SavePlaceRequest,
+    background_tasks: BackgroundTasks,
     place_store: PlaceStore = Depends(get_place_store),
     user: InternalUser = Depends(get_caller_user),
 ):
@@ -341,6 +342,7 @@ async def save_place(
     )
     # TODO: we don't validate request.place_id
     save = await place_store.save_place(user_id=user.id, place_id=place_id, note=request.note)
+    background_tasks.add_task(tasks.slack_place_saved, user.username, save)
     return SavePlaceResponse(save=save, create_place_request=request.place)
 
 
