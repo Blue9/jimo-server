@@ -98,7 +98,7 @@ class PlaceStore:
         self, user_id: UserId, cursor: PlaceId | None = None, limit: int = 15
     ) -> list[SavedPlace]:
         query = (
-            sa.select(PlaceSaveRow.id, PlaceRow, PlaceSaveRow.category, PlaceSaveRow.note, PlaceSaveRow.created_at)
+            sa.select(PlaceSaveRow.id, PlaceRow, PlaceSaveRow.note, PlaceSaveRow.created_at)
             .select_from(PlaceSaveRow)
             .join(PlaceRow)
             .where(PlaceSaveRow.user_id == user_id)
@@ -110,8 +110,25 @@ class PlaceStore:
         saves = result.all()
         return [
             SavedPlace.construct(id=id, place=place, note=note, created_at=created_at)
-            for id, place, category, note, created_at in saves
+            for id, place, note, created_at in saves
         ]
+
+    async def get_saved_place_ids(self, user_id: UserId, place_ids: list[PlaceId]) -> set[PlaceId]:
+        query = (
+            sa.select(PlaceSaveRow.place_id)
+            .select_from(PlaceSaveRow)
+            .where(PlaceSaveRow.user_id == user_id, PlaceSaveRow.place_id.in_(place_ids))
+        )
+        result = await self.db.execute(query)
+        saved_places: list[PlaceId] = result.scalars().all()  # type: ignore
+        return set(saved_places)
+
+    async def is_place_saved(self, user_id: UserId, place_id: PlaceId) -> bool:
+        """Return whether the given place is saved by the given user."""
+        query = sa.select(PlaceSaveRow.id).where(PlaceSaveRow.place_id == place_id, PlaceSaveRow.user_id == user_id)
+        result = await self.db.execute(query.exists().select())
+        is_saved: bool = result.scalar()  # type: ignore
+        return is_saved
 
     async def update_place_metadata(
         self,

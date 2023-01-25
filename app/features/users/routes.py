@@ -10,10 +10,11 @@ from app.core.database.engine import get_db
 from app.core.database.models import UserRelationRow, UserRelationType
 from app.core.firebase import FirebaseUser, get_firebase_user
 from app.core.types import SimpleResponse, PostId
+from app.features.places.place_store import PlaceStore
 from app.features.posts import post_utils
 from app.features.posts.post_store import PostStore
 from app.features.posts.types import PaginatedPosts
-from app.features.stores import get_user_store, get_relation_store, get_post_store
+from app.features.stores import get_place_store, get_user_store, get_relation_store, get_post_store
 from app.features.users.dependencies import get_caller_user
 from app.features.users.entities import UserFieldErrors, PublicUser, InternalUser
 from app.features.users.relation_store import RelationStore
@@ -84,6 +85,7 @@ async def get_posts(
     limit: Optional[int] = 15,
     user_store: UserStore = Depends(get_user_store),
     post_store: PostStore = Depends(get_post_store),
+    place_store: PlaceStore = Depends(get_place_store),
     caller_user: InternalUser = Depends(get_caller_user),
     requested_user: InternalUser = Depends(get_requested_user),
 ):
@@ -95,7 +97,7 @@ async def get_posts(
     post_ids = await post_store.get_post_ids(requested_user.id, cursor=cursor, limit=page_size)
     if len(post_ids) == 0:
         return PaginatedPosts(posts=[], cursor=None)
-    posts = await post_utils.get_posts_from_post_ids(caller_user, post_ids, post_store, user_store)
+    posts = await post_utils.get_posts_from_post_ids(caller_user, post_ids, post_store, place_store, user_store)
     next_cursor: Optional[PostId] = min(post.id for post in posts) if len(posts) >= page_size else None
     return PaginatedPosts(posts=posts, cursor=next_cursor)
 

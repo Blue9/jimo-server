@@ -20,6 +20,7 @@ from app.features.posts.types import (
     DeletePostResponse,
     LikePostResponse,
     ReportPostRequest,
+    SavePostResponse,
 )
 from app.features.stores import (
     get_user_store,
@@ -43,6 +44,7 @@ async def get_post(
     post_id: PostId,
     user_store: UserStore = Depends(get_user_store),
     post_store: PostStore = Depends(get_post_store),
+    place_store: PlaceStore = Depends(get_place_store),
     relation_store: RelationStore = Depends(get_relation_store),
     current_user: InternalUser = Depends(get_caller_user),
 ):
@@ -65,7 +67,7 @@ async def get_post(
         comment_count=post.comment_count,
         user=post_author.to_public(),
         liked=await post_store.is_post_liked(post_id, liked_by=current_user.id),
-        saved=await post_store.is_post_saved(post_id, saved_by=current_user.id),
+        saved=await place_store.is_place_saved(user_id=current_user.id, place_id=post.place.id),
     )
 
 
@@ -91,7 +93,12 @@ async def create_post(
         )
         background_tasks.add_task(tasks.slack_post_created, user.username, post)
         background_tasks.add_task(tasks.notify_post_created, db, post, user)
-        return Post(**post.dict(), user=user.to_public(), liked=False, saved=False)
+        return Post(
+            **post.dict(),
+            user=user.to_public(),
+            liked=False,
+            saved=await place_store.is_place_saved(user_id=user.id, place_id=place_id)
+        )
     except ValueError as e:
         raise HTTPException(400, detail=str(e))
 
@@ -126,7 +133,7 @@ async def update_post(
             **updated_post.dict(),
             user=user.to_public(),
             liked=await post_store.is_post_liked(post_id, user.id),
-            saved=await post_store.is_post_saved(post_id, user.id)
+            saved=await place_store.is_place_saved(user_id=user.id, place_id=updated_post.place.id)
         )
     except ValueError as e:
         raise HTTPException(400, detail=str(e))
@@ -190,7 +197,7 @@ async def unlike_post(
     return {"likes": await post_store.get_like_count(post.id)}
 
 
-@router.post("/{post_id}/save", response_model=SimpleResponse)
+@router.post("/{post_id}/save", response_model=SavePostResponse)
 async def save_post(
     post_id: PostId,
     post_store: PostStore = Depends(get_post_store),
@@ -204,8 +211,10 @@ async def save_post(
     )
     await post_store.save_post(user.id, post.id)
     # TODO(gmekkat): Remove after migrating to saved places
-    await place_store.save_place(user_id=user.id, place_id=post.place.id, note="")
-    return {"success": True}
+    saved_place = await place_store.save_place(
+        user_id=user.id, place_id=post.place.id, note="Want to go", category=post.category
+    )
+    return {"success": True, "save": saved_place}
 
 
 @router.post("/{post_id}/unsave", response_model=SimpleResponse)

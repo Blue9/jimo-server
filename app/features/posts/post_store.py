@@ -53,13 +53,6 @@ class PostStore:
         is_liked: bool = result.scalar()  # type: ignore
         return is_liked
 
-    async def is_post_saved(self, post_id: PostId, saved_by: UserId) -> bool:
-        """Return whether the given post is saved by the given user."""
-        query = sa.select(PostSaveRow.id).where(PostSaveRow.post_id == post_id, PostSaveRow.user_id == saved_by)
-        result = await self.db.execute(query.exists().select())
-        is_saved: bool = result.scalar()  # type: ignore
-        return is_saved
-
     async def get_post(self, post_id: PostId) -> Optional[InternalPost]:
         """Return the post with the given id or None if no such post exists or the post is deleted."""
         post = await self._get_post_row(post_id)
@@ -91,12 +84,6 @@ class PostStore:
         result = await self.db.execute(query)
         liked_posts: list[PostId] = result.scalars().all()  # type: ignore
         return set(liked_posts)
-
-    async def get_saved_posts(self, user_id: UserId, post_ids: list[PostId]) -> set[PostId]:
-        query = sa.select(PostSaveRow.post_id).where(PostSaveRow.user_id == user_id, PostSaveRow.post_id.in_(post_ids))
-        result = await self.db.execute(query)
-        saved_posts: list[PostId] = result.scalars().all()  # type: ignore
-        return set(saved_posts)
 
     async def get_saved_posts_by_user(
         self, user_id: UserId, cursor: Optional[CursorId], limit: int = 10

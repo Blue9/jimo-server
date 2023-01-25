@@ -3,7 +3,7 @@ from typing import Optional
 from pydantic import root_validator, validator
 
 from app.core.types import Base, ImageId, CursorId, PlaceId
-from app.features.places.entities import Location, Region, AdditionalPlaceData
+from app.features.places.entities import Location, Region, AdditionalPlaceData, SavedPlace
 from app.features.posts.entities import Post
 
 
@@ -59,6 +59,11 @@ class PaginatedPosts(Base):
 
 class LikePostResponse(Base):
     likes: int
+
+
+class SavePostResponse(Base):
+    success: bool  # backwards-compatibility
+    save: SavedPlace
 
 
 class DeletePostResponse(Base):

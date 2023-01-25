@@ -87,11 +87,11 @@ class MapStore:
             MapPin(
                 place_id=place_id,
                 location=Location(latitude=lat, longitude=long),
-                icon=MapPinIcon(
-                    category=category or fallback_category, icon_url=user_icon_url, num_posts=int(bool(category))
-                ),
+                icon=MapPinIcon(category=category, icon_url=user_icon_url, num_posts=int(bool(category))),
             )
-            for (place_id, lat, long, fallback_category, category) in rows
+            # fallback_category is the post category for saves that were migrated from post saves
+            # Not using now so that a pin only has a category if the current user posted it
+            for (place_id, lat, long, _fallback_category, category) in rows
         ]
 
     async def _get_map(
@@ -100,7 +100,6 @@ class MapStore:
         if categories and len(categories) < 6:
             query = query.where(PostRow.category.in_(categories))
         query = query.limit(limit)
-        print(query)
         rows = (await self.db.execute(query)).all()
         return [
             MapPin(

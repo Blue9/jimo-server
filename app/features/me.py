@@ -16,7 +16,7 @@ from app.features.images import image_utils
 from app.features.places import place_utils
 from app.features.places.entities import Location
 from app.features.places.place_store import PlaceStore
-from app.features.places.types import SavePlaceRequest, SavedPlace, SavedPlacesResponse
+from app.features.places.types import SavePlaceRequest, SavePlaceResponse, SavedPlacesResponse
 from app.features.posts.entities import Post
 from app.features.posts.feed_store import FeedStore
 from app.features.posts.post_store import PostStore
@@ -134,6 +134,7 @@ async def get_feed(
     cursor: Optional[uuid.UUID] = None,
     feed_store: FeedStore = Depends(get_feed_store),
     post_store: PostStore = Depends(get_post_store),
+    place_store: PlaceStore = Depends(get_place_store),
     user: InternalUser = Depends(get_caller_user),
     user_store: UserStore = Depends(get_user_store),
 ):
@@ -148,6 +149,7 @@ async def get_feed(
         current_user=user,
         post_ids=post_ids,
         post_store=post_store,
+        place_store=place_store,
         user_store=user_store,
     )
     next_cursor: Optional[uuid.UUID] = min(post.id for post in feed) if len(feed) >= page_size else None
@@ -158,6 +160,7 @@ async def get_feed(
 async def _deprecated_get_discover_feed(
     feed_store: FeedStore = Depends(get_feed_store),
     post_store: PostStore = Depends(get_post_store),
+    place_store: PlaceStore = Depends(get_place_store),
     user: InternalUser = Depends(get_caller_user),
     user_store: UserStore = Depends(get_user_store),
 ):
@@ -172,6 +175,7 @@ async def _deprecated_get_discover_feed(
         current_user=user,
         post_ids=post_ids,
         post_store=post_store,
+        place_store=place_store,
         user_store=user_store,
     )
     return feed
@@ -183,6 +187,7 @@ async def get_discover_feed(
     lat: Optional[float] = Query(None, ge=-90, le=90),
     feed_store: FeedStore = Depends(get_feed_store),
     post_store: PostStore = Depends(get_post_store),
+    place_store: PlaceStore = Depends(get_place_store),
     user: InternalUser = Depends(get_caller_user),
     user_store: UserStore = Depends(get_user_store),
 ):
@@ -200,6 +205,7 @@ async def get_discover_feed(
         current_user=user,
         post_ids=post_ids,
         post_store=post_store,
+        place_store=place_store,
         user_store=user_store,
     )
     random.shuffle(posts)
@@ -303,28 +309,11 @@ async def follow_many(
 
 
 @router.get("/saved-posts", response_model=PaginatedPosts)
-async def get_saved_posts(
+async def _deprecated_get_saved_posts(
     cursor: Optional[uuid.UUID] = None,
-    post_store: PostStore = Depends(get_post_store),
-    user: InternalUser = Depends(get_caller_user),
-    user_store: UserStore = Depends(get_user_store),
+    _user: InternalUser = Depends(get_caller_user),
 ):
-    """Get the given user's saved posts."""
-    page_size = 15
-    # Step 1: Get post ids
-    post_saves = await post_store.get_saved_posts_by_user(user.id, cursor=cursor, limit=page_size)
-    if len(post_saves) == 0:
-        return PaginatedPosts(posts=[], cursor=None)
-    post_save_ids, post_ids = zip(*[(save.id, save.post_id) for save in post_saves])
-    # Step 2: Convert to posts
-    posts = await get_posts_from_post_ids(
-        current_user=user,
-        post_ids=post_ids,  # type: ignore
-        post_store=post_store,
-        user_store=user_store,
-    )
-    next_cursor: Optional[uuid.UUID] = min(post_save_ids) if len(posts) >= page_size else None
-    return PaginatedPosts(posts=posts, cursor=next_cursor)
+    return PaginatedPosts(posts=[], cursor=None)
 
 
 @router.get("/saved-places", response_model=SavedPlacesResponse)
@@ -340,7 +329,7 @@ async def get_saved_places(
     return SavedPlacesResponse(saves=saves, cursor=next_cursor)
 
 
-@router.post("/saved-places", response_model=SavedPlace)
+@router.post("/saved-places", response_model=SavePlaceResponse)
 async def save_place(
     request: SavePlaceRequest,
     place_store: PlaceStore = Depends(get_place_store),
@@ -351,7 +340,8 @@ async def save_place(
         user_id=user.id, request=request.place, place_store=place_store  # type: ignore
     )
     # TODO: we don't validate request.place_id
-    return await place_store.save_place(user_id=user.id, place_id=place_id, note=request.note)
+    save = await place_store.save_place(user_id=user.id, place_id=place_id, note=request.note)
+    return SavePlaceResponse(save=save, create_place_request=request.place)
 
 
 @router.delete("/saved-places/{place_id}", response_model=SimpleResponse)

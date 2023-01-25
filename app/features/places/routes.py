@@ -57,7 +57,7 @@ async def get_place_details(
     )
     all_post_ids = list(set(community_post_ids + featured_post_ids + friend_post_ids))
     posts = await get_posts_from_post_ids(
-        current_user=user, post_ids=all_post_ids, post_store=post_store, user_store=user_store
+        current_user=user, post_ids=all_post_ids, post_store=post_store, place_store=place_store, user_store=user_store
     )
     posts_map = {post.id: post for post in posts}
     my_post: Post | None = next((post for _id, post in posts_map.items() if post.user.id == user.id), None)
@@ -69,6 +69,7 @@ async def get_place_details(
 
     def to_posts(post_ids: list[PostId]) -> list[Post]:
         return [posts_map[post_id] for post_id in post_ids if post_id in posts_map]
+
     return GetPlaceDetailsResponse(
         place=place,
         my_post=my_post,
@@ -95,6 +96,7 @@ async def _deprecated_get_community_posts(
         current_user=user,
         post_ids=post_ids,
         post_store=post_store,
+        place_store=place_store,
         user_store=user_store,
     )
 
@@ -116,6 +118,7 @@ async def _deprecated_get_friend_posts(
         current_user=user,
         post_ids=post_ids,
         post_store=post_store,
+        place_store=place_store,
         user_store=user_store,
     )
 
@@ -137,6 +140,7 @@ async def _deprecated_get_saved_posts(
         current_user=user,
         post_ids=post_ids,
         post_store=post_store,
+        place_store=place_store,
         user_store=user_store,
     )
 
@@ -158,6 +162,7 @@ async def _deprecated_get_custom_posts(
         current_user=user,
         post_ids=post_ids,
         post_store=post_store,
+        place_store=place_store,
         user_store=user_store,
     )
 

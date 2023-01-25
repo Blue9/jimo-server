@@ -60,15 +60,6 @@ async def test_is_post_liked(post_store):
     assert is_liked
 
 
-async def test_is_post_saved(post_store):
-    is_saved = await post_store.is_post_saved(USER_A_POST_ID, USER_B_ID)
-    assert not is_saved
-
-    await post_store.save_post(USER_B_ID, USER_A_POST_ID)
-    is_saved = await post_store.is_post_saved(USER_A_POST_ID, USER_B_ID)
-    assert is_saved
-
-
 async def test_update_post(post_store):
     # Update using place_id
     updated_post = await post_store.update_post(
