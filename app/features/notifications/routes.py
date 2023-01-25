@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database.engine import get_db
 from app.features.notifications import tokens
+from app.features.places.place_store import PlaceStore
 from app.features.users.entities import InternalUser
 from app.core.types import SimpleResponse
 from app.features.notifications.activity_feed_store import ActivityFeedStore
@@ -15,7 +16,7 @@ from app.features.notifications.types import (
 )
 from app.features.posts.post_store import PostStore
 from app.features.users.dependencies import get_caller_user
-from app.features.stores import get_post_store, get_notification_store
+from app.features.stores import get_place_store, get_post_store, get_notification_store
 
 router = APIRouter()
 
@@ -46,6 +47,7 @@ async def remove_token(
 async def get_notification_feed(
     cursor: Optional[uuid.UUID] = None,
     post_store: PostStore = Depends(get_post_store),
+    place_store: PlaceStore = Depends(get_place_store),
     notification_store: ActivityFeedStore = Depends(get_notification_store),
     user: InternalUser = Depends(get_caller_user),
 ):
@@ -54,5 +56,7 @@ async def get_notification_feed(
     Results can be paginated with the returned pagination token.
     """
     page_limit = 50
-    feed, next_cursor = await notification_store.get_notification_feed(post_store, user.id, cursor, limit=page_limit)
+    feed, next_cursor = await notification_store.get_notification_feed(
+        post_store=post_store, place_store=place_store, user_id=user.id, cursor=cursor, limit=page_limit
+    )
     return NotificationFeedResponse(notifications=feed, cursor=next_cursor)

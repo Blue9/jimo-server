@@ -34,3 +34,10 @@ class SavePlaceRequest(Base):
     def validate_place(cls, values):
         assert values.get("place_id") is not None or values.get("place") is not None, "place must be included"
         return values
+
+
+class SavePlaceResponse(Base):
+    save: SavedPlace
+    # If the client sent a place creation request we send it back so that the client
+    # can update its local state
+    create_place_request: MaybeCreatePlaceWithMetadataRequest | None
