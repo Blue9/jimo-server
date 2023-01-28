@@ -69,7 +69,9 @@ class Region(Location):
 class Place(Base):
     id: PlaceId = Field(alias="placeId")
     name: str
-    region_name: Optional[str]
+    city: str | None
+    category: str | None
+    region_name: str | None
     location: Location
 
     @root_validator(pre=True)

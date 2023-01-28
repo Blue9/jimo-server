@@ -86,6 +86,7 @@ async def create_post(
             place_id = request.place_id
         elif request.place:
             place_id = await place_utils.get_or_create_place(user.id, request.place, place_store)
+            background_tasks.add_task(tasks.update_place_metadata, place_store, place_id)
         else:
             raise HTTPException(400, "Either place_id or place must be specified")
         post: InternalPost = await post_store.create_post(
@@ -107,6 +108,7 @@ async def create_post(
 async def update_post(
     post_id: PostId,
     req: CreatePostRequest,
+    background_tasks: BackgroundTasks,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
     place_store: PlaceStore = Depends(get_place_store),
     post_store: PostStore = Depends(get_post_store),
@@ -123,6 +125,7 @@ async def update_post(
             place_id = req.place_id
         elif req.place:
             place_id = await place_utils.get_or_create_place(user.id, req.place, place_store)
+            background_tasks.add_task(tasks.update_place_metadata, place_store, place_id)
         else:
             raise HTTPException(400, "Either place_id or place must be specified")
         updated_post = await post_store.update_post(post_id, place_id, req.category, req.content, req.image_id)

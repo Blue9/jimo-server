@@ -149,8 +149,11 @@ class PlaceRow(Base):
         nullable=False,
     )
 
+    city = mapped_column(Text, nullable=True)
+    category = mapped_column(Text, nullable=True)
+
     # Computed column property (set at end of file)
-    # \region_name: Mapped[str | None]
+    # region_name: Mapped[str | None]
 
     created_at = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
@@ -235,14 +238,6 @@ class PostRow(Base):
     user_id = mapped_column(UUID(as_uuid=True), ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
     place_id = mapped_column(UUID(as_uuid=True), ForeignKey("place.id"), nullable=False)
     category = mapped_column(Text, ForeignKey("category.name"), nullable=False)
-    # If a custom location is selected for an existing place
-    custom_latitude = mapped_column(Float, nullable=True)
-    custom_longitude = mapped_column(Float, nullable=True)
-    custom_location = mapped_column(
-        Geography(geometry_type="POINT", srid=4326, spatial_index=False),
-        Computed("ST_MakePoint(custom_longitude, custom_latitude)::geography"),
-        nullable=True,
-    )
 
     content = mapped_column(Text, nullable=False)
     image_id = mapped_column(UUID(as_uuid=True), ForeignKey("image_upload.id"), unique=True, nullable=True)
@@ -277,7 +272,6 @@ class PostRow(Base):
             postgresql_where=(~deleted),
         ),
         Index("idx_post_place_id", "place_id"),
-        Index("idx_post_custom_location", custom_location, postgresql_using="gist"),
     )
 
 
