@@ -8,3 +8,4 @@ from app.tasks.push_notifications import (
 )
 
 from app.tasks.slack import slack_post_created, slack_place_saved
+from app.tasks.place_metadata import update_place_metadata

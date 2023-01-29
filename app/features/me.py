@@ -343,6 +343,9 @@ async def save_place(
     # TODO: we don't validate request.place_id
     save = await place_store.save_place(user_id=user.id, place_id=place_id, note=request.note)
     background_tasks.add_task(tasks.slack_place_saved, user.username, save)
+    if request.place:
+        # Only update if place_data has been updated
+        background_tasks.add_task(tasks.update_place_metadata, place_store, place_id)
     return SavePlaceResponse(save=save, create_place_request=request.place)
 
 

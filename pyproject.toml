@@ -19,7 +19,7 @@ alembic = "^1.8.1"
 asyncpg = "^0.27.0"
 slowapi = "^0.1.6"
 httpx = "^0.23.0"
-sqlalchemy = "2.0.0rc1"
+sqlalchemy = "^2.0.0"
 greenlet = "^2.0.1"
 timing-asgi = "^0.3.0"
 
