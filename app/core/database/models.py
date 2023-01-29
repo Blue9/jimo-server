@@ -153,7 +153,6 @@ class PlaceRow(Base):
     category = mapped_column(Text, nullable=True)
 
     # Computed column property (set at end of file)
-    # region_name: Mapped[str | None]
 
     created_at = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
@@ -450,14 +449,4 @@ CommentRow.like_count = column_property(
     .where(CommentRow.id == CommentLikeRow.comment_id)
     .scalar_subquery(),
     deferred=True,
-)
-
-# PlaceRow data
-PlaceRow.region_name = column_property(
-    select(PlaceDataRow.additional_data["locality"])
-    .select_from(PlaceDataRow)
-    .where(PlaceRow.id == PlaceDataRow.place_id, PlaceDataRow.additional_data["locality"].is_not(None))
-    .limit(1)
-    .scalar_subquery(),
-    deferred=False,
 )

@@ -70,8 +70,8 @@ class Place(Base):
     id: PlaceId = Field(alias="placeId")
     name: str
     city: str | None
+    regionName: str | None = None  # DEPRECATED
     category: str | None
-    region_name: str | None
     location: Location
 
     @root_validator(pre=True)
@@ -81,6 +81,7 @@ class Place(Base):
                 values,
                 location=Location(latitude=values["latitude"], longitude=values["longitude"]),
             )
+        values["regionName"] = values.get("city")
         return values
 
 

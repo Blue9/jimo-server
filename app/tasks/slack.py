@@ -11,7 +11,7 @@ log = get_logger(__name__)
 async def slack_post_created(username: str, post: InternalPost):
     """Send a message that a user created a post."""
     deep_link = f"https://go.jimoapp.com/view-post?id={str(post.id)}"
-    message = f"{username} just posted about {post.place.name} in {post.place.region_name}. View more: {deep_link}"
+    message = f"{username} just posted about {post.place.name} in {post.place.city}. View more: {deep_link}"
     await _send_message(message)
 
 
