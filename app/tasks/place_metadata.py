@@ -36,7 +36,7 @@ async def update_place_metadata(place_store: PlaceStore, place_id: PlaceId):
     db = place_store.db  # Just use the raw db session
     city = (await db.execute(sa.text(CITY_QUERY), {"place_id": place_id})).scalar_one_or_none()
     mapkit_category = (await db.execute(sa.text(MKPOICATEGORY_QUERY), {"place_id": place_id})).scalar_one_or_none()
-    category = mapkit_category.lstrip("MKPOICategory") if mapkit_category else None
+    category = mapkit_category.removeprefix("MKPOICategory") if mapkit_category else None
     if city or category:
         await db.execute(sa.update(PlaceRow).where(PlaceRow.id == place_id).values(city=city, category=category))
         await db.commit()
