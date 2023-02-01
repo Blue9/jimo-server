@@ -6,8 +6,8 @@ import pytest_asyncio
 
 from app.core.database.models import UserRow, PlaceRow, PostRow
 from app.core.firebase import get_firebase_user, FirebaseUser
-from app.features.map.types import DeprecatedGetMapRequest, GetMapResponse
-from app.features.places.entities import Region
+from app.features.map.types import GetMapRequest, GetMapResponse
+from app.features.places.entities import RectangularRegion
 from app.main import app as main_app
 from tests.mock_firebase import MockFirebaseAdmin
 
@@ -63,8 +63,13 @@ def request_as(uid: str):
 
 async def test_get_map(client):
     with request_as(uid="b"):
-        request = DeprecatedGetMapRequest(region=Region(latitude=0, longitude=0, radius=10e6), categories=None)
-        response = await client.post("/map/global", json=request.dict())
+        request = GetMapRequest(
+            region=RectangularRegion(x_min=-50, y_min=-50, x_max=50, y_max=50),
+            map_type="community",
+            categories=None,
+            user_ids=None,
+        )
+        response = await client.post("/map/load", json=request.dict())
         assert response.status_code == 200
         response_json = response.json()
         map_response = GetMapResponse.parse_obj(response_json)

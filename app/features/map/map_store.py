@@ -13,11 +13,10 @@ from app.core.database.models import (
     UserRow,
     UserRelationRow,
     UserRelationType,
-    PostSaveRow,
 )
 from app.features.map.entities import MapPin, MapPinIcon, MapType
 from app.features.places.entities import Location, Region, RectangularRegion
-from app.core.types import PlaceId, Category, UserId
+from app.core.types import Category, UserId
 
 
 class MapStore:
@@ -57,6 +56,24 @@ class MapStore:
         else:  # user_filter == "community"
             query = query.where((PostRow.image_id.is_not(None)) | (PostRow.content != ""))
         return await self._get_map(query, categories=categories, limit=500)
+
+    async def get_guest_community_map(
+        self, region: RectangularRegion, categories: list[Category] | None, limit: int
+    ) -> list[MapPin]:
+        """
+        The guest community map returns all pins including those without a pic or caption.
+
+        This is to maximize the amount of data we return, to get people to sign up.
+        """
+        query = base_map_query(region)
+        return await self._get_map(query, categories=categories, limit=limit)
+
+    async def get_featured_users_map(
+        self, region: RectangularRegion, user_ids: list[UserId], categories: list[Category] | None, limit: int
+    ) -> list[MapPin]:
+        """Get a map filtered down to only the featured users. Used for anonymous accounts."""
+        query = base_map_query(region).where(UserRow.is_featured, UserRow.id.in_(user_ids))
+        return await self._get_map(query, categories=categories, limit=limit)
 
     async def _get_saved_map(
         self, user_id: UserId, user_icon_url: str | None, region: RectangularRegion, limit: int = 500
@@ -109,92 +126,6 @@ class MapStore:
             )
             for (place_id, lat, long, num_posts, categories, icon_urls) in rows
         ]
-
-    # region deprecated
-    async def get_community_map(
-        self,
-        region: Region,
-        categories: Optional[list[Category]] = None,
-        limit: int = 500,
-    ) -> list[MapPin]:
-        """Deprecated."""
-        query = deprecated_base_map_query(region).where((PostRow.image_id.is_not(None)) | (PostRow.content != ""))
-        return await self._deprecated_get_map(query, categories=categories, limit=limit)
-
-    async def get_friend_map(
-        self,
-        region: Region,
-        user_id: UserId,
-        categories: Optional[list[Category]] = None,
-        limit: int = 500,
-    ) -> list[MapPin]:
-        """Deprecated."""
-        friends = sa.select(UserRelationRow.to_user_id).where(
-            UserRelationRow.from_user_id == user_id, UserRelationRow.relation == UserRelationType.following
-        )
-        query = deprecated_base_map_query(region).where((PostRow.user_id == user_id) | PostRow.user_id.in_(friends))
-        return await self._deprecated_get_map(query, categories=categories, limit=limit)
-
-    async def get_saved_posts_map(
-        self,
-        region: Region,
-        user_id: UserId,
-        categories: Optional[list[Category]] = None,
-        limit: int = 500,
-    ) -> list[MapPin]:
-        """Deprecated."""
-        saved_posts = sa.select(PostSaveRow.post_id).where(PostSaveRow.user_id == user_id)
-        query = deprecated_base_map_query(region).where(PostRow.id.in_(saved_posts))
-        return await self._deprecated_get_map(query, categories=categories, limit=limit)
-
-    async def get_custom_map(
-        self,
-        region: Region,
-        user_ids: list[UserId],
-        categories: Optional[list[Category]] = None,
-        limit: int = 500,
-    ) -> list[MapPin]:
-        """Deprecated."""
-        query = deprecated_base_map_query(region).where(PostRow.user_id.in_(user_ids))
-        return await self._deprecated_get_map(query, categories=categories, limit=limit)
-
-    async def _deprecated_get_map(
-        self, query: sa.sql.Select, categories: Optional[list[Category]] = None, limit: int = 500
-    ) -> list[MapPin]:
-        """Deprecated in favor of _get_map()."""
-        if categories and len(categories) < 6:
-            query = query.where(PostRow.category.in_(categories))
-        query = query.order_by(PostRow.id.desc()).limit(limit)
-        rows = (await self.db.execute(query)).all()
-        pins = []
-        pin_icons = dict()
-        # TODO: clean up
-        for row in rows:
-            place_id: PlaceId = row[0]
-            category: str = row[3]
-            profile_picture_url: Optional[str] = row[4]
-            if place_id not in pin_icons:
-                pin_icons[place_id] = MapPinIcon(category=category, icon_url=profile_picture_url, num_posts=1)
-            else:
-                pin_icons[place_id].num_posts += 1
-        added = set()
-        for row in rows:
-            place_id = row[0]
-            latitude: float = row[1]
-            longitude: float = row[2]
-            if place_id in added:
-                continue
-            added.add(place_id)
-            pins.append(
-                MapPin(
-                    place_id=place_id,
-                    location=Location(latitude=latitude, longitude=longitude),
-                    icon=pin_icons[place_id],
-                )
-            )
-        return pins
-
-    # endregion deprecated
 
 
 def base_map_query(region: RectangularRegion) -> sa.sql.Select:

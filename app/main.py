@@ -22,7 +22,6 @@ from app.features.images.types import ImageUploadResponse
 from app.features.map.routes import router as map_router
 from app.features.me import router as me_router
 from app.features.notifications.routes import router as notification_router
-from app.features.places.entities import Location, Place
 from app.features.places.routes import router as place_router
 from app.features.posts.routes import router as post_router
 from app.features.search.routes import router as search_router

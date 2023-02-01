@@ -12,7 +12,6 @@ from app.core.database.models import (
     PostRow,
     UserRelationRow,
     UserRelationType,
-    PostSaveRow,
     UserRow,
 )
 from app.core.types import UserId, PlaceId, PostId, Category
@@ -152,7 +151,6 @@ class PlaceStore:
             await self.db.rollback()
 
     async def get_community_posts(self, place_id: PlaceId, categories: Optional[list[Category]] = None) -> list[PostId]:
-        # TODO: this should probably not be in place store
         query = (
             sa.select(PostRow.id)
             .where(PostRow.place_id == place_id, ~PostRow.deleted)
@@ -178,7 +176,6 @@ class PlaceStore:
     async def get_friend_posts(
         self, place_id: PlaceId, user_id: UserId, categories: Optional[list[Category]] = None
     ) -> list[PostId]:
-        # TODO: this should probably not be in place store
         friends = sa.select(UserRelationRow.to_user_id).where(
             UserRelationRow.from_user_id == user_id, UserRelationRow.relation == UserRelationType.following
         )
@@ -190,36 +187,6 @@ class PlaceStore:
         if categories:
             query = query.where(PostRow.category.in_(categories))
         result = await self.db.execute(query.order_by(PostRow.id.desc()))
-        post_ids: list[PostId] = result.scalars().all()  # type: ignore
-        return post_ids
-
-    async def get_saved_posts(
-        self, place_id: PlaceId, user_id: UserId, categories: Optional[list[Category]] = None
-    ) -> list[PostId]:
-        # TODO: this should probably not be in place store
-        query = (
-            sa.select(PostRow.id)
-            .where(PostRow.place_id == place_id, ~PostRow.deleted)
-            .where(PostRow.id.in_(sa.select(PostSaveRow.post_id).where(PostSaveRow.user_id == user_id)))
-        )
-        if categories:
-            query = query.where(PostRow.category.in_(categories))
-        result = await self.db.execute(query)
-        post_ids: list[PostId] = result.scalars().all()  # type: ignore
-        return post_ids
-
-    async def get_custom_posts(
-        self, place_id: PlaceId, user_ids: list[UserId], categories: Optional[list[Category]] = None
-    ) -> list[PostId]:
-        # TODO: this should probably not be in place store
-        query = (
-            sa.select(PostRow.id)
-            .where(PostRow.place_id == place_id, ~PostRow.deleted)
-            .where(PostRow.user_id.in_(user_ids))
-        )
-        if categories:
-            query = query.where(PostRow.category.in_(categories))
-        result = await self.db.execute(query)
         post_ids: list[PostId] = result.scalars().all()  # type: ignore
         return post_ids
 
