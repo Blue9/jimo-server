@@ -12,7 +12,6 @@ from app.core.database.models import (
     PostRow,
     UserRelationRow,
     UserRelationType,
-    PostSaveRow,
     UserRow,
 )
 from app.core.types import UserId, PlaceId, PostId, Category

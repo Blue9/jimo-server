@@ -35,19 +35,5 @@ class DeprecatedCustomMapRequest(DeprecatedGetMapRequest):
         return users
 
 
-class DeprecatedPlaceLoadRequest(Base):
-    categories: Optional[list[Category]]
-
-
-class DeprecatedCustomPlaceLoadRequest(DeprecatedPlaceLoadRequest):
-    users: list[UserId]
-
-    @validator("users")
-    def validate_users(cls, users):
-        if len(users) > 100:
-            raise ValueError("User list too long, max length is 100")
-        return users
-
-
 class GetMapResponse(Base):
     pins: list[MapPin]

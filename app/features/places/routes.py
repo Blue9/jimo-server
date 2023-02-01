@@ -5,7 +5,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from app.core.firebase import FirebaseUser, get_firebase_user
 
 from app.core.types import PostId, PlaceId
-from app.features.map.types import DeprecatedPlaceLoadRequest, DeprecatedCustomPlaceLoadRequest
 from app.features.places.entities import Place
 from app.features.places.place_store import PlaceStore
 from app.features.places.types import GetPlaceDetailsResponse, FindPlaceResponse
@@ -17,8 +16,6 @@ from app.features.stores import (
     get_place_store,
     get_user_store,
 )
-from app.features.users.dependencies import get_caller_user
-from app.features.users.entities import InternalUser
 from app.features.users.user_store import UserStore
 
 router = APIRouter()
@@ -102,7 +99,7 @@ async def guest_account_get_place_details(
     # We use a random post ID to mess with people trying to reverse engineer our API
     featured_posts = [
         Post.construct(
-            postId=uuid.uuid4(),
+            id=uuid.uuid4(),
             place=post.place,
             category=post.category,
             content=post.content,
