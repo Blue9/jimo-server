@@ -3,7 +3,6 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
-from slowapi.middleware import SlowAPIMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
@@ -13,7 +12,9 @@ from timing_asgi.integrations import StarletteScopeToName  # type: ignore
 
 from app.core import config
 from app.core.database.engine import get_db
+from app.core.database.models import LocationPingRow
 from app.core.firebase import FirebaseUser, get_firebase_user
+from app.core.types import SimpleResponse
 from app.features.admin.routes import router as admin_router
 from app.features.comments.routes import router as comment_router
 from app.features.feedback.routes import router as feedback_router
@@ -23,6 +24,7 @@ from app.features.map.routes import router as map_router
 from app.features.me import router as me_router
 from app.features.notifications.routes import router as notification_router
 from app.features.places.routes import router as place_router
+from app.features.places.types import PingLocationRequest
 from app.features.posts.routes import router as post_router
 from app.features.search.routes import router as search_router
 from app.features.users.dependencies import get_authorization_header, get_caller_user
@@ -34,6 +36,8 @@ from app.utils import get_logger
 log = get_logger(__name__)
 log.info("Initializing server")
 app = FastAPI(openapi_url="/openapi.json" if config.ENABLE_DOCS else None)
+limiter = Limiter(key_func=get_authorization_header)
+app.state.limiter = limiter
 
 
 class PrintTimings(TimingClient):
@@ -55,13 +59,6 @@ if config.ALLOW_ORIGIN:
         allow_methods=["*"],
         allow_headers=["*"],
     )
-if config.RATE_LIMIT_CONFIG:
-    log.warning("Rate limiting to %s", config.RATE_LIMIT_CONFIG)
-    app.state.limiter = Limiter(
-        key_func=get_authorization_header,
-        default_limits=[config.RATE_LIMIT_CONFIG],
-    )
-    app.add_middleware(SlowAPIMiddleware)
 
 
 @app.exception_handler(RequestValidationError)
@@ -98,6 +95,25 @@ async def upload_image(
     """Upload the given image to Firebase if allowed, returning the image id (used for posts + profile pictures)."""
     image_upload = await image_utils.upload_image(file, user, firebase_user.shared_firebase, db)
     return ImageUploadResponse(image_id=image_upload.id)
+
+
+@app.post("/location/ping", response_model=SimpleResponse)
+@limiter.limit("10/minute")
+async def ping_location(
+    request: Request,  # This needs to be here for limiter
+    req: PingLocationRequest,
+    firebase_user: FirebaseUser = Depends(get_firebase_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """TODO: Clean up and move."""
+    ping = LocationPingRow(uid=firebase_user.uid, latitude=req.location.latitude, longitude=req.location.longitude)
+    db.add(ping)
+    try:
+        await db.commit()
+        return SimpleResponse(success=True)
+    except Exception:
+        await db.rollback()
+        return SimpleResponse(success=True)
 
 
 app.include_router(me_router, prefix="/me")
