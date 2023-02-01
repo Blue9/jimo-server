@@ -5,10 +5,6 @@ from typing import Optional
 # Example: "postgresql+asyncpg://user@localhost/jimo_db"
 SQLALCHEMY_DATABASE_URL: str = os.environ["DATABASE_URL"]
 
-# If specified, the server will be rate-limited to the given config
-# Example: "5/second"
-RATE_LIMIT_CONFIG: Optional[str] = os.environ.get("RATE_LIMIT_CONFIG")
-
 # If specified, new posts will send a Slack message using the given webhook URL.
 # Example: "https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX"
 SLACK_HOOK: Optional[str] = os.environ.get("SLACK_HOOK")

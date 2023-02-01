@@ -34,6 +34,15 @@ from app.core.database.defaults import gen_ulid
 Base: Any = declarative_base()
 
 
+class LocationPingRow(Base):
+    __tablename__ = "location"
+    id = mapped_column(UUID(as_uuid=True), primary_key=True, default=gen_ulid)
+    uid = mapped_column(Text, nullable=False)
+    latitude = mapped_column(Float, nullable=False)
+    longitude = mapped_column(Float, nullable=False)
+    created_at = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
 # region Users
 class UserRelationType(enum.Enum):
     following = "following"
