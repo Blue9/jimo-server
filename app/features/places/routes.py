@@ -1,6 +1,8 @@
 import asyncio
+import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from app.core.firebase import FirebaseUser, get_firebase_user
 
 from app.core.types import PostId, PlaceId
 from app.features.map.types import DeprecatedPlaceLoadRequest, DeprecatedCustomPlaceLoadRequest
@@ -22,14 +24,16 @@ from app.features.users.user_store import UserStore
 router = APIRouter()
 
 
+# NOTE: find_place is not authenticated (anonymous Firebase accounts can access)
 @router.get("/matching", response_model=FindPlaceResponse)
 async def find_place(
     name: str,
     latitude: float = Query(ge=-90, le=90),
     longitude: float = Query(ge=-180, le=180),
     place_store: PlaceStore = Depends(get_place_store),
-    _user: InternalUser = Depends(get_caller_user),
+    _firebase_user: FirebaseUser = Depends(get_firebase_user),
 ):
+    # NOTE: not authenticated (anonymous Firebase accounts can access)
     place: Place | None = await place_store.find_place(name, latitude, longitude, search_radius_meters=100)
     if place is None:
         return {}
@@ -42,13 +46,19 @@ async def get_place_details(
     post_store: PostStore = Depends(get_post_store),
     place_store: PlaceStore = Depends(get_place_store),
     user_store: UserStore = Depends(get_user_store),
-    user: InternalUser = Depends(get_caller_user),
+    firebase_user: FirebaseUser = Depends(get_firebase_user),
 ):
     """Get the details of the given place."""
     # TODO this can be optimized but it's fine for now
     place: Place | None = await place_store.get_place(place_id)
     if place is None:
         raise HTTPException(404, detail="Place not found")
+
+    user = await user_store.get_user(uid=firebase_user.uid)
+    if not user:
+        return await guest_account_get_place_details(
+            place=place, place_store=place_store, post_store=post_store, user_store=user_store
+        )
     community_post_ids, featured_post_ids, friend_post_ids, my_save = await asyncio.gather(
         place_store.get_community_posts(place_id=place_id),
         place_store.get_featured_user_posts(place_id=place_id),
@@ -80,91 +90,39 @@ async def get_place_details(
     )
 
 
-# region deprecated
-@router.post("/{place_id}/getMutualPostsV3/global", response_model=list[Post])
-async def _deprecated_get_community_posts(
-    place_id: PlaceId,
-    request: DeprecatedPlaceLoadRequest,
-    post_store: PostStore = Depends(get_post_store),
-    place_store: PlaceStore = Depends(get_place_store),
-    user_store: UserStore = Depends(get_user_store),
-    user: InternalUser = Depends(get_caller_user),
-):
-    """Get the community posts for the given place."""
-    post_ids: list[PostId] = await place_store.get_community_posts(place_id, categories=request.categories)
-    return await get_posts_from_post_ids(
-        current_user=user,
-        post_ids=post_ids,
-        post_store=post_store,
-        place_store=place_store,
-        user_store=user_store,
+async def guest_account_get_place_details(
+    place: Place, place_store: PlaceStore, post_store: PostStore, user_store: UserStore
+) -> GetPlaceDetailsResponse:
+    featured_post_ids = await place_store.get_featured_user_posts(place_id=place.id)
+    posts_map = await post_store.get_posts(post_ids=featured_post_ids)
+    # Note that we don't need to worry about duplicates because (as of now) users can only post
+    # once per place
+    user_ids = [posts_map[post_id].user_id for post_id in posts_map]
+    users_map = await user_store.get_users(user_ids)
+    # We use a random post ID to mess with people trying to reverse engineer our API
+    featured_posts = [
+        Post.construct(
+            postId=uuid.uuid4(),
+            place=post.place,
+            category=post.category,
+            content=post.content,
+            image_id=post.image_id,
+            image_url=post.image_url,
+            created_at=post.created_at,
+            like_count=post.like_count,
+            comment_count=post.comment_count,
+            user=users_map[post.user_id].to_public(),
+            liked=False,
+            saved=False,
+        )
+        for _post_id, post in posts_map.items()
+        if post.user_id in users_map
+    ]
+    return GetPlaceDetailsResponse(
+        place=place,
+        my_post=None,
+        my_save=None,
+        following_posts=[],
+        featured_posts=featured_posts,
+        community_posts=[],
     )
-
-
-@router.post("/{place_id}/getMutualPostsV3/following", response_model=list[Post])
-async def _deprecated_get_friend_posts(
-    place_id: PlaceId,
-    request: DeprecatedPlaceLoadRequest,
-    post_store: PostStore = Depends(get_post_store),
-    place_store: PlaceStore = Depends(get_place_store),
-    user_store: UserStore = Depends(get_user_store),
-    user: InternalUser = Depends(get_caller_user),
-):
-    """Get friends' posts for the given place."""
-    post_ids: list[PostId] = await place_store.get_friend_posts(
-        place_id=place_id, user_id=user.id, categories=request.categories  # type: ignore
-    )
-    return await get_posts_from_post_ids(
-        current_user=user,
-        post_ids=post_ids,
-        post_store=post_store,
-        place_store=place_store,
-        user_store=user_store,
-    )
-
-
-@router.post("/{place_id}/getMutualPostsV3/saved-posts", response_model=list[Post])
-async def _deprecated_get_saved_posts(
-    place_id: PlaceId,
-    request: DeprecatedPlaceLoadRequest,
-    post_store: PostStore = Depends(get_post_store),
-    place_store: PlaceStore = Depends(get_place_store),
-    user_store: UserStore = Depends(get_user_store),
-    user: InternalUser = Depends(get_caller_user),
-):
-    """Get the list of posts for the given place, using the given strategy."""
-    post_ids: list[PostId] = await place_store.get_saved_posts(
-        place_id=place_id, user_id=user.id, categories=request.categories
-    )
-    return await get_posts_from_post_ids(
-        current_user=user,
-        post_ids=post_ids,
-        post_store=post_store,
-        place_store=place_store,
-        user_store=user_store,
-    )
-
-
-@router.post("/{place_id}/getMutualPostsV3/custom", response_model=list[Post])
-async def _deprecated_get_custom_posts(
-    place_id: PlaceId,
-    request: DeprecatedCustomPlaceLoadRequest,
-    post_store: PostStore = Depends(get_post_store),
-    place_store: PlaceStore = Depends(get_place_store),
-    user_store: UserStore = Depends(get_user_store),
-    user: InternalUser = Depends(get_caller_user),
-):
-    """Get the list of posts for the given place."""
-    post_ids: list[PostId] = await place_store.get_custom_posts(
-        place_id=place_id, user_ids=request.users, categories=request.categories
-    )
-    return await get_posts_from_post_ids(
-        current_user=user,
-        post_ids=post_ids,
-        post_store=post_store,
-        place_store=place_store,
-        user_store=user_store,
-    )
-
-
-# endregion deprecated

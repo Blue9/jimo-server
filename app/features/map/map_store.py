@@ -58,6 +58,13 @@ class MapStore:
             query = query.where((PostRow.image_id.is_not(None)) | (PostRow.content != ""))
         return await self._get_map(query, categories=categories, limit=500)
 
+    async def get_featured_users_map(
+        self, region: RectangularRegion, user_ids: list[UserId], categories: list[Category] | None, limit: int
+    ) -> list[MapPin]:
+        """Get a map filtered down to only the featured users. Used for anonymous accounts."""
+        query = base_map_query(region).where(UserRow.is_featured, UserRow.id.in_(user_ids))
+        return await self._get_map(query, categories=categories, limit=limit)
+
     async def _get_saved_map(
         self, user_id: UserId, user_icon_url: str | None, region: RectangularRegion, limit: int = 500
     ) -> list[MapPin]:
