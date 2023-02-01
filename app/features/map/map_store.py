@@ -13,11 +13,10 @@ from app.core.database.models import (
     UserRow,
     UserRelationRow,
     UserRelationType,
-    PostSaveRow,
 )
 from app.features.map.entities import MapPin, MapPinIcon, MapType
 from app.features.places.entities import Location, Region, RectangularRegion
-from app.core.types import PlaceId, Category, UserId
+from app.core.types import Category, UserId
 
 
 class MapStore:

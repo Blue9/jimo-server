@@ -1,10 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from app.core.firebase import FirebaseUser, get_firebase_user
 
-from app.features.users.entities import InternalUser
 from app.features.map.map_store import MapStore
-from app.features.map.types import GetMapResponse, DeprecatedGetMapRequest, DeprecatedCustomMapRequest, GetMapRequest
-from app.features.users.dependencies import get_caller_user
+from app.features.map.types import GetMapResponse, GetMapRequest
 from app.features.stores import get_map_store, get_user_store
 from app.features.users.user_store import UserStore
 

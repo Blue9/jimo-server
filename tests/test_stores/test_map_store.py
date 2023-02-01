@@ -6,7 +6,7 @@ import pytest_asyncio
 from app.core.database.models import PlaceRow, PostRow, PostSaveRow, UserRow
 from app.features.map.entities import MapPin, MapPinIcon
 from app.features.map.map_store import MapStore
-from app.features.places.entities import Region, Location
+from app.features.places.entities import Location, RectangularRegion
 
 pytestmark = pytest.mark.asyncio
 USER_A_ID = uuid.uuid4()
@@ -48,26 +48,14 @@ def map_store(session):
     return MapStore(db=session)
 
 
-async def test_get_global_map_v3(map_store: MapStore):
-    pins = await map_store.get_community_map(
-        region=Region(latitude=0, longitude=0, radius=10e6),
-        categories=None,
-        limit=100,
-    )
-    assert len(pins) == 1
-    assert pins[0] == MapPin(
-        place_id=PLACE_ID,
-        location=Location(latitude=0, longitude=0),
-        icon=MapPinIcon(category="food", icon_url=None, num_posts=1),
-    )
-
-
-async def test_get_following_map_v3(map_store: MapStore):
-    pins = await map_store.get_friend_map(
-        region=Region(latitude=0, longitude=0, radius=10e6),
+async def test_get_community_map(map_store: MapStore):
+    pins = await map_store.get_map(
         user_id=USER_A_ID,
+        user_icon_url=None,
+        region=RectangularRegion(x_min=-50, y_min=-50, x_max=50, y_max=50),
+        user_filter="community",
         categories=None,
-        limit=100,
+        user_ids=None,
     )
     assert len(pins) == 1
     assert pins[0] == MapPin(
@@ -75,43 +63,3 @@ async def test_get_following_map_v3(map_store: MapStore):
         location=Location(latitude=0, longitude=0),
         icon=MapPinIcon(category="food", icon_url=None, num_posts=1),
     )
-
-
-async def test_get_saved_posts_map_v3(map_store: MapStore):
-    pins = await map_store.get_saved_posts_map(
-        region=Region(latitude=0, longitude=0, radius=10e6),
-        user_id=USER_A_ID,
-        categories=None,
-        limit=100,
-    )
-    assert len(pins) == 1
-    assert pins[0] == MapPin(
-        place_id=PLACE_ID,
-        location=Location(latitude=0, longitude=0),
-        icon=MapPinIcon(category="food", icon_url=None, num_posts=1),
-    )
-
-
-async def test_get_custom_map_v3(map_store: MapStore):
-    # Get one user
-    pins = await map_store.get_custom_map(
-        region=Region(latitude=0, longitude=0, radius=10e6),
-        user_ids=[USER_B_ID],
-        categories=None,
-        limit=100,
-    )
-    assert len(pins) == 1
-    assert pins[0] == MapPin(
-        place_id=PLACE_ID,
-        location=Location(latitude=0, longitude=0),
-        icon=MapPinIcon(category="food", icon_url=None, num_posts=1),
-    )
-
-    # Empty user list
-    pins = await map_store.get_custom_map(
-        region=Region(latitude=0, longitude=0, radius=10e6),
-        user_ids=[],
-        categories=None,
-        limit=100,
-    )
-    assert len(pins) == 0
