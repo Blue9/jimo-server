@@ -28,8 +28,14 @@ class CreatePostRequest(Base):
     stars: int | None = None
 
     @root_validator
-    def validate_place(cls, values):
+    def validate_all(cls, values):
+        # validate place
         assert values.get("place_id") is not None or values.get("place") is not None, "place must be included"
+        # validate content exists if stars awarded
+        if values.get("stars") is not None:
+            assert (
+                "content" in values and len(values["content"].strip()) > 10
+            ), "A note is required if you award stars (minimum 10 characters)."
         return values
 
     @validator("stars")

@@ -98,8 +98,8 @@ async def create_post(
             image_id=request.image_id,
             stars=request.stars,
         )
-        background_tasks.add_task(tasks.slack_post_created, user.username, post)
-        background_tasks.add_task(tasks.notify_post_created, db, post, user)
+        # background_tasks.add_task(tasks.slack_post_created, user.username, post)
+        # background_tasks.add_task(tasks.notify_post_created, db, post, user)
         return Post(
             **post.dict(),
             user=user.to_public(),
