@@ -103,10 +103,12 @@ class PostStore:
         place_id: PlaceId,
         category: str,
         content: str,
-        image_id: Optional[ImageId],
+        image_id: ImageId | None,
+        stars: int | None,
     ) -> InternalPost:
         """Try to create a post with the given details, raising a ValueError if the request is invalid."""
         self._validate_category(category)
+        self._validate_stars(stars)  # Already validated by Pydantic but adding extra sanity check
         if await self.post_exists(user_id=user_id, place_id=place_id):
             raise ValueError("You already posted that place.")
         image = await get_image_with_lock_else_throw(self.db, user_id, image_id) if image_id is not None else None
@@ -116,6 +118,7 @@ class PostStore:
             category=category,
             content=content,
             image_id=image.id if image else None,
+            stars=stars,
         )
         try:
             if image:
@@ -142,7 +145,8 @@ class PostStore:
         place_id: PlaceId,
         category: str,
         content: str,
-        image_id: Optional[ImageId],
+        image_id: ImageId | None,
+        stars: int | None,
     ) -> InternalPost:
         post: Optional[PostRow] = await self._get_post_row(post_id)
         if post is None:
@@ -150,9 +154,11 @@ class PostStore:
 
         # Update place, category, and content
         self._validate_category(category)
+        self._validate_stars(stars)  # Already validated by Pydantic but adding extra sanity check
         post.place_id = place_id
         post.category = category
         post.content = content
+        post.stars = stars
 
         # Update image
         if image_id != post.image_id:
@@ -236,3 +242,7 @@ class PostStore:
         categories = {"food", "activity", "attraction", "lodging", "shopping", "nightlife"}
         if category_name not in categories:
             raise ValueError("Invalid category")
+
+    def _validate_stars(self, stars: int | None) -> None:
+        if stars is not None and (stars < 0 or stars > 3):
+            raise ValueError("Can only award 0-3 stars.")

@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import Optional
 
 from pydantic import Field, validator
 
@@ -14,6 +13,7 @@ class PostWithoutLikeSaveStatus(Base):
     place: Place
     category: str
     content: str
+    stars: int | None = None
     image_url: str | None = None
     image_id: ImageId | None = None
     created_at: datetime
@@ -40,12 +40,11 @@ class InternalPost(InternalBase):
     user_id: UserId
     place: Place
     category: str
-    custom_latitude: Optional[float]
-    custom_longitude: Optional[float]
     content: str
-    image_id: Optional[ImageId]
-    image_url: Optional[str]
-    image_blob_name: Optional[str]
+    stars: int | None
+    image_id: ImageId | None
+    image_url: str | None
+    image_blob_name: str | None
     deleted: bool
     created_at: datetime
     like_count: int
