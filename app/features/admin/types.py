@@ -34,8 +34,6 @@ class AdminAPIPost(Base):
     user: AdminAPIUser
     place: Place
     category: str
-    custom_latitude: float | None
-    custom_longitude: float | None
     content: str
     image_url: str | None
     stars: int | None
