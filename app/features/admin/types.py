@@ -2,7 +2,7 @@
 Response types for the admin API. Do not use anywhere other than admin API.
 """
 from datetime import datetime
-from typing import Optional, TypeVar, Generic
+from typing import TypeVar, Generic
 from uuid import UUID
 
 from pydantic import Field, validator
@@ -21,8 +21,8 @@ class AdminAPIUser(Base):
     username: str
     first_name: str
     last_name: str
-    phone_number: Optional[str] = None
-    profile_picture_url: Optional[str] = None
+    phone_number: str | None = None
+    profile_picture_url: str | None = None
     created_at: datetime
     is_featured: bool
     is_admin: bool
@@ -34,10 +34,9 @@ class AdminAPIPost(Base):
     user: AdminAPIUser
     place: Place
     category: str
-    custom_latitude: Optional[float]
-    custom_longitude: Optional[float]
     content: str
-    image_url: Optional[str]
+    image_url: str | None
+    stars: int | None
     deleted: bool
     created_at: datetime
 
@@ -72,9 +71,9 @@ class AdminCreateUserRequest(CreateUserRequest):
 
 
 class AdminUpdateUserRequest(Base):
-    username: Optional[str] = None
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
+    username: str | None = None
+    first_name: str | None = None
+    last_name: str | None = None
     is_featured: bool
     is_admin: bool
     deleted: bool
@@ -85,7 +84,7 @@ class AdminUpdateUserRequest(Base):
 
 
 class AdminUpdatePostRequest(Base):
-    content: Optional[str] = None
+    content: str | None = None
     deleted: bool
 
     @validator("content")

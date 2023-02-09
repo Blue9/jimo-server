@@ -61,6 +61,7 @@ async def get_post(
         place=post.place,
         category=post.category,
         content=post.content,
+        stars=post.stars,
         image_url=post.image_url,
         created_at=post.created_at,
         like_count=post.like_count,
@@ -90,7 +91,12 @@ async def create_post(
         else:
             raise HTTPException(400, "Either place_id or place must be specified")
         post: InternalPost = await post_store.create_post(
-            user.id, place_id, request.category, request.content, request.image_id
+            user_id=user.id,
+            place_id=place_id,
+            category=request.category,
+            content=request.content,
+            image_id=request.image_id,
+            stars=request.stars,
         )
         background_tasks.add_task(tasks.slack_post_created, user.username, post)
         background_tasks.add_task(tasks.notify_post_created, db, post, user)
@@ -128,7 +134,14 @@ async def update_post(
             background_tasks.add_task(tasks.update_place_metadata, place_store, place_id)
         else:
             raise HTTPException(400, "Either place_id or place must be specified")
-        updated_post = await post_store.update_post(post_id, place_id, req.category, req.content, req.image_id)
+        updated_post = await post_store.update_post(
+            post_id=post_id,
+            place_id=place_id,
+            category=req.category,
+            content=req.content,
+            image_id=req.image_id,
+            stars=req.stars,
+        )
         if old_post.image_id and old_post.image_id != updated_post.image_id:
             # Delete old image
             await firebase_user.shared_firebase.delete_image(old_post.image_blob_name)  # type: ignore

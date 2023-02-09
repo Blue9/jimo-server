@@ -103,6 +103,7 @@ async def guest_account_get_place_details(
             place=post.place,
             category=post.category,
             content=post.content,
+            stars=post.stars,
             image_id=post.image_id,
             image_url=post.image_url,
             created_at=post.created_at,

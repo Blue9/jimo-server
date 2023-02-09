@@ -45,13 +45,13 @@ def post_store(session):
     return PostStore(db=session)
 
 
-async def test_get_post_by_id(post_store):
+async def test_get_post_by_id(post_store: PostStore):
     post = await post_store.get_post(USER_A_POST_ID)
     assert post is not None
     assert post.id == USER_A_POST_ID
 
 
-async def test_is_post_liked(post_store):
+async def test_is_post_liked(post_store: PostStore):
     is_liked = await post_store.is_post_liked(USER_A_POST_ID, USER_B_ID)
     assert not is_liked
 
@@ -60,12 +60,13 @@ async def test_is_post_liked(post_store):
     assert is_liked
 
 
-async def test_update_post(post_store):
+async def test_update_post(post_store: PostStore):
     # Update using place_id
     updated_post = await post_store.update_post(
-        USER_A_POST_ID, PLACE_TWO_ID, category="activity", content="new content", image_id=None
+        USER_A_POST_ID, PLACE_TWO_ID, category="activity", content="new content", image_id=None, stars=3
     )
     assert updated_post.place.id == PLACE_TWO_ID
     assert updated_post.content == "new content"
     assert updated_post.category == "activity"
+    assert updated_post.stars == 3
     assert updated_post.image_url is None

@@ -1,5 +1,3 @@
-from typing import Optional
-
 from pydantic import root_validator, validator
 
 from app.core.types import Base, ImageId, CursorId, PlaceId
@@ -22,16 +20,24 @@ class MaybeCreatePlaceWithMetadataRequest(Base):
 
 
 class CreatePostRequest(Base):
-    place_id: Optional[PlaceId]
-    place: Optional[MaybeCreatePlaceWithMetadataRequest]
+    place_id: PlaceId | None = None
+    place: MaybeCreatePlaceWithMetadataRequest | None = None
     category: str
     content: str
-    image_id: Optional[ImageId]
+    image_id: ImageId | None = None
+    stars: int | None = None
 
     @root_validator
-    def validate_place(cls, values):
+    def validate_all(cls, values):
+        # validate place
         assert values.get("place_id") is not None or values.get("place") is not None, "place must be included"
         return values
+
+    @validator("stars")
+    def validate_stars(cls, stars):
+        if stars is not None and (stars < 0 or stars > 3):
+            raise ValueError("Can only award between 0 and 3 stars")
+        return stars
 
     @validator("content")
     def validate_content(cls, content):
@@ -42,7 +48,7 @@ class CreatePostRequest(Base):
 
 
 class ReportPostRequest(Base):
-    details: Optional[str]
+    details: str | None
 
     @validator("details")
     def validate_details(cls, details):
