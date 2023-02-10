@@ -20,6 +20,15 @@ async def slack_post_created(username: str, post: InternalPost):
     await _send_message(message)
 
 
+async def slack_post_stars_changed(username: str, post: InternalPost, old_stars: int | None):
+    """Send a message that a user changed the stars for a post."""
+    deep_link = f"https://go.jimoapp.com/view-post?id={str(post.id)}"
+    message = (
+        f"{username} changed their stars for {post.place.name} from {old_stars} to {post.stars}. View more: {deep_link}"
+    )
+    await _send_message(message)
+
+
 async def slack_place_saved(username: str, save: SavedPlace):
     """Send a message that a user saved a place."""
     message = f"{username} just saved {save.place.name} (note length: {len(save.note)})"

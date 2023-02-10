@@ -145,6 +145,9 @@ async def update_post(
         if old_post.image_id and old_post.image_id != updated_post.image_id:
             # Delete old image
             await firebase_user.shared_firebase.delete_image(old_post.image_blob_name)  # type: ignore
+        if old_post.stars != updated_post.stars:
+            # Slack stars updated
+            background_tasks.add_task(tasks.slack_post_stars_changed, user.username, updated_post, old_post.stars)
         return Post(
             **updated_post.dict(),
             user=user.to_public(),
