@@ -1,5 +1,3 @@
-from typing import Optional
-
 import sqlalchemy as sa
 from sqlalchemy import func
 
@@ -31,6 +29,7 @@ class MapStore:
         user_filter: MapType,
         user_ids: list[UserId] | None,
         categories: list[Category] | None = None,
+        min_stars: int | None = None,
     ) -> list[MapPin]:
         """
         Get the user's map.
@@ -55,10 +54,10 @@ class MapStore:
             query = query.where((PostRow.user_id == user_id) | PostRow.user_id.in_(friends))
         else:  # user_filter == "community"
             query = query.where((PostRow.image_id.is_not(None)) | (PostRow.content != ""))
-        return await self._get_map(query, categories=categories, limit=500)
+        return await self._get_map(query, categories=categories, min_stars=min_stars, limit=500)
 
     async def get_guest_community_map(
-        self, region: RectangularRegion, categories: list[Category] | None, limit: int
+        self, region: RectangularRegion, categories: list[Category] | None, min_stars: int | None, limit: int
     ) -> list[MapPin]:
         """
         The guest community map returns all pins including those without a pic or caption.
@@ -66,14 +65,19 @@ class MapStore:
         This is to maximize the amount of data we return, to get people to sign up.
         """
         query = base_map_query(region)
-        return await self._get_map(query, categories=categories, limit=limit)
+        return await self._get_map(query, categories=categories, min_stars=min_stars, limit=limit)
 
     async def get_featured_users_map(
-        self, region: RectangularRegion, user_ids: list[UserId], categories: list[Category] | None, limit: int
+        self,
+        region: RectangularRegion,
+        user_ids: list[UserId],
+        categories: list[Category] | None,
+        min_stars: int | None,
+        limit: int,
     ) -> list[MapPin]:
         """Get a map filtered down to only the featured users. Used for anonymous accounts."""
         query = base_map_query(region).where(UserRow.is_featured, UserRow.id.in_(user_ids))
-        return await self._get_map(query, categories=categories, limit=limit)
+        return await self._get_map(query, categories=categories, min_stars=min_stars, limit=limit)
 
     async def _get_saved_map(
         self, user_id: UserId, user_icon_url: str | None, region: RectangularRegion, limit: int = 500
@@ -112,10 +116,16 @@ class MapStore:
         ]
 
     async def _get_map(
-        self, query: sa.sql.Select, categories: Optional[list[Category]] = None, limit: int = 500
+        self,
+        query: sa.sql.Select,
+        categories: list[Category] | None = None,
+        min_stars: int | None = None,
+        limit: int = 500,
     ) -> list[MapPin]:
         if categories and len(categories) < 6:
             query = query.where(PostRow.category.in_(categories))
+        if min_stars:
+            query = query.where(PostRow.stars >= min_stars)
         query = query.limit(limit)
         rows = (await self.db.execute(query)).all()
         return [

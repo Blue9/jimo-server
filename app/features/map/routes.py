@@ -32,12 +32,16 @@ async def load_map(
         # Anonymous accounts
         if request.map_type == "custom":
             pins = await map_store.get_featured_users_map(
-                region=request.region, user_ids=request.user_ids or [], categories=request.categories, limit=200
+                region=request.region,
+                user_ids=request.user_ids or [],
+                categories=request.categories,
+                min_stars=request.min_stars,
+                limit=200,
             )
             return GetMapResponse(pins=pins)
         elif request.map_type == "community":
             pins = await map_store.get_guest_community_map(
-                region=request.region, categories=request.categories, limit=200
+                region=request.region, categories=request.categories, min_stars=request.min_stars, limit=200
             )
             return GetMapResponse(pins=pins)
     raise HTTPException(403)

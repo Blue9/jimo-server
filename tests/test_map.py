@@ -36,19 +36,9 @@ async def setup_fixture(session):
     await session.refresh(place)
 
     user_a_post = PostRow(
-        id=USER_A_POST_ID,
-        user_id=user_a.id,
-        place_id=place.id,
-        category="food",
-        content="cool",
+        id=USER_A_POST_ID, user_id=user_a.id, place_id=place.id, category="food", content="cool", stars=1
     )
-    user_b_post = PostRow(
-        id=USER_B_POST_ID,
-        user_id=user_b.id,
-        place_id=place.id,
-        category="food",
-        content="",
-    )
+    user_b_post = PostRow(id=USER_B_POST_ID, user_id=user_b.id, place_id=place.id, category="food", content="", stars=2)
     session.add(user_a_post)
     session.add(user_b_post)
     await session.commit()
@@ -68,6 +58,7 @@ async def test_get_map(client):
             map_type="community",
             categories=None,
             user_ids=None,
+            min_stars=1,
         )
         response = await client.post("/map/load", json=request.dict())
         assert response.status_code == 200
