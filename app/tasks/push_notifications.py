@@ -109,6 +109,5 @@ async def _actually_send_notification(fcm_token: str, body: str, badge: Optional
 
 
 def _get_apns(badge: Optional[int], **custom_data) -> messaging.APNSConfig:
-    sound = None if badge is None else "default"
-    payload = messaging.APNSPayload(messaging.Aps(sound=sound, badge=badge, custom_data=custom_data), **custom_data)
+    payload = messaging.APNSPayload(messaging.Aps(sound=None, badge=badge, custom_data=custom_data), **custom_data)
     return messaging.APNSConfig(payload=payload)
