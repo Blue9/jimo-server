@@ -27,6 +27,7 @@ from app.features.places.routes import router as place_router
 from app.features.places.types import PingLocationRequest
 from app.features.posts.routes import router as post_router
 from app.features.search.routes import router as search_router
+from app.features.onboarding.routes import router as onboarding_router
 from app.features.users.dependencies import get_authorization_header, get_caller_user
 from app.features.users.entities import InternalUser
 from app.features.users.routes import router as user_router
@@ -124,5 +125,6 @@ app.include_router(comment_router, prefix="/comments")
 app.include_router(post_router, prefix="/posts")
 app.include_router(place_router, prefix="/places")
 app.include_router(search_router, prefix="/search")
+app.include_router(onboarding_router, prefix="/onboarding")
 app.include_router(feedback_router, prefix="/feedback")
 app.include_router(admin_router, prefix="/admin")

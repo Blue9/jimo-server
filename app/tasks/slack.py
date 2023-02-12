@@ -8,6 +8,13 @@ from app.utils import get_logger
 log = get_logger(__name__)
 
 
+async def slack_onboarding(username: str, city: str | None, post_count: int, save_count: int):
+    """Send a message that a user went through post onboarding."""
+    deep_link = f"https://go.jimoapp.com/view-profile?username={username}"
+    message = f"{username} onboarded in {city} with {post_count} posts and {save_count} saves. View more: {deep_link}"
+    await _send_message(message)
+
+
 async def slack_post_created(username: str, post: InternalPost):
     """Send a message that a user created a post."""
     deep_link = f"https://go.jimoapp.com/view-post?id={str(post.id)}"
