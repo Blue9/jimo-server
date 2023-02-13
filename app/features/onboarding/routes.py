@@ -71,7 +71,7 @@ async def submit_onboarding_places(
     post_inserts = [
         pg.insert(PostRow)
         .values(user_id=user.id, place_id=post.place_id, content="", category=post.category, stars=post.stars)
-        .on_conflict_do_update(constraint="_posts_user_place_uc", set_={"category": post.category, "stars": post.stars})
+        .on_conflict_do_update(index_elements=["user_id", "place_id"], set_={"category": post.category, "stars": post.stars})
         for post in posts
     ]
     save_inserts = [
@@ -86,6 +86,6 @@ async def submit_onboarding_places(
             await db.execute(save_insert)
         await db.commit()
         return SimpleResponse(success=True)
-    except:
+    except Exception as e:
         await db.rollback()
         return SimpleResponse(success=False)
