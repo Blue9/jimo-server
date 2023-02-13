@@ -24,27 +24,28 @@ router = APIRouter()
 featured_posts_by_city: dict[OnboardingCity, list[PlaceTile]] = {
     OnboardingCity.NYC: [
         PlaceTile.construct(
-            place_id="017b1704-b923-9c92-45ac-dd4fdd1415d8",
-            name="JeJu Noodle Bar",
-            image_url="https://storage.googleapis.com/goodplaces-app.appspot.com/images/37XYQ0zG49MXD6kXvCfNbM6cl3j2/017b1704-b518-4784-e6f6-ec9c47b0b630.jpg",
+            place_id="017e31d8-9af6-31b9-c222-3e72f5986a6b",
+            name="John's of Bleecker Street",
+            image_url="https://storage.googleapis.com/goodplaces-app.appspot.com/images/4iDCYxpFLlgHHfcD2aP4Gl8iZKI2/0181ca57-9ed6-4d9b-527a-612aab05de43.jpg",
             category="food",
             description="",
         ),
         PlaceTile.construct(
-            place_id="017a7e55-6f05-848c-bf89-a092c1c7fbed",
-            name="Torishin",
-            image_url="https://storage.googleapis.com/goodplaces-app.appspot.com/images/37XYQ0zG49MXD6kXvCfNbM6cl3j2/017a7e55-6b8d-d225-7bbd-911af2004306.jpg",
+            place_id="017f027c-03bb-e1fa-77d9-3563ce22052f",
+            name="The Museum of Modern Art",
+            image_url="https://storage.googleapis.com/goodplaces-app.appspot.com/images/IdH92jA12cNbWBCLEzX6tSfKQdz1/0180156b-6da5-fc9d-eb4d-42551153a87c.jpg",
+            category="activity",
+            description="",
+        ),
+        PlaceTile.construct(
+            place_id="017948bc-6c60-c38e-c158-b518225d322d",
+            name="Katz's Delicatessen",
+            image_url="https://storage.googleapis.com/goodplaces-app.appspot.com/images/Bz1LawiaYqcziu7aZhRUbjLhM9K2/017b2197-5d70-0b2a-0bdd-1765f0bdb7e4.jpg",
             category="food",
             description="",
         ),
     ]
 }
-
-
-@router.get("/cities", response_model=list[OnboardingCity])
-def get_cities(_current_user: InternalUser = Depends(get_caller_user)):
-    """Get available cities."""
-    return [e for e in OnboardingCity]
 
 
 @router.get("/places", response_model=PlaceTilePage)
@@ -71,7 +72,9 @@ async def submit_onboarding_places(
     post_inserts = [
         pg.insert(PostRow)
         .values(user_id=user.id, place_id=post.place_id, content="", category=post.category, stars=post.stars)
-        .on_conflict_do_update(index_elements=["user_id", "place_id"], set_={"category": post.category, "stars": post.stars})
+        .on_conflict_do_update(
+            index_elements=["user_id", "place_id"], set_={"category": post.category, "stars": post.stars}
+        )
         for post in posts
     ]
     save_inserts = [
