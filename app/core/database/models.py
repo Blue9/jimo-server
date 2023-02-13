@@ -274,12 +274,10 @@ class PostRow(Base):
     # Only want one row per (user, place) pair for all non-deleted posts
     user_place_uc = "_posts_user_place_uc"
     __table_args__ = (
-        Index(
-            user_place_uc,
+        UniqueConstraint(
             "user_id",
             "place_id",
-            unique=True,
-            postgresql_where=(~deleted),
+            name=user_place_uc,
         ),
         Index("idx_post_place_id", "place_id"),
     )
