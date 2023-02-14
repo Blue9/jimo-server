@@ -5,7 +5,7 @@ from sqlalchemy.dialects import postgresql as pg
 from sqlalchemy.ext.asyncio import AsyncSession
 from app import tasks
 from app.core.database.engine import get_db
-from app.core.database.models import PlaceSaveRow, PostRow
+from app.core.database.models import PlaceSaveRow, PostRow, UserRow
 from app.core.types import PostId, SimpleResponse
 
 from app.features.onboarding.types import CreateMultiRequest, OnboardingCity, PlaceTile, PlaceTilePage
@@ -67,6 +67,7 @@ async def submit_onboarding_places(
     db: AsyncSession = Depends(get_db),
     user: InternalUser = Depends(get_caller_user),
 ):
+    # TODO: store onboarded_at in users table
     posts = request.posts
     saves = request.saves
     post_inserts = [
@@ -87,6 +88,11 @@ async def submit_onboarding_places(
             await db.execute(post_insert)
         for save_insert in save_inserts:
             await db.execute(save_insert)
+        await db.execute(
+            sa.update(UserRow)
+            .where(UserRow.id == user.id)
+            .values(onboarded_at=sa.func.now(), onboarded_city=request.city)
+        )
         await db.commit()
         return SimpleResponse(success=True)
     except Exception as e:

@@ -81,6 +81,8 @@ class UserRow(Base):
     deleted = mapped_column(Boolean, nullable=False, server_default=expression.false())
     username_lower = mapped_column(Text, Computed("LOWER(username)"), unique=True, nullable=False)
     created_at = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    onboarded_at = mapped_column(DateTime(timezone=True), nullable=True)
+    onboarded_city = mapped_column(Text, nullable=True)
     updated_at = mapped_column(
         DateTime(timezone=True),
         nullable=False,
