@@ -67,7 +67,6 @@ async def submit_onboarding_places(
     db: AsyncSession = Depends(get_db),
     user: InternalUser = Depends(get_caller_user),
 ):
-    # TODO: store onboarded_at in users table
     posts = request.posts
     saves = request.saves
     post_inserts = [
