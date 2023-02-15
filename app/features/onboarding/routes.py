@@ -8,44 +8,13 @@ from app.core.database.engine import get_db
 from app.core.database.models import PlaceSaveRow, PostRow, UserRow
 from app.core.types import PostId, SimpleResponse
 
-from app.features.onboarding.types import CreateMultiRequest, OnboardingCity, PlaceTile, PlaceTilePage
-from app.features.places.place_store import PlaceStore
-from app.features.posts.post_store import PostStore
-from app.features.stores import get_place_store, get_post_store, get_user_store
+from app.features.onboarding.types import CreateMultiRequest, OnboardingCity, PlaceTilePage
 from app.features.users.dependencies import get_caller_user
 from app.features.users.entities import InternalUser
-from app.features.users.user_store import UserStore
 
+from app.features.onboarding.data import featured_posts_by_city
 
 router = APIRouter()
-
-
-# TODO hardcoded for now, improve if we see usage
-featured_posts_by_city: dict[OnboardingCity, list[PlaceTile]] = {
-    OnboardingCity.NYC: [
-        PlaceTile.construct(
-            place_id="017e31d8-9af6-31b9-c222-3e72f5986a6b",
-            name="John's of Bleecker Street",
-            image_url="https://storage.googleapis.com/goodplaces-app.appspot.com/images/4iDCYxpFLlgHHfcD2aP4Gl8iZKI2/0181ca57-9ed6-4d9b-527a-612aab05de43.jpg",
-            category="food",
-            description="",
-        ),
-        PlaceTile.construct(
-            place_id="017f027c-03bb-e1fa-77d9-3563ce22052f",
-            name="The Museum of Modern Art",
-            image_url="https://storage.googleapis.com/goodplaces-app.appspot.com/images/IdH92jA12cNbWBCLEzX6tSfKQdz1/0180156b-6da5-fc9d-eb4d-42551153a87c.jpg",
-            category="activity",
-            description="",
-        ),
-        PlaceTile.construct(
-            place_id="017948bc-6c60-c38e-c158-b518225d322d",
-            name="Katz's Delicatessen",
-            image_url="https://storage.googleapis.com/goodplaces-app.appspot.com/images/Bz1LawiaYqcziu7aZhRUbjLhM9K2/017b2197-5d70-0b2a-0bdd-1765f0bdb7e4.jpg",
-            category="food",
-            description="",
-        ),
-    ]
-}
 
 
 @router.get("/places", response_model=PlaceTilePage)
