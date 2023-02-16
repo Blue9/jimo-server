@@ -32,7 +32,7 @@ async def get_post_deeplink(
     username = user.username.lower()
     # It is possible for post.place.name to mess with the HTML so we need to escape it.
     place_name = html.escape(post.place.name)
-    image_url = image_url = post.image_url or user.profile_picture_url
+    image_url = post.image_url
     title = html.escape(f"Check out {username}'s post about {place_name} on Jimo")
     deep_link = f"https://go.jimoapp.com/view-post?id={post_id}"
     preview_html = f"""
