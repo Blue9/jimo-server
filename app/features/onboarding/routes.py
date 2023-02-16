@@ -6,15 +6,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app import tasks
 from app.core.database.engine import get_db
 from app.core.database.models import PlaceSaveRow, PostRow, UserRow
-from app.core.types import PostId, SimpleResponse
+from app.core.types import SimpleResponse
 
 from app.features.onboarding.types import CreateMultiRequest, OnboardingCity, PlaceTilePage
 from app.features.users.dependencies import get_caller_user
 from app.features.users.entities import InternalUser
 
 from app.features.onboarding.data import featured_posts_by_city
+from app.utils import get_logger
 
 router = APIRouter()
+log = get_logger(__name__)
 
 
 @router.get("/places", response_model=PlaceTilePage)
@@ -65,4 +67,5 @@ async def submit_onboarding_places(
         return SimpleResponse(success=True)
     except Exception as e:
         await db.rollback()
+        log.error("Error when onboarding user (request=%s)", request.json(), exc_info=e)
         return SimpleResponse(success=False)
