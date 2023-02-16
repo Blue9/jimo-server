@@ -11,7 +11,7 @@ class OnboardingCity(Enum):
 
 
 class PlaceTile(Base):
-    place_id: PlaceId
+    place_id: str
     name: str
     image_url: str
     category: str

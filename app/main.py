@@ -6,7 +6,7 @@ from slowapi.errors import RateLimitExceeded
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
-from starlette.responses import JSONResponse, Response
+from starlette.responses import JSONResponse, Response, RedirectResponse
 from timing_asgi import TimingMiddleware, TimingClient  # type: ignore
 from timing_asgi.integrations import StarletteScopeToName  # type: ignore
 
@@ -28,6 +28,7 @@ from app.features.places.types import PingLocationRequest
 from app.features.posts.routes import router as post_router
 from app.features.search.routes import router as search_router
 from app.features.onboarding.routes import router as onboarding_router
+from app.features.deeplinking.routes import router as deeplinking_router
 from app.features.users.dependencies import get_authorization_header, get_caller_user
 from app.features.users.entities import InternalUser
 from app.features.users.routes import router as user_router
@@ -83,7 +84,7 @@ def rate_limit_exceeded_handler(_request: Request, _exc: RateLimitExceeded) -> R
 
 @app.get("/")
 async def index():
-    return {"hey there": "dm me @jimoapp"}
+    return RedirectResponse("https://www.jimoapp.com/")
 
 
 @app.post("/images", response_model=ImageUploadResponse)
@@ -128,3 +129,4 @@ app.include_router(search_router, prefix="/search")
 app.include_router(onboarding_router, prefix="/onboarding")
 app.include_router(feedback_router, prefix="/feedback")
 app.include_router(admin_router, prefix="/admin")
+app.include_router(deeplinking_router, prefix="/share")
