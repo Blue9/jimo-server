@@ -125,7 +125,7 @@ class UserPrefsRow(Base):
     comment_liked_notifications = mapped_column(Boolean, nullable=False, server_default=true())
     searchable_by_phone_number = mapped_column(Boolean, nullable=False, server_default=true())
     post_notifications = mapped_column(Boolean, nullable=False, server_default=true())
-    updated_at = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
 
     user: Mapped[UserRow] = relationship(UserRow)
 
@@ -167,7 +167,7 @@ class PlaceRow(Base):
     # Computed column property (set at end of file)
 
     created_at = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
-    updated_at = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
 
     # Only want one row per (name, latitude, longitude)
     __table_args__ = (
