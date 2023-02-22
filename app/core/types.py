@@ -50,6 +50,7 @@ class PhoneNumber(str):
 
 class Category(str, Enum):
     food = "food"
+    cafe = "cafe"
     activity = "activity"
     attraction = "attraction"
     lodging = "lodging"
