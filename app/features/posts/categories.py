@@ -13,6 +13,7 @@ def add_categories_to_db(db: Session):
         log.info("Already populated categories table, skipping...")
         return
     db.add(CategoryRow(name="food"))
+    db.add(CategoryRow(name="cafe"))
     db.add(CategoryRow(name="activity"))
     db.add(CategoryRow(name="attraction"))
     db.add(CategoryRow(name="lodging"))

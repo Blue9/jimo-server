@@ -239,7 +239,7 @@ class PostStore:
         return result.scalars().first()
 
     def _validate_category(self, category_name: str) -> None:
-        categories = {"food", "activity", "attraction", "lodging", "shopping", "nightlife"}
+        categories = {"food", "cafe", "activity", "attraction", "lodging", "shopping", "nightlife"}
         if category_name not in categories:
             raise ValueError("Invalid category")
 
