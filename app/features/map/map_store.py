@@ -153,7 +153,7 @@ def base_map_query(region: RectangularRegion) -> sa.sql.Select:
             PlaceRow.longitude,
             func.count(PostRow.id).label("num_posts"),
             func.jsonb_agg(PostRow.category.distinct()),
-            func.jsonb_agg(ImageUploadRow.firebase_public_url.distinct()),
+            func.jsonb_agg(ImageUploadRow.url.distinct()),
         )
         .select_from(PlaceRow)
         .join(PostRow, PostRow.place_id == PlaceRow.id)
@@ -184,7 +184,7 @@ def deprecated_base_map_query(region: Region) -> sa.sql.Select:
             PlaceRow.latitude,
             PlaceRow.longitude,
             PostRow.category,
-            ImageUploadRow.firebase_public_url,
+            ImageUploadRow.url,
             PostRow.user_id,
         )
         .select_from(PlaceRow)

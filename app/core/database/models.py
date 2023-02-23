@@ -94,8 +94,8 @@ class UserRow(Base):
         "ImageUploadRow",
         primaryjoin="UserRow.profile_picture_id == ImageUploadRow.id",
     )
-    profile_picture_url = association_proxy("profile_picture", "firebase_public_url")
-    profile_picture_blob_name = association_proxy("profile_picture", "firebase_blob_name")
+    profile_picture_url = association_proxy("profile_picture", "url")
+    profile_picture_blob_name = association_proxy("profile_picture", "blob_name")
 
     # Computed column properties (set at end of file)
     # post_count: Mapped[int]
@@ -266,8 +266,8 @@ class PostRow(Base):
     place: Mapped[PlaceRow] = relationship("PlaceRow")
     image: "Mapped[ImageUploadRow | None]" = relationship("ImageUploadRow")
 
-    image_url = association_proxy("image", "firebase_public_url")
-    image_blob_name = association_proxy("image", "firebase_blob_name")
+    image_url = association_proxy("image", "url")
+    image_blob_name = association_proxy("image", "blob_name")
 
     # Computed column properties (set at end of file)
     # like_count: Mapped[int]
@@ -385,8 +385,8 @@ class ImageUploadRow(Base):
 
     id = mapped_column(UUID(as_uuid=True), primary_key=True, default=gen_ulid)
     user_id = mapped_column(UUID(as_uuid=True), ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
-    firebase_blob_name = mapped_column(Text, nullable=True)  # Set after creating the row in db
-    firebase_public_url = mapped_column(Text, nullable=True)  # Set after creating the row in db
+    blob_name = mapped_column(Text, nullable=True)  # Set after creating the row in db
+    url = mapped_column(Text, nullable=True)  # Set after creating the row in db
     used = mapped_column(
         Boolean, nullable=False, server_default=false()
     )  # Prevent using the same image in different places

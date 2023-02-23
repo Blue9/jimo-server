@@ -47,8 +47,8 @@ async def setup_fixture(session):
     image_a = ImageUploadRow(
         id=IMAGE_A_ID,
         user_id=USER_A_ID,
-        firebase_blob_name="blob-name",
-        firebase_public_url="public-url",
+        blob_name="blob-name",
+        url="public-url",
     )
     session.add(image_a)
     await session.commit()
