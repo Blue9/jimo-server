@@ -35,8 +35,8 @@ async def upload_image(
         await db.commit()
         raise HTTPException(500, detail="Failed to upload image")
     blob_name, url = response
-    image_upload.firebase_blob_name = blob_name
-    image_upload.firebase_public_url = url
+    image_upload.blob_name = blob_name
+    image_upload.url = url
     await db.commit()
     await db.refresh(image_upload)
     return image_upload
@@ -80,7 +80,7 @@ async def maybe_get_image_with_lock(db: AsyncSession, user_id: UserId, image_id:
         .where(
             ImageUploadRow.user_id == user_id,
             ImageUploadRow.id == image_id,
-            ImageUploadRow.firebase_public_url.is_not(None),
+            ImageUploadRow.url.is_not(None),
             ~ImageUploadRow.used,
         )
         .with_for_update()
