@@ -24,13 +24,17 @@ class CreatePostRequest(Base):
     place: MaybeCreatePlaceWithMetadataRequest | None = None
     category: str
     content: str
-    image_id: ImageId | None = None
+    image_id: ImageId | None = None  # deprecated, use media field
+    media: list[ImageId] = []
     stars: int | None = None
 
     @root_validator
     def validate_all(cls, values):
         # validate place
         assert values.get("place_id") is not None or values.get("place") is not None, "place must be included"
+        # handle backwards compat for image_id
+        if values.get("image_id") is not None and len(values["media"]) == 0:
+            values["media"] = [values["image_id"]]
         return values
 
     @validator("stars")

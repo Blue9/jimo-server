@@ -63,6 +63,8 @@ async def get_post(
         content=post.content,
         stars=post.stars,
         image_url=post.image_url,
+        image_id=post.image_id,
+        media=[],
         created_at=post.created_at,
         like_count=post.like_count,
         comment_count=post.comment_count,

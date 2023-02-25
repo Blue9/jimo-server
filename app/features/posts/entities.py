@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from pydantic import Field, validator
+from app.features.images.entities import MediaEntity
 
 from app.features.places.entities import Place
 from app.features.users.entities import PublicUser
@@ -16,9 +17,22 @@ class PostWithoutLikeSaveStatus(Base):
     stars: int | None = None
     image_url: str | None = None
     image_id: ImageId | None = None
+    media: list[MediaEntity] = []
     created_at: datetime
     like_count: int
     comment_count: int
+
+    @validator("image_id", pre=True, always=True)
+    def set_image_id(cls, image_id, values):
+        if values.get("media"):
+            return values["media"][0].id
+        return image_id
+
+    @validator("image_url", pre=True, always=True)
+    def set_image_url(cls, image_url, values):
+        if values.get("media"):
+            return values["media"][0].url
+        return image_url
 
     @validator("content")
     def validate_content(cls, content):
