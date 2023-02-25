@@ -15,8 +15,8 @@ class CreateCommentRequest(Base):
     @validator("content")
     def validate_content(cls, content):
         content = content.strip()
-        if len(content) == 0 or len(content) > 200:
-            raise ValueError("Comments must be 1-200 characters")
+        if len(content) == 0 or len(content) > 2000:
+            raise ValueError("Comments must be 1-2000 characters")
         return content
 
 
