@@ -64,7 +64,7 @@ async def get_post(
         stars=post.stars,
         image_url=post.image_url,
         image_id=post.image_id,
-        media=[],
+        media=post.media,
         created_at=post.created_at,
         like_count=post.like_count,
         comment_count=post.comment_count,
@@ -97,7 +97,7 @@ async def create_post(
             place_id=place_id,
             category=request.category,
             content=request.content,
-            image_id=request.image_id,
+            media_ids=request.media,
             stars=request.stars,
         )
         background_tasks.add_task(tasks.slack_post_created, user.username, post)
@@ -141,7 +141,7 @@ async def update_post(
             place_id=place_id,
             category=req.category,
             content=req.content,
-            image_id=req.image_id,
+            media_ids=req.media,
             stars=req.stars,
         )
         if old_post.image_id and old_post.image_id != updated_post.image_id:

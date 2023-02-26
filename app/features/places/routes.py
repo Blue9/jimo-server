@@ -106,7 +106,7 @@ async def guest_account_get_place_details(
             stars=post.stars,
             image_id=post.image_id,
             image_url=post.image_url,
-            media=[],
+            media=post.media,
             created_at=post.created_at,
             like_count=post.like_count,
             comment_count=post.comment_count,

@@ -251,6 +251,7 @@ class PostRow(Base):
     category = mapped_column(Text, ForeignKey("category.name"), nullable=False)
 
     content = mapped_column(Text, nullable=False)
+    # image_id is deprecated, use media
     image_id = mapped_column(UUID(as_uuid=True), ForeignKey("image_upload.id"), unique=True, nullable=True)
     media = mapped_column(JSONB, nullable=True)  # list[MediaEntity]
     stars = mapped_column(Integer, nullable=True)

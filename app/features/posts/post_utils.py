@@ -22,10 +22,8 @@ async def get_posts_from_post_ids(
 ) -> list[Post]:
     # Step 1: Get internal posts
     # Step 2: Get like and save statuses for each post
-    internal_posts, liked_post_ids = await asyncio.gather(
-        post_store.get_posts(post_ids),
-        post_store.get_liked_posts(current_user.id, post_ids),
-    )
+    internal_posts = await post_store.get_posts(post_ids)
+    liked_post_ids = await post_store.get_liked_posts(current_user.id, post_ids)
     place_ids = list({post.place.id for post in internal_posts.values()})
     saved_place_ids = await place_store.get_saved_place_ids(user_id=current_user.id, place_ids=place_ids)
     # Step 3: Get users for each post
@@ -49,7 +47,7 @@ async def get_posts_from_post_ids(
             stars=post.stars,
             image_id=post.image_id,
             image_url=post.image_url,
-            media=[],
+            media=post.media,
             created_at=post.created_at,
             like_count=post.like_count,
             comment_count=post.comment_count,
