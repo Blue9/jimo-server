@@ -253,7 +253,7 @@ class PostRow(Base):
     content = mapped_column(Text, nullable=False)
     # image_id is deprecated, use media
     image_id = mapped_column(UUID(as_uuid=True), ForeignKey("image_upload.id"), unique=True, nullable=True)
-    media = mapped_column(JSONB, nullable=True)  # list[MediaEntity]
+    media = mapped_column(JSONB, nullable=False, server_default="[]")  # list[MediaEntity]
     stars = mapped_column(Integer, nullable=True)
     deleted = mapped_column(Boolean, nullable=False, server_default=expression.false())
     created_at = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())

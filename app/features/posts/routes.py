@@ -144,9 +144,11 @@ async def update_post(
             media_ids=req.media,
             stars=req.stars,
         )
-        if old_post.image_id and old_post.image_id != updated_post.image_id:
+        if old_post.media and old_post.media != updated_post.media:
+            to_delete = [media.blob_name for media in old_post.media if media not in updated_post.media]
             # Delete old image
-            await firebase_user.shared_firebase.delete_image(old_post.image_blob_name)  # type: ignore
+            for blob_name in to_delete:
+                await firebase_user.shared_firebase.delete_image(blob_name)
         if old_post.stars != updated_post.stars:
             # Slack stars updated
             background_tasks.add_task(tasks.slack_post_stars_changed, user.username, updated_post, old_post.stars)
@@ -171,8 +173,8 @@ async def delete_post(
     post: Optional[InternalPost] = await post_store.get_post(post_id)
     if post is not None and post.user_id == user.id:
         await post_store.delete_post(post.id)
-        if post.image_blob_name is not None:
-            await firebase_user.shared_firebase.delete_image(post.image_blob_name)
+        for image in post.media:
+            await firebase_user.shared_firebase.delete_image(image.blob_name)
         return DeletePostResponse(deleted=True)
     return DeletePostResponse(deleted=False)
 

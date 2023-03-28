@@ -17,7 +17,7 @@ class PostWithoutLikeSaveStatus(Base):
     stars: int | None = None
     image_url: str | None = None
     image_id: ImageId | None = None
-    media: list[MediaEntity] | None
+    media: list[MediaEntity]
     created_at: datetime
     like_count: int
     comment_count: int
@@ -59,7 +59,7 @@ class InternalPost(InternalBase):
     image_id: ImageId | None
     image_url: str | None
     image_blob_name: str | None
-    media: list[MediaEntity] | None
+    media: list[MediaEntity]
     deleted: bool
     created_at: datetime
     like_count: int
