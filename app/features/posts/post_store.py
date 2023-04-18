@@ -3,13 +3,14 @@ from typing import Optional
 import sqlalchemy as sa
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.core.database import jsonb_builder
 
 from app.core.database.helpers import (
     is_unique_constraint_error,
     is_unique_column_error,
     eager_load_post_options,
 )
-from app.features.images.image_utils import get_image_with_lock_else_throw
+from app.features.images.image_utils import get_image_else_throw, get_images
 from app.features.posts.entities import InternalPost, InternalPostSave
 from app.core.types import UserId, PostId, PlaceId, CursorId, ImageId
 from app.core.database.models import (
@@ -103,7 +104,7 @@ class PostStore:
         place_id: PlaceId,
         category: str,
         content: str,
-        image_id: ImageId | None,
+        media_ids: list[ImageId],
         stars: int | None,
     ) -> InternalPost:
         """Try to create a post with the given details, raising a ValueError if the request is invalid."""
@@ -111,17 +112,18 @@ class PostStore:
         self._validate_stars(stars)  # Already validated by Pydantic but adding extra sanity check
         if await self.post_exists(user_id=user_id, place_id=place_id):
             raise ValueError("You already posted that place.")
-        image = await get_image_with_lock_else_throw(self.db, user_id, image_id) if image_id is not None else None
+        media = await get_images(self.db, user_id, image_ids=media_ids)
         post = PostRow(
             user_id=user_id,
             place_id=place_id,
             category=category,
             content=content,
-            image_id=image.id if image else None,
+            image_id=media[0].id if len(media) else None,
+            media=jsonb_builder.media_jsonb(media),
             stars=stars,
         )
         try:
-            if image:
+            for image in media:
                 image.used = True
             self.db.add(post)
             await self.db.commit()
@@ -145,7 +147,7 @@ class PostStore:
         place_id: PlaceId,
         category: str,
         content: str,
-        image_id: ImageId | None,
+        media_ids: list[ImageId],
         stars: int | None,
     ) -> InternalPost:
         post: Optional[PostRow] = await self._get_post_row(post_id)
@@ -161,11 +163,11 @@ class PostStore:
         post.stars = stars
 
         # Update image
-        if image_id != post.image_id:
-            if image_id:
-                image = await get_image_with_lock_else_throw(self.db, post.user_id, image_id)
-                image.used = True
-            post.image_id = image_id
+        current_image_ids = [media["id"] for media in post.media]
+        if media_ids != current_image_ids:
+            new_media = await get_images(self.db, post.user_id, image_ids=media_ids)
+            post.image_id = new_media[0].id if len(new_media) else None
+            post.media = jsonb_builder.media_jsonb(new_media)
         try:
             await self.db.commit()
         except IntegrityError as e:

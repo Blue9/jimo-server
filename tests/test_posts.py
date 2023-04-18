@@ -92,6 +92,7 @@ async def test_update_post(client):
     )
     with request_as("a"):
         response = await client.put(f"/posts/{USER_A_POST_ID}", json=jsonable_encoder(request))
+    print(response.json())
     assert response.status_code == 200
     post = PostWithoutLikeSaveStatus.parse_obj(response.json())
     assert post.place.id == PLACE_ONE_ID

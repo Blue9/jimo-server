@@ -5,7 +5,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database.helpers import eager_load_user_options
-from app.features.images.image_utils import maybe_get_image_with_lock
+from app.features.images.image_utils import maybe_get_image
 from app.core.database.models import (
     UserRow,
     UserPrefsRow,
@@ -155,9 +155,8 @@ class UserStore:
         if user is None:
             return None, UserFieldErrors(uid="User not found")
         if profile_picture_id:
-            image = await maybe_get_image_with_lock(self.db, user.id, profile_picture_id)
+            image = await maybe_get_image(self.db, user.id, profile_picture_id)
             if image is None:
-                await self.db.rollback()
                 return None, UserFieldErrors(other="Invalid image")
             image.used = True
             user.profile_picture_id = image.id
