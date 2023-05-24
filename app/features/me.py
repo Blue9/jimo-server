@@ -40,7 +40,7 @@ from app.features.users.types import (
 )
 from app.features.users.user_store import UserStore
 
-router = APIRouter()
+router = APIRouter(tags=["me"])
 
 
 @router.get("", response_model=PublicUser)

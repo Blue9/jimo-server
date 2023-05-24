@@ -5,7 +5,7 @@ from app.features.users.dependencies import get_caller_user
 from app.features.users.entities import InternalUser, PublicUser
 from app.features.stores import get_search_store
 
-router = APIRouter()
+router = APIRouter(tags=["search"])
 
 
 @router.get("/users", response_model=list[PublicUser])

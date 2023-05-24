@@ -15,7 +15,7 @@ from app.features.users.entities import InternalUser
 from app.features.onboarding.data import featured_posts_by_city
 from app.utils import get_logger
 
-router = APIRouter()
+router = APIRouter(tags=["onboarding"])
 log = get_logger(__name__)
 
 

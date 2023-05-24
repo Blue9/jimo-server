@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Depends, UploadFile, File
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
+from fastapi.openapi.utils import get_openapi
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -28,7 +29,6 @@ from app.features.places.types import PingLocationRequest
 from app.features.posts.routes import router as post_router
 from app.features.search.routes import router as search_router
 from app.features.onboarding.routes import router as onboarding_router
-from app.features.deeplinking.routes import router as deeplinking_router
 from app.features.users.dependencies import get_authorization_header, get_caller_user
 from app.features.users.entities import InternalUser
 from app.features.users.routes import router as user_router
@@ -40,6 +40,7 @@ log.info("Initializing server")
 app = FastAPI(openapi_url="/openapi.json" if config.ENABLE_DOCS else None)
 limiter = Limiter(key_func=get_authorization_header)
 app.state.limiter = limiter
+app.title = "Jimo"
 
 
 class PrintTimings(TimingClient):
@@ -129,4 +130,3 @@ app.include_router(search_router, prefix="/search")
 app.include_router(onboarding_router, prefix="/onboarding")
 app.include_router(feedback_router, prefix="/feedback")
 app.include_router(admin_router, prefix="/admin")
-app.include_router(deeplinking_router, prefix="/share")

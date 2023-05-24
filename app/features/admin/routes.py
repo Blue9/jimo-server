@@ -33,7 +33,7 @@ from app.features.stores import get_user_store
 from app.features.users.entities import InternalUser
 from app.features.users.user_store import UserStore
 
-router = APIRouter()
+router = APIRouter(tags=["admin"])
 
 Page = namedtuple("Page", ["offset", "limit"])
 

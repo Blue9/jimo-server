@@ -35,7 +35,7 @@ from app.features.users.relation_store import RelationStore
 from app.features.users.user_store import UserStore
 from app.utils import get_logger
 
-router = APIRouter()
+router = APIRouter(tags=["posts"])
 log = get_logger(__name__)
 
 

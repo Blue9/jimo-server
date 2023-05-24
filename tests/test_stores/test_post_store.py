@@ -63,7 +63,7 @@ async def test_is_post_liked(post_store: PostStore):
 async def test_update_post(post_store: PostStore):
     # Update using place_id
     updated_post = await post_store.update_post(
-        USER_A_POST_ID, PLACE_TWO_ID, category="activity", content="new content", image_id=None, stars=3
+        USER_A_POST_ID, PLACE_TWO_ID, category="activity", content="new content", media_ids=[], stars=3
     )
     assert updated_post.place.id == PLACE_TWO_ID
     assert updated_post.content == "new content"

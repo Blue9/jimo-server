@@ -23,7 +23,7 @@ from app.features.users.entities import InternalUser
 from app.features.users.relation_store import RelationStore
 from app.features.users.user_store import UserStore
 
-router = APIRouter()
+router = APIRouter(tags=["comments"])
 
 
 @router.post("", response_model=Comment)

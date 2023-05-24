@@ -18,7 +18,7 @@ from app.features.stores import (
 )
 from app.features.users.user_store import UserStore
 
-router = APIRouter()
+router = APIRouter(tags=["places"])
 
 
 # NOTE: find_place is not authenticated (anonymous Firebase accounts can access)

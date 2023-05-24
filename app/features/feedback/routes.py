@@ -9,7 +9,7 @@ from app.core.types import SimpleResponse
 from app.features.feedback.types import FeedbackRequest
 from app.features.users.dependencies import get_caller_user
 
-router = APIRouter()
+router = APIRouter(tags=["feedback"])
 
 
 @router.post("", response_model=SimpleResponse)

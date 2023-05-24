@@ -18,7 +18,7 @@ from app.features.posts.post_store import PostStore
 from app.features.users.dependencies import get_caller_user
 from app.features.stores import get_place_store, get_post_store, get_notification_store
 
-router = APIRouter()
+router = APIRouter(tags=["notifications"])
 
 
 @router.post("/token", response_model=SimpleResponse)

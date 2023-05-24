@@ -27,7 +27,7 @@ from app.features.users.types import (
 )
 from app.features.users.user_store import UserStore
 
-router = APIRouter()
+router = APIRouter(tags=["users"])
 
 
 async def get_requested_user(

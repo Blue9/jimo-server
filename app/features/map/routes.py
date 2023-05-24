@@ -6,7 +6,7 @@ from app.features.map.types import GetMapResponse, GetMapRequest
 from app.features.stores import get_map_store, get_user_store
 from app.features.users.user_store import UserStore
 
-router = APIRouter()
+router = APIRouter(tags=["map"])
 
 
 @router.post("/load", response_model=GetMapResponse)
