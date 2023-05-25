@@ -31,27 +31,28 @@ class FeedStore:
     async def get_discover_feed_ids(
         self, user_id: UserId, location: Optional[Location] = None, limit: int = 100
     ) -> list[PostId]:
-        """Get the user's discover feed."""
+        """Get the user's discover feed. Most recent posts for now."""
         query = (
             sa.select(PostRow.id)
             .join(UserRow, UserRow.id == PostRow.user_id)
             .where(
                 PostRow.user_id != user_id,
-                PostRow.image_id.is_not(None),
+                (PostRow.image_id.is_not(None) | (PostRow.content != "")),
                 ~PostRow.deleted,
                 ~UserRow.deleted,
             )
+            .order_by(PostRow.id.desc())
+            .limit(limit)
         )
-        if location:
-            center = sa.func.ST_GeographyFromText(f"POINT({location.longitude} {location.latitude})")
-            nearest_posts_subquery = (
-                sa.select(PostRow.id)
-                .join(PlaceRow)
-                .order_by(sa.asc(sa.func.ST_Distance(center, PlaceRow.location)))
-                .limit(1000)
-            )
-            query = query.where(PostRow.id.in_(nearest_posts_subquery))
-        query = query.order_by(sa.func.random()).limit(limit)
+        # if location:
+        #     center = sa.func.ST_GeographyFromText(f"POINT({location.longitude} {location.latitude})")
+        #     nearest_posts_subquery = (
+        #         sa.select(PostRow.id)
+        #         .join(PlaceRow)
+        #         .order_by(sa.asc(sa.func.ST_Distance(center, PlaceRow.location)))
+        #         .limit(1000)
+        #     )
+        #     query = query.where(PostRow.id.in_(nearest_posts_subquery))
         result = await self.db.execute(query)
         return result.scalars().all()  # type: ignore
 

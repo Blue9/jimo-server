@@ -192,15 +192,10 @@ async def get_discover_feed(
     user_store: UserStore = Depends(get_user_store),
 ):
     """Get the discover feed for the current user."""
-    # Step 1: Get post ids
     location = None
     if long is not None and lat is not None:
         location = Location(latitude=lat, longitude=long)
-    post_ids = await feed_store.get_discover_feed_ids(user.id, location=location, limit=30)
-    if len(post_ids) == 0:
-        return {"posts": []}
-    post_ids = sorted(post_ids, reverse=True)
-    # Step 2: Convert to posts
+    post_ids = await feed_store.get_discover_feed_ids(user.id, location=location, limit=100)
     posts = await get_posts_from_post_ids(
         current_user=user,
         post_ids=post_ids,
@@ -208,7 +203,6 @@ async def get_discover_feed(
         place_store=place_store,
         user_store=user_store,
     )
-    random.shuffle(posts)
     return {"posts": posts}
 
 
