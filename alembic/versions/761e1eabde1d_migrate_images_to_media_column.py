@@ -6,7 +6,6 @@ Create Date: 2023-04-18 14:55:06.077997
 
 """
 from alembic import op
-import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
@@ -32,7 +31,9 @@ UPDATE
 SET
   media = CASE
     WHEN updated_media.media = '[]' THEN
-      jsonb_build_array(jsonb_build_object('id', updated_media.iu_id, 'blob_name', updated_media.iu_blob_name, 'url', updated_media.iu_url))
+      jsonb_build_array(
+        jsonb_build_object(
+          'id', updated_media.iu_id, 'blob_name', updated_media.iu_blob_name, 'url', updated_media.iu_url))
     ELSE
       updated_media.media
   END

@@ -1,6 +1,6 @@
 from pydantic import root_validator
 from app.core.types import Base, CursorId, PlaceId, PostId
-from app.features.places.entities import Location, Place, SavedPlace
+from app.features.places.entities import Place, SavedPlace
 from app.features.posts.entities import Post
 from app.features.posts.types import MaybeCreatePlaceWithMetadataRequest
 

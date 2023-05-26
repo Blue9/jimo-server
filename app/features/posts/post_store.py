@@ -10,7 +10,7 @@ from app.core.database.helpers import (
     is_unique_column_error,
     eager_load_post_options,
 )
-from app.features.images.image_utils import get_image_else_throw, get_images
+from app.features.images.image_utils import get_images
 from app.features.posts.entities import InternalPost, InternalPostSave
 from app.core.types import UserId, PostId, PlaceId, CursorId, ImageId
 from app.core.database.models import (
