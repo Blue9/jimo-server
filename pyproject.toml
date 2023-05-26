@@ -7,8 +7,8 @@ authors = ["Your Name <you@example.com>"]
 [tool.poetry.dependencies]
 python = "^3.11"
 pydantic = "^1.10.2"
-fastapi = "^0.87.0"
-uvicorn = {extras = ["standard"], version = "^0.19.0"}
+fastapi = "^0.95.2"
+uvicorn = {extras = ["standard"], version = "^0.22.0"}
 gunicorn = "^20.1.0"
 ulid-py = "^1.1.0"
 geoalchemy2 = "^0.12.5"
@@ -29,8 +29,6 @@ pytest = "^7.1.2"
 pytest-asyncio = "^0.18.3"
 black = "^22.3.0"
 types-cachetools = "^5.2.1"
-
-[tool.poetry.group.dev.dependencies]
 mypy = "^0.991"
 
 [build-system]
