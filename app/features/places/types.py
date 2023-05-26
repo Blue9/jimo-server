@@ -5,10 +5,6 @@ from app.features.posts.entities import Post
 from app.features.posts.types import MaybeCreatePlaceWithMetadataRequest
 
 
-class PingLocationRequest(Base):
-    location: Location
-
-
 class FindPlaceResponse(Base):
     place: Place | None
 
