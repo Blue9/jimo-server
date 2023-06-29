@@ -43,7 +43,7 @@ from app.features.users.user_store import UserStore
 router = APIRouter(tags=["me"])
 
 
-@router.get("", response_model=PublicUser)
+@router.get("", operation_id="getMe", response_model=PublicUser)
 async def get_me(
     firebase_user: FirebaseUser = Depends(get_firebase_user),
     user_store: UserStore = Depends(get_user_store),
@@ -58,7 +58,7 @@ async def get_me(
     return user
 
 
-@router.post("", response_model=UpdateProfileResponse, response_model_exclude_none=True)
+@router.post("", operation_id="updateProfile", response_model=UpdateProfileResponse, response_model_exclude_none=True)
 async def update_user(
     request: UpdateProfileRequest,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
@@ -81,7 +81,7 @@ async def update_user(
     return response
 
 
-@router.post("/delete", response_model=SimpleResponse)
+@router.post("/delete", operation_id="deleteAccount", response_model=SimpleResponse)
 async def delete_user(
     user_store: UserStore = Depends(get_user_store),
     user: InternalUser = Depends(get_caller_user),
@@ -91,7 +91,7 @@ async def delete_user(
     return SimpleResponse(success=True)
 
 
-@router.get("/preferences", response_model=UserPrefs)
+@router.get("/preferences", operation_id="getPreferences", response_model=UserPrefs)
 async def get_preferences(
     user_store: UserStore = Depends(get_user_store),
     user: InternalUser = Depends(get_caller_user),
@@ -100,7 +100,7 @@ async def get_preferences(
     return await user_store.get_user_preferences(user.id)
 
 
-@router.post("/preferences", response_model=UserPrefs, response_model_exclude_none=True)
+@router.post("/preferences", operation_id="setPreferences", response_model=UserPrefs, response_model_exclude_none=True)
 async def update_preferences(
     request: UserPrefs,
     user_store: UserStore = Depends(get_user_store),
@@ -110,7 +110,7 @@ async def update_preferences(
     return await user_store.update_preferences(user.id, request)
 
 
-@router.post("/photo", response_model=PublicUser)
+@router.post("/photo", operation_id="setProfilePicture", response_model=PublicUser)
 async def upload_profile_picture(
     file: UploadFile = File(...),
     firebase_user: FirebaseUser = Depends(get_firebase_user),
@@ -129,7 +129,7 @@ async def upload_profile_picture(
         raise HTTPException(400, detail=errors.dict() if errors else None)
 
 
-@router.get("/feed", response_model=PaginatedPosts)
+@router.get("/feed", operation_id="getFeed", response_model=PaginatedPosts)
 async def get_feed(
     cursor: Optional[uuid.UUID] = None,
     feed_store: FeedStore = Depends(get_feed_store),
@@ -156,7 +156,7 @@ async def get_feed(
     return PaginatedPosts(posts=feed, cursor=next_cursor)
 
 
-@router.get("/discover", response_model=list[Post])
+@router.get("/discover", deprecated=True, include_in_schema=False, response_model=list[Post])
 async def _deprecated_get_discover_feed(
     feed_store: FeedStore = Depends(get_feed_store),
     post_store: PostStore = Depends(get_post_store),
@@ -181,7 +181,7 @@ async def _deprecated_get_discover_feed(
     return feed
 
 
-@router.get("/discoverV2", response_model=PaginatedPosts)
+@router.get("/discoverV2", operation_id="getDiscover", response_model=PaginatedPosts)
 async def get_discover_feed(
     long: Optional[float] = Query(None, ge=-180, le=180),
     lat: Optional[float] = Query(None, ge=-90, le=90),
@@ -206,7 +206,7 @@ async def get_discover_feed(
     return {"posts": posts}
 
 
-@router.get("/suggested", response_model=list[PublicUser])
+@router.get("/suggested", operation_id="getFeaturedUsers", response_model=list[PublicUser])
 async def get_featured_users(
     user_store: UserStore = Depends(get_user_store),
     _user: InternalUser = Depends(get_caller_user),
@@ -217,7 +217,7 @@ async def get_featured_users(
     return [user_map.get(user_id) for user_id in featured_user_ids if user_id in user_map]
 
 
-@router.get("/suggested-users", response_model=SuggestedUsersResponse)
+@router.get("/suggested-users", operation_id="getSuggestedUsers", response_model=SuggestedUsersResponse)
 async def get_suggested_users(
     user_store: UserStore = Depends(get_user_store),
     user: InternalUser = Depends(get_caller_user),
@@ -236,7 +236,7 @@ async def get_suggested_users(
     return SuggestedUsersResponse(users=users[:25])
 
 
-@router.post("/contacts", response_model=list[PublicUser])
+@router.post("/contacts", operation_id="getFriendsInContacts", response_model=list[PublicUser])
 async def get_existing_users(
     request: PhoneNumberList,
     user_store: UserStore = Depends(get_user_store),
@@ -255,7 +255,7 @@ async def get_existing_users(
     return [user_map.get(user_id) for user_id in user_ids if user_id in user_map]
 
 
-@router.post("/following", response_model=SimpleResponse)
+@router.post("/following", operation_id="followMany", response_model=SimpleResponse)
 async def follow_many(
     request: UsernameList,
     background_tasks: BackgroundTasks,
@@ -302,7 +302,7 @@ async def follow_many(
     return SimpleResponse(success=True)
 
 
-@router.get("/saved-posts", response_model=PaginatedPosts)
+@router.get("/saved-posts", deprecated=True, include_in_schema=False, response_model=PaginatedPosts)
 async def _deprecated_get_saved_posts(
     cursor: Optional[uuid.UUID] = None,
     _user: InternalUser = Depends(get_caller_user),
@@ -310,7 +310,7 @@ async def _deprecated_get_saved_posts(
     return PaginatedPosts(posts=[], cursor=None)
 
 
-@router.get("/saved-places", response_model=SavedPlacesResponse)
+@router.get("/saved-places", operation_id="getSavedPlaces", response_model=SavedPlacesResponse)
 async def get_saved_places(
     cursor: Optional[uuid.UUID] = None,
     place_store: PlaceStore = Depends(get_place_store),
@@ -323,7 +323,7 @@ async def get_saved_places(
     return SavedPlacesResponse(saves=saves, cursor=next_cursor)
 
 
-@router.post("/saved-places", response_model=SavePlaceResponse)
+@router.post("/saved-places", operation_id="savePlace", response_model=SavePlaceResponse)
 async def save_place(
     request: SavePlaceRequest,
     background_tasks: BackgroundTasks,
@@ -343,7 +343,7 @@ async def save_place(
     return SavePlaceResponse(save=save, create_place_request=request.place)
 
 
-@router.delete("/saved-places/{place_id}", response_model=SimpleResponse)
+@router.delete("/saved-places/{place_id}", operation_id="unsavePlace", response_model=SimpleResponse)
 async def unsave_place(
     place_id: PlaceId,
     place_store: PlaceStore = Depends(get_place_store),

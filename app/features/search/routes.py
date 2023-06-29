@@ -8,7 +8,7 @@ from app.features.stores import get_search_store
 router = APIRouter(tags=["search"])
 
 
-@router.get("/users", response_model=list[PublicUser])
+@router.get("/users", operation_id="searchUsers", response_model=list[PublicUser])
 async def search_users(
     q: str,
     search_store: SearchStore = Depends(get_search_store),

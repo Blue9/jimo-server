@@ -39,7 +39,7 @@ router = APIRouter(tags=["posts"])
 log = get_logger(__name__)
 
 
-@router.get("/{post_id}", response_model=Post)
+@router.get("/{post_id}", operation_id="getPost", response_model=Post)
 async def get_post(
     post_id: PostId,
     user_store: UserStore = Depends(get_user_store),
@@ -74,7 +74,7 @@ async def get_post(
     )
 
 
-@router.post("", response_model=Post)
+@router.post("", operation_id="createPost", response_model=Post)
 async def create_post(
     request: CreatePostRequest,
     background_tasks: BackgroundTasks,
@@ -112,7 +112,7 @@ async def create_post(
         raise HTTPException(400, detail=str(e))
 
 
-@router.put("/{post_id}", response_model=Post)
+@router.put("/{post_id}", operation_id="updatePost", response_model=Post)
 async def update_post(
     post_id: PostId,
     req: CreatePostRequest,
@@ -162,7 +162,7 @@ async def update_post(
         raise HTTPException(400, detail=str(e))
 
 
-@router.delete("/{post_id}", response_model=DeletePostResponse)
+@router.delete("/{post_id}", operation_id="deletePost", response_model=DeletePostResponse)
 async def delete_post(
     post_id: PostId,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
@@ -179,7 +179,7 @@ async def delete_post(
     return DeletePostResponse(deleted=False)
 
 
-@router.post("/{post_id}/likes", response_model=LikePostResponse)
+@router.post("/{post_id}/likes", operation_id="likePost", response_model=LikePostResponse)
 async def like_post(
     post_id: PostId,
     background_tasks: BackgroundTasks,
@@ -205,7 +205,7 @@ async def like_post(
     return {"likes": await post_store.get_like_count(post.id)}
 
 
-@router.delete("/{post_id}/likes", response_model=LikePostResponse)
+@router.delete("/{post_id}/likes", operation_id="unlikePost", response_model=LikePostResponse)
 async def unlike_post(
     post_id: PostId,
     post_store: PostStore = Depends(get_post_store),
@@ -220,7 +220,7 @@ async def unlike_post(
     return {"likes": await post_store.get_like_count(post.id)}
 
 
-@router.post("/{post_id}/save", response_model=SavePostResponse)
+@router.post("/{post_id}/save", operation_id="savePost", response_model=SavePostResponse)
 async def save_post(
     post_id: PostId,
     background_tasks: BackgroundTasks,
@@ -242,7 +242,7 @@ async def save_post(
     return {"success": True, "save": saved_place}
 
 
-@router.post("/{post_id}/unsave", response_model=SimpleResponse)
+@router.post("/{post_id}/unsave", operation_id="unsavePost", response_model=SimpleResponse)
 async def unsave_post(
     post_id: PostId,
     post_store: PostStore = Depends(get_post_store),
@@ -260,7 +260,7 @@ async def unsave_post(
     return {"success": True}
 
 
-@router.post("/{post_id}/report", response_model=SimpleResponse)
+@router.post("/{post_id}/report", operation_id="reportPost", response_model=SimpleResponse)
 async def report_post(
     post_id: PostId,
     request: ReportPostRequest,
@@ -276,7 +276,7 @@ async def report_post(
     return SimpleResponse(success=success)
 
 
-@router.get("/{post_id}/comments", response_model=CommentPageResponse)
+@router.get("/{post_id}/comments", operation_id="getComments", response_model=CommentPageResponse)
 async def get_comments(
     post_id: PostId,
     cursor: Optional[CursorId] = None,

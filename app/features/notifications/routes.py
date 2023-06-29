@@ -21,7 +21,7 @@ from app.features.stores import get_place_store, get_post_store, get_notificatio
 router = APIRouter(tags=["notifications"])
 
 
-@router.post("/token", response_model=SimpleResponse)
+@router.post("/token", operation_id="registerNotificationsToken", response_model=SimpleResponse)
 async def register_token(
     request: NotificationTokenRequest,
     db: AsyncSession = Depends(get_db),
@@ -32,7 +32,7 @@ async def register_token(
     return {"success": True}
 
 
-@router.delete("/token", response_model=SimpleResponse)
+@router.delete("/token", operation_id="removeNotificationsToken", response_model=SimpleResponse)
 async def remove_token(
     request: NotificationTokenRequest,
     db: AsyncSession = Depends(get_db),
@@ -43,7 +43,7 @@ async def remove_token(
     return {"success": True}
 
 
-@router.get("/feed", response_model=NotificationFeedResponse)
+@router.get("/feed", operation_id="getNotificationsFeed", response_model=NotificationFeedResponse)
 async def get_notification_feed(
     cursor: Optional[uuid.UUID] = None,
     post_store: PostStore = Depends(get_post_store),

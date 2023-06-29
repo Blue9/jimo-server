@@ -19,7 +19,7 @@ router = APIRouter(tags=["onboarding"])
 log = get_logger(__name__)
 
 
-@router.get("/places", response_model=PlaceTilePage)
+@router.get("/places", operation_id="getCityPosts", response_model=PlaceTilePage)
 def get_posts_for_city(
     city: OnboardingCity,
     _current_user: InternalUser = Depends(get_caller_user),
@@ -31,7 +31,7 @@ def get_posts_for_city(
     return PlaceTilePage.construct(places=places)
 
 
-@router.post("/places", response_model=SimpleResponse)
+@router.post("/places", operation_id="onboardPlaces", response_model=SimpleResponse)
 async def submit_onboarding_places(
     request: CreateMultiRequest,
     background_tasks: BackgroundTasks,

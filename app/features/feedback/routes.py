@@ -12,7 +12,7 @@ from app.features.users.dependencies import get_caller_user
 router = APIRouter(tags=["feedback"])
 
 
-@router.post("", response_model=SimpleResponse)
+@router.post("", operation_id="submitFeedback", response_model=SimpleResponse)
 async def submit_feedback(
     request: FeedbackRequest,
     db: AsyncSession = Depends(get_db),

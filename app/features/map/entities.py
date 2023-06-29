@@ -12,6 +12,7 @@ class MapPinIcon(Base):
 
 class MapPin(Base):
     place_id: PlaceId
+    place_name: str
     location: Location
     icon: MapPinIcon
 

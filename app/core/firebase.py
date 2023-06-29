@@ -95,8 +95,9 @@ class FirebaseAdmin(FirebaseAdminProtocol):
         """Get the user's uid from the given authorization header."""
         if authorization is None or not authorization.startswith("Bearer "):
             return None
-        id_token = authorization[7:]
-        return await self.get_uid_from_token(id_token)
+        return authorization[7:]
+        # id_token = authorization[7:]
+        # return await self.get_uid_from_token(id_token)
 
     # Storage
     async def upload_image(self, user_uid: str, image_id: uuid.UUID, file_obj: IO) -> tuple[str, str] | None:

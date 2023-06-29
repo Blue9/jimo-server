@@ -46,7 +46,7 @@ async def get_requested_user(
     return user
 
 
-@router.post("", response_model=CreateUserResponse, response_model_exclude_none=True)
+@router.post("", operation_id="createProfile", response_model=CreateUserResponse, response_model_exclude_none=True)
 async def create_user(
     request: CreateUserRequest,
     firebase_user: FirebaseUser = Depends(get_firebase_user),
@@ -71,7 +71,7 @@ async def create_user(
     return CreateUserResponse.construct(created=user.to_public() if user else None, error=error)
 
 
-@router.get("/{username}", response_model=PublicUser)
+@router.get("/{username}", operation_id="getUser", response_model=PublicUser)
 async def get_user(
     requested_user: InternalUser = Depends(get_requested_user),
 ):
@@ -79,7 +79,7 @@ async def get_user(
     return requested_user
 
 
-@router.get("/{username}/posts", response_model=PaginatedPosts)
+@router.get("/{username}/posts", operation_id="getUserPosts", response_model=PaginatedPosts)
 async def get_posts(
     cursor: Optional[uuid.UUID] = None,
     limit: Optional[int] = 15,
@@ -102,7 +102,7 @@ async def get_posts(
     return PaginatedPosts(posts=posts, cursor=next_cursor)
 
 
-@router.get("/{username}/relation", response_model=RelationToUser)
+@router.get("/{username}/relation", operation_id="getRelation", response_model=RelationToUser)
 async def get_relation(
     db: AsyncSession = Depends(get_db),
     from_user: InternalUser = Depends(get_caller_user),
@@ -118,7 +118,7 @@ async def get_relation(
     return RelationToUser(relation=relation.value if relation else None)
 
 
-@router.get("/{username}/followers", response_model=FollowFeedResponse)
+@router.get("/{username}/followers", operation_id="getFollowers", response_model=FollowFeedResponse)
 async def get_followers(
     cursor: Optional[uuid.UUID] = None,
     user_store: UserStore = Depends(get_user_store),
@@ -135,7 +135,7 @@ async def get_followers(
     return dict(users=items, cursor=next_cursor)
 
 
-@router.get("/{username}/following", response_model=FollowFeedResponse)
+@router.get("/{username}/following", operation_id="getFollowing", response_model=FollowFeedResponse)
 async def get_following(
     cursor: Optional[uuid.UUID] = None,
     user_store: UserStore = Depends(get_user_store),
@@ -152,7 +152,7 @@ async def get_following(
     return dict(users=items, cursor=next_cursor)
 
 
-@router.post("/{username}/follow", response_model=FollowUserResponse)
+@router.post("/{username}/follow", operation_id="followUser", response_model=FollowUserResponse)
 async def follow_user(
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
@@ -178,7 +178,7 @@ async def follow_user(
         raise HTTPException(400, detail=str(e))
 
 
-@router.post("/{username}/unfollow", response_model=FollowUserResponse)
+@router.post("/{username}/unfollow", operation_id="unfollowUser", response_model=FollowUserResponse)
 async def unfollow_user(
     relation_store: RelationStore = Depends(get_relation_store),
     from_user: InternalUser = Depends(get_caller_user),
@@ -194,7 +194,7 @@ async def unfollow_user(
         raise HTTPException(400, str(e))
 
 
-@router.post("/{username}/block", response_model=SimpleResponse)
+@router.post("/{username}/block", operation_id="blockUser", response_model=SimpleResponse)
 async def block_user(
     relation_store: RelationStore = Depends(get_relation_store),
     from_user: InternalUser = Depends(get_caller_user),
@@ -210,7 +210,7 @@ async def block_user(
         raise HTTPException(400, str(e))
 
 
-@router.post("/{username}/unblock", response_model=SimpleResponse)
+@router.post("/{username}/unblock", operation_id="unblockUser", response_model=SimpleResponse)
 async def unblock_user(
     relation_store: RelationStore = Depends(get_relation_store),
     from_user: InternalUser = Depends(get_caller_user),

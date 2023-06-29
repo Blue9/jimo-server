@@ -90,7 +90,14 @@ class MapStore:
             4326,
         )
         query = (
-            sa.select(PlaceRow.id, PlaceRow.latitude, PlaceRow.longitude, PlaceSaveRow.category, PostRow.category)
+            sa.select(
+                PlaceRow.id,
+                PlaceRow.name,
+                PlaceRow.latitude,
+                PlaceRow.longitude,
+                PlaceSaveRow.category,
+                PostRow.category,
+            )
             .select_from(PlaceSaveRow)
             .join(PlaceRow)
             .join(
@@ -107,12 +114,13 @@ class MapStore:
         return [
             MapPin(
                 place_id=place_id,
+                place_name=name,
                 location=Location(latitude=lat, longitude=long),
                 icon=MapPinIcon(category=category, icon_url=user_icon_url, num_posts=int(bool(category))),
             )
             # fallback_category is the post category for saves that were migrated from post saves
             # Not using now so that a pin only has a category if the current user posted it
-            for (place_id, lat, long, _fallback_category, category) in rows
+            for (place_id, name, lat, long, _fallback_category, category) in rows
         ]
 
     async def _get_map(
@@ -131,10 +139,11 @@ class MapStore:
         return [
             MapPin(
                 place_id=place_id,
+                place_name=name,
                 location=Location(latitude=lat, longitude=long),
                 icon=MapPinIcon(category=categories[0], icon_url=icon_urls[0], num_posts=num_posts),
             )
-            for (place_id, lat, long, num_posts, categories, icon_urls) in rows
+            for (place_id, name, lat, long, num_posts, categories, icon_urls) in rows
         ]
 
 
@@ -149,6 +158,7 @@ def base_map_query(region: RectangularRegion) -> sa.sql.Select:
     query = (
         sa.select(
             PlaceRow.id,
+            PlaceRow.name,
             PlaceRow.latitude,
             PlaceRow.longitude,
             func.count(PostRow.id).label("num_posts"),

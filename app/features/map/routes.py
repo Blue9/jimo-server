@@ -9,7 +9,7 @@ from app.features.users.user_store import UserStore
 router = APIRouter(tags=["map"])
 
 
-@router.post("/load", response_model=GetMapResponse)
+@router.post("/load", operation_id="getMap", response_model=GetMapResponse)
 async def load_map(
     request: GetMapRequest,
     map_store: MapStore = Depends(get_map_store),

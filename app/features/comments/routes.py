@@ -26,7 +26,7 @@ from app.features.users.user_store import UserStore
 router = APIRouter(tags=["comments"])
 
 
-@router.post("", response_model=Comment)
+@router.post("", operation_id="createComment", response_model=Comment)
 async def create_comment(
     request: CreateCommentRequest,
     background_tasks: BackgroundTasks,
@@ -59,7 +59,7 @@ async def create_comment(
     )
 
 
-@router.delete("/{comment_id}", response_model=SimpleResponse)
+@router.delete("/{comment_id}", operation_id="deleteComment", response_model=SimpleResponse)
 async def delete_comment(
     comment_id: CommentId,
     post_store: PostStore = Depends(get_post_store),
@@ -78,7 +78,7 @@ async def delete_comment(
     return SimpleResponse(success=True)
 
 
-@router.post("/{comment_id}/likes", response_model=LikeCommentResponse)
+@router.post("/{comment_id}/likes", operation_id="likeComment", response_model=LikeCommentResponse)
 async def like_comment(
     comment_id: CommentId,
     background_tasks: BackgroundTasks,
@@ -103,7 +103,7 @@ async def like_comment(
     return LikeCommentResponse(likes=await comment_store.get_like_count(comment_id))
 
 
-@router.delete("/{comment_id}/likes", response_model=LikeCommentResponse)
+@router.delete("/{comment_id}/likes", operation_id="unlikeComment", response_model=LikeCommentResponse)
 async def unlike_comment(
     comment_id: CommentId,
     comment_store: CommentStore = Depends(get_comment_store),

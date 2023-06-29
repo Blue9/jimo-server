@@ -22,7 +22,7 @@ router = APIRouter(tags=["places"])
 
 
 # NOTE: find_place is not authenticated (anonymous Firebase accounts can access)
-@router.get("/matching", response_model=FindPlaceResponse)
+@router.get("/matching", operation_id="findPlace", response_model=FindPlaceResponse)
 async def find_place(
     name: str,
     latitude: float = Query(ge=-90, le=90),
@@ -37,7 +37,7 @@ async def find_place(
     return {"place": place}
 
 
-@router.get("/{place_id}/details", response_model=GetPlaceDetailsResponse)
+@router.get("/{place_id}/details", operation_id="getPlaceDetails", response_model=GetPlaceDetailsResponse)
 async def get_place_details(
     place_id: PlaceId,
     post_store: PostStore = Depends(get_post_store),

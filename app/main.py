@@ -79,12 +79,12 @@ def rate_limit_exceeded_handler(_request: Request, _exc: RateLimitExceeded) -> R
     return JSONResponse({"error": "You are going too fast"}, status_code=429)
 
 
-@app.get("/")
+@app.get("/", include_in_schema=False)
 async def index():
     return RedirectResponse("https://www.jimoapp.com/")
 
 
-@app.post("/images", response_model=ImageUploadResponse)
+@app.post("/images", operation_id="uploadImage", response_model=ImageUploadResponse)
 async def upload_image(
     file: UploadFile = File(...),
     firebase_user: FirebaseUser = Depends(get_firebase_user),
