@@ -46,6 +46,8 @@
 
 The backend is split up two main folders: `core` and `features`.
 
-For every request, we receive an `authorization` header and a `db` object. The `authorization` header is a bearer token used to authenticate requests. We use Firebase for auth and verify the token by checking it with them.
+For every authenticated request, we receive an `authorization` header, which is a bearer token used to authenticate requests. We use Firebase for auth and verify the token by checking it with them.
+
+We use FastAPI's [dependency system](https://fastapi.tiangolo.com/tutorial/dependencies/) and storage classes to simplify and encapsulate data-fetching logic.
 
 We also define a response model for every request (see the `response_model` param for each route). This is usually a Pydantic model, and when you return an object from a route, FastAPI will try to automatically parse it to the given Pydantic type. This is useful because Pydantic lets us define validators on our types, so we can make sure that the data we return to a user is valid. We also do this for some requests, where the body is a Pydantic type so we can easily validate the request.
