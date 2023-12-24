@@ -28,7 +28,7 @@ def get_posts_for_city(
     places = featured_posts_by_city.get(city)
     if not places:
         places = featured_posts_by_city[OnboardingCity.NYC]
-    return PlaceTilePage.construct(places=places)
+    return PlaceTilePage.model_construct(places=places)
 
 
 @router.post("/places", response_model=SimpleResponse)

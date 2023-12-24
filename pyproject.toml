@@ -5,31 +5,31 @@ description = ""
 authors = ["Your Name <you@example.com>"]
 
 [tool.poetry.dependencies]
-python = "^3.11"
-pydantic = "^1.10.2"
-fastapi = "^0.95.2"
-uvicorn = {extras = ["standard"], version = "^0.22.0"}
-gunicorn = "^20.1.0"
+python = "^3.12"
+pydantic = "^2.5.3"
+fastapi = "^0.105.0"
+uvicorn = { extras = ["standard"], version = "^0.25.0" }
+gunicorn = "^21.2.0"
 ulid-py = "^1.1.0"
-geoalchemy2 = "^0.12.5"
-psycopg2 = "^2.9.5"
-firebase-admin = "^6.0.1"
-python-multipart = "^0.0.5"
-alembic = "^1.8.1"
-asyncpg = "^0.27.0"
-slowapi = "^0.1.6"
-httpx = "^0.23.0"
-sqlalchemy = "^2.0.0"
-greenlet = "^2.0.1"
-timing-asgi = "^0.3.0"
+geoalchemy2 = "^0.14.3"
+psycopg2 = "^2.9.9"
+firebase-admin = "^6.3.0"
+python-multipart = "^0.0.6"
+alembic = "^1.13.1"
+asyncpg = "^0.29.0"
+slowapi = "^0.1.8"
+httpx = "^0.26.0"
+sqlalchemy = "^2.0.23"
+greenlet = "^3.0.3"
+timing-asgi = "^0.3.1"
 
 [tool.poetry.dev-dependencies]
-flake8 = "^4.0.1"
-pytest = "^7.1.2"
-pytest-asyncio = "^0.18.3"
-black = "^22.3.0"
-types-cachetools = "^5.2.1"
-mypy = "^0.991"
+flake8 = "^6.1.0"
+pytest = "^7.4.3"
+pytest-asyncio = "^0.23.2"
+black = "^23.12.1"
+types-cachetools = "^5.3.0.7"
+mypy = "^1.8.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

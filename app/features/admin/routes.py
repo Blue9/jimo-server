@@ -109,7 +109,7 @@ async def create_user(
     if created:
         return created
     elif error:
-        raise HTTPException(400, error.json())
+        raise HTTPException(400, error.model_dump_json())
     else:
         raise HTTPException(500)
 

@@ -1,7 +1,9 @@
 import uuid
 from contextlib import contextmanager
+from fastapi.encoders import jsonable_encoder
 
 import pytest
+import pytest_asyncio
 from sqlalchemy import select
 
 from app.core.database.models import (
@@ -28,7 +30,7 @@ USER_A_POST_ID = uuid.uuid4()
 USER_B_POST_ID = uuid.uuid4()
 
 
-@pytest.fixture(autouse=True, scope="function")
+@pytest_asyncio.fixture(autouse=True)
 async def setup_fixture(session):
     user_a = UserRow(id=USER_A_ID, uid="a", username="a", first_name="a", last_name="a")
     user_b = UserRow(id=USER_B_ID, uid="b", username="b", first_name="b", last_name="b")
@@ -74,9 +76,9 @@ async def test_create_comment_regular_post(client):
     comment_content = "Nice"
     create_comment_request = CreateCommentRequest(post_id=USER_A_POST_ID, content=comment_content)
     with request_as(uid="b"):
-        response = await client.post("/comments", data=create_comment_request.json())
+        response = await client.post("/comments", json=jsonable_encoder(create_comment_request))
         assert response.status_code == 200
-        parsed = Comment.parse_obj(response.json())
+        parsed = Comment.model_validate(response.json())
         assert parsed.user.username == "b"
         assert parsed.post_id == USER_A_POST_ID
         assert parsed.content == comment_content
@@ -98,7 +100,7 @@ async def test_create_comment_blocked_post(session, client):
     await session.commit()
 
     with request_as(uid="b"):
-        response = await client.post("/comments", data=create_comment_request.json())
+        response = await client.post("/comments", json=jsonable_encoder(create_comment_request))
         assert response.status_code == 404
 
 
@@ -111,7 +113,7 @@ async def test_create_comment_deleted_post(session, client):
     await session.commit()
 
     with request_as(uid="b"):
-        response = await client.post("/comments", data=create_comment_request.json())
+        response = await client.post("/comments", json=jsonable_encoder(create_comment_request))
         assert response.status_code == 404
 
 
@@ -120,15 +122,15 @@ async def test_get_comments_regular_post(client):
     with request_as(uid="b"):
         response_1 = await client.post(
             "/comments",
-            data=CreateCommentRequest(post_id=USER_A_POST_ID, content="1").json(),
+            json=jsonable_encoder(CreateCommentRequest(post_id=USER_A_POST_ID, content="1")),
         )
         response_2 = await client.post(
             "/comments",
-            data=CreateCommentRequest(post_id=USER_A_POST_ID, content="2").json(),
+            json=jsonable_encoder(CreateCommentRequest(post_id=USER_A_POST_ID, content="2")),
         )
         response_3 = await client.post(
             "/comments",
-            data=CreateCommentRequest(post_id=USER_A_POST_ID, content="3").json(),
+            json=jsonable_encoder(CreateCommentRequest(post_id=USER_A_POST_ID, content="3")),
         )
         comment_1 = response_1.json()
         comment_2 = response_2.json()
@@ -138,11 +140,11 @@ async def test_get_comments_regular_post(client):
 
     with request_as(uid="b"):
         response = await client.get(f"/posts/{USER_A_POST_ID}/comments")
-        parsed = CommentPageResponse.parse_obj(response.json())
+        parsed = CommentPageResponse.model_validate(response.json())
         assert response.status_code == 200
         assert len(parsed.comments) == 2
-        assert parsed.comments[0] == Comment.parse_obj(comment_1)
-        assert parsed.comments[1] == Comment.parse_obj(comment_2)
+        assert parsed.comments[0] == Comment.model_validate(comment_1)
+        assert parsed.comments[1] == Comment.model_validate(comment_2)
 
 
 async def test_get_comments_blocked_post(session, client):
@@ -177,19 +179,19 @@ async def test_delete_comment_regular_post(session, client):
     with request_as(uid="b"):
         b_response = await client.post(
             "/comments",
-            data=CreateCommentRequest(post_id=USER_A_POST_ID, content="1").json(),
+            json=jsonable_encoder(CreateCommentRequest(post_id=USER_A_POST_ID, content="1")),
         )
         b_comment = b_response.json()
     with request_as(uid="a"):
         a_response = await client.post(
             "/comments",
-            data=CreateCommentRequest(post_id=USER_A_POST_ID, content="2").json(),
+            json=jsonable_encoder(CreateCommentRequest(post_id=USER_A_POST_ID, content="2")),
         )
         a_comment = a_response.json()
     with request_as(uid="b"):
         deleted_response = await client.post(
             "/comments",
-            data=CreateCommentRequest(post_id=USER_A_POST_ID, content="3").json(),
+            json=jsonable_encoder(CreateCommentRequest(post_id=USER_A_POST_ID, content="3")),
         )
         deleted = deleted_response.json()
         response = await client.delete(f"/comments/{deleted['commentId']}")
@@ -208,9 +210,9 @@ async def test_delete_comment_regular_post(session, client):
 
     with request_as(uid="b"):
         response = await client.get(f"/posts/{USER_A_POST_ID}/comments")
-        parsed = CommentPageResponse.parse_obj(response.json())
+        parsed = CommentPageResponse.model_validate(response.json())
         assert len(parsed.comments) == 1
-        assert parsed.comments[0] == Comment.parse_obj(a_comment)
+        assert parsed.comments[0] == Comment.model_validate(a_comment)
 
 
 async def test_delete_comment_blocked_post(session, client):
@@ -218,7 +220,7 @@ async def test_delete_comment_blocked_post(session, client):
     with request_as(uid="b"):
         b_response = await client.post(
             "/comments",
-            data=CreateCommentRequest(post_id=USER_A_POST_ID, content="1").json(),
+            json=jsonable_encoder(CreateCommentRequest(post_id=USER_A_POST_ID, content="1")),
         )
         b_comment = b_response.json()
     # User A blocks user B
@@ -240,7 +242,7 @@ async def test_delete_comment_deleted_post(session, client):
     with request_as(uid="b"):
         b_response = await client.post(
             "/comments",
-            data=CreateCommentRequest(post_id=USER_A_POST_ID, content="1").json(),
+            json=jsonable_encoder(CreateCommentRequest(post_id=USER_A_POST_ID, content="1")),
         )
         b_comment = b_response.json()
     # User A deleted their post
@@ -257,7 +259,7 @@ async def test_delete_comment_on_my_post(session, client):
     with request_as(uid="b"):
         b_response = await client.post(
             "/comments",
-            data=CreateCommentRequest(post_id=USER_A_POST_ID, content="1").json(),
+            json=jsonable_encoder(CreateCommentRequest(post_id=USER_A_POST_ID, content="1")),
         )
         b_comment = b_response.json()
     # User A deletes the comment
@@ -265,7 +267,7 @@ async def test_delete_comment_on_my_post(session, client):
         delete_comment_response = await client.delete(f"/comments/{b_comment['commentId']}")
         assert delete_comment_response.status_code == 200
         get_comments_response = (await client.get(f"/posts/{USER_A_POST_ID}/comments")).json()
-        parsed = CommentPageResponse.parse_obj(get_comments_response)
+        parsed = CommentPageResponse.model_validate(get_comments_response)
         assert len(parsed.comments) == 0
         assert parsed.cursor is None
 
@@ -275,31 +277,31 @@ async def test_like_comment(client):
     with request_as(uid="b"):
         b_response = await client.post(
             "/comments",
-            data=CreateCommentRequest(post_id=USER_A_POST_ID, content="1").json(),
+            json=jsonable_encoder(CreateCommentRequest(post_id=USER_A_POST_ID, content="1")),
         )
         b_comment = b_response.json()
     # Like comment
     with request_as(uid="a"):
         like_comment_response = await client.post(f"/comments/{b_comment['commentId']}/likes")
         assert like_comment_response.status_code == 200
-        parsed = LikeCommentResponse.parse_obj(like_comment_response.json())
+        parsed = LikeCommentResponse.model_validate(like_comment_response.json())
         assert parsed.likes == 1
     # Like comment again
     with request_as(uid="a"):
         like_comment_response = await client.post(f"/comments/{b_comment['commentId']}/likes")
         assert like_comment_response.status_code == 200
-        parsed = LikeCommentResponse.parse_obj(like_comment_response.json())
+        parsed = LikeCommentResponse.model_validate(like_comment_response.json())
         assert parsed.likes == 1
     # Like comment other user
     with request_as(uid="b"):
         like_comment_response = await client.post(f"/comments/{b_comment['commentId']}/likes")
         assert like_comment_response.status_code == 200
-        parsed = LikeCommentResponse.parse_obj(like_comment_response.json())
+        parsed = LikeCommentResponse.model_validate(like_comment_response.json())
         assert parsed.likes == 2
     # Get comments, make sure like count matches
     with request_as(uid="b"):
         response = await client.get(f"/posts/{USER_A_POST_ID}/comments")
-        comment_page = CommentPageResponse.parse_obj(response.json())
+        comment_page = CommentPageResponse.model_validate(response.json())
         assert len(comment_page.comments) == 1
         assert comment_page.cursor is None
         assert comment_page.comments[0].like_count == 2
@@ -310,20 +312,20 @@ async def test_unlike_comment(client):
     with request_as(uid="b"):
         b_response = await client.post(
             "/comments",
-            data=CreateCommentRequest(post_id=USER_A_POST_ID, content="1").json(),
+            json=jsonable_encoder(CreateCommentRequest(post_id=USER_A_POST_ID, content="1")),
         )
         b_comment = b_response.json()
     # Like comment
     with request_as(uid="a"):
         like_comment_response = await client.post(f"/comments/{b_comment['commentId']}/likes")
         assert like_comment_response.status_code == 200
-        parsed = LikeCommentResponse.parse_obj(like_comment_response.json())
+        parsed = LikeCommentResponse.model_validate(like_comment_response.json())
         assert parsed.likes == 1
     # Unlike comment
     with request_as(uid="a"):
         like_comment_response = await client.delete(f"/comments/{b_comment['commentId']}/likes")
         assert like_comment_response.status_code == 200
-        parsed = LikeCommentResponse.parse_obj(like_comment_response.json())
+        parsed = LikeCommentResponse.model_validate(like_comment_response.json())
         assert parsed.likes == 0
 
 
@@ -332,7 +334,7 @@ async def test_like_unlike_comment_blocked_post(session, client):
     with request_as(uid="b"):
         b_response = await client.post(
             "/comments",
-            data=CreateCommentRequest(post_id=USER_A_POST_ID, content="1").json(),
+            json=jsonable_encoder(CreateCommentRequest(post_id=USER_A_POST_ID, content="1")),
         )
         b_comment_id = b_response.json()["commentId"]
     # User A blocks user B
@@ -357,7 +359,7 @@ async def test_like_unlike_comment_deleted_post(session, client):
     with request_as(uid="b"):
         b_response = await client.post(
             "/comments",
-            data=CreateCommentRequest(post_id=USER_A_POST_ID, content="1").json(),
+            json=jsonable_encoder(CreateCommentRequest(post_id=USER_A_POST_ID, content="1")),
         )
         b_comment_id = b_response.json()["commentId"]
     # User A deleted their post

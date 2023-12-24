@@ -1,5 +1,3 @@
-import asyncio
-
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient
@@ -16,39 +14,34 @@ from app.features.posts import categories
 TEST_DATABASE_NAME = "jimo_test_db"
 
 
-@pytest.fixture(scope="session")
-def event_loop():
-    return asyncio.new_event_loop()
-
-
-@pytest.fixture(scope="session")
-def sync_engine(engine):
-    return engine.sync_engine
-
-
-@pytest.fixture(scope="session")
-def engine():
+@pytest_asyncio.fixture
+async def engine():
     check_db_name()
     from app.core.database.engine import engine
 
+    print("yielding engine")
     yield engine
-    engine.sync_engine.dispose()
+    print("yielded engine")
+    await engine.dispose()
 
 
-@pytest_asyncio.fixture(scope="session")
-async def app():
+@pytest.fixture(scope="session")
+def app():
     from app.main import app as main_app
 
     return main_app
 
 
-@pytest_asyncio.fixture()
+@pytest_asyncio.fixture
 async def create(engine):
+    print("creating db")
     async with engine.begin() as conn:
         await conn.run_sync(reset_db)
         await conn.run_sync(Base.metadata.create_all)
         await conn.run_sync(populate_categories)
+    print("yielding from create")
     yield
+    print("yielded from create, clearing db")
     async with engine.begin() as conn:
         await conn.run_sync(reset_db)
 
@@ -56,7 +49,9 @@ async def create(engine):
 @pytest_asyncio.fixture
 async def session(engine, create):
     async with AsyncSession(engine) as session:
+        print("yielding session")
         yield session
+        print("yielded session")
 
 
 @pytest_asyncio.fixture

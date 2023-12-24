@@ -1,6 +1,7 @@
 from datetime import datetime
+from uuid import UUID
 
-from pydantic import Field, validator
+from pydantic import Field, field_validator, model_validator
 from app.features.images.entities import MediaEntity
 
 from app.features.places.entities import Place
@@ -9,7 +10,7 @@ from app.core.types import Base, PostId, ImageId, InternalBase, UserId, PostSave
 
 
 class PostWithoutLikeSaveStatus(Base):
-    id: PostId = Field(alias="postId")
+    id: PostId = Field(serialization_alias="postId")
     user: PublicUser
     place: Place
     category: str
@@ -22,24 +23,18 @@ class PostWithoutLikeSaveStatus(Base):
     like_count: int
     comment_count: int
 
-    @validator("image_id", pre=True, always=True)
-    def set_image_id(cls, image_id, values):
-        if values.get("media"):
-            return values["media"][0].id
-        return image_id
+    @model_validator(mode="after")
+    @classmethod
+    def set_image_id_and_url(cls, values):
+        if len(values.media) > 0:
+            values.image_id = UUID(values.media[0].id)
+            values.image_url = values.media[0].url
+        return values
 
-    @validator("image_url", pre=True, always=True)
-    def set_image_url(cls, image_url, values):
-        if values.get("media"):
-            return values["media"][0].url
-        return image_url
-
-    @validator("content")
-    def validate_content(cls, content):
-        return content.strip()
-
-    @validator("created_at")
-    def validate_created_at(cls, created_at):
+    @field_validator("created_at")
+    @classmethod
+    def validate_created_at(cls, created_at: datetime) -> datetime:
+        print("validating created at")
         # Needed so Swift can automatically decode
         return created_at.replace(microsecond=0)
 

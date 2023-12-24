@@ -51,13 +51,13 @@ class UserStore:
             query = query.where(UserRow.username_lower == username.lower())
         result = await self.db.execute(query)
         user: Optional[UserRow] = result.scalars().first()
-        return InternalUser.from_orm(user) if user else None
+        return InternalUser.model_validate(user) if user else None
 
     async def get_users(self, user_ids: list[UserId]) -> dict[UserId, InternalUser]:
         query = sa.select(UserRow).options(*eager_load_user_options()).where(UserRow.id.in_(user_ids), ~UserRow.deleted)
         result = await self.db.execute(query)
         users = result.scalars().all()
-        return {user.id: InternalUser.from_orm(user) for user in users}
+        return {user.id: InternalUser.model_validate(user) for user in users}
 
     async def get_users_by_phone_number(self, phone_numbers: Sequence[PhoneNumber], limit: int = 100) -> list[UserId]:
         """Return up to `limit` users with the given phone numbers."""
@@ -79,7 +79,7 @@ class UserStore:
         result = await self.db.execute(query)
         prefs = result.scalars().first()
         return (
-            UserPrefs.from_orm(prefs)
+            UserPrefs.model_validate(prefs)
             if prefs
             else UserPrefs(
                 follow_notifications=False,
@@ -208,7 +208,7 @@ class UserStore:
             prefs.post_notifications = request.post_notifications
         await self.db.commit()
         await self.db.refresh(prefs)
-        return UserPrefs.from_orm(prefs)
+        return UserPrefs.model_validate(prefs)
 
     def _get_suggested_users_query(self, user_id: UserId, limit: int) -> sa.sql.Select:
         """

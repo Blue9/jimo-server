@@ -126,7 +126,7 @@ async def upload_profile_picture(
     if new_user is not None:
         return new_user
     else:
-        raise HTTPException(400, detail=errors.dict() if errors else None)
+        raise HTTPException(400, detail=errors.model_dump() if errors else None)
 
 
 @router.get("/feed", response_model=PaginatedPosts)

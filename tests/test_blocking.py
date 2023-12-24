@@ -2,6 +2,7 @@ import uuid
 from contextlib import contextmanager
 
 import pytest
+import pytest_asyncio
 
 from app.core.database.models import UserRow, PlaceRow, PostRow
 from app.core.firebase import get_firebase_user, FirebaseUser
@@ -13,8 +14,9 @@ USER_A_POST_ID = uuid.uuid4()
 USER_B_POST_ID = uuid.uuid4()
 
 
-@pytest.fixture(autouse=True, scope="function")
+@pytest_asyncio.fixture(autouse=True)
 async def setup_fixture(session):
+    print("setting up fixture")
     user_a = UserRow(uid="a", username="a", first_name="a", last_name="a")
     user_b = UserRow(uid="b", username="b", first_name="b", last_name="b")
     session.add(user_a)
@@ -45,6 +47,7 @@ async def setup_fixture(session):
     session.add(user_a_post)
     session.add(user_b_post)
     await session.commit()
+    print("set up fixture")
 
 
 @contextmanager

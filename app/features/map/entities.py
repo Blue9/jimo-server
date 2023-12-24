@@ -1,12 +1,12 @@
-from typing import Optional, Literal
+from typing import Literal
 
 from app.features.places.entities import Location
 from app.core.types import Base, PlaceId
 
 
 class MapPinIcon(Base):
-    category: Optional[str]  # Determines color of the pin
-    icon_url: Optional[str]
+    category: str | None  # Determines color of the pin
+    icon_url: str | None
     num_posts: int
 
 

@@ -27,7 +27,7 @@ class PlaceStore:
         query = sa.select(PlaceRow).where(PlaceRow.id == place_id)
         result = await self.db.execute(query)
         place_row = result.scalars().first()
-        return Place.from_orm(place_row) if place_row else None
+        return Place.model_validate(place_row) if place_row else None
 
     async def find_or_create_place(
         self,
@@ -56,7 +56,7 @@ class PlaceStore:
             query = query.where(PlaceRow.latitude == latitude, PlaceRow.longitude == longitude)
         result = await self.db.execute(query)
         maybe_place = result.scalars().first()
-        return Place.from_orm(maybe_place) if maybe_place else None
+        return Place.model_validate(maybe_place) if maybe_place else None
 
     async def get_place_save(self, user_id: UserId, place_id: PlaceId) -> SavedPlace | None:
         result = await self.db.execute(
@@ -65,7 +65,7 @@ class PlaceStore:
             .where(PlaceSaveRow.user_id == user_id, PlaceSaveRow.place_id == place_id)
         )
         maybe_place_save = result.scalars().first()
-        return SavedPlace.from_orm(maybe_place_save) if maybe_place_save else None
+        return SavedPlace.model_validate(maybe_place_save) if maybe_place_save else None
 
     async def save_place(
         self, user_id: UserId, place_id: PlaceId, note: str, category: str | None = None
@@ -108,8 +108,7 @@ class PlaceStore:
         result = await self.db.execute(query)
         saves = result.all()
         return [
-            SavedPlace.construct(id=id, place=place, note=note, created_at=created_at)
-            for id, place, note, created_at in saves
+            SavedPlace(id=id, place=place, note=note, created_at=created_at) for id, place, note, created_at in saves
         ]
 
     async def get_saved_place_ids(self, user_id: UserId, place_ids: list[PlaceId]) -> set[PlaceId]:
@@ -143,7 +142,7 @@ class PlaceStore:
             place_data.region_center_long = region.longitude
             place_data.radius_meters = region.radius
         if additional_data:
-            place_data.additional_data = additional_data.dict()
+            place_data.additional_data = additional_data.model_dump()
         try:
             self.db.add(place_data)
             await self.db.commit()
@@ -196,4 +195,4 @@ class PlaceStore:
         self.db.add(place)
         await self.db.commit()
         await self.db.refresh(place)
-        return Place.from_orm(place)
+        return Place.model_validate(place)

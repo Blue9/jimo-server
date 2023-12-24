@@ -107,7 +107,7 @@ class ActivityFeedStore:
         saved_place_ids = await place_store.get_saved_place_ids(user_id=user_id, place_ids=place_ids)
         like_items = []
         for post_like, post in like_results:
-            fields = PostWithoutLikeSaveStatus.from_orm(post).dict()
+            fields = PostWithoutLikeSaveStatus.model_validate(post).model_dump()
             external_post = Post(**fields, liked=post.id in liked_posts, saved=post.place.id in saved_place_ids)
             like_items.append(
                 NotificationItem(
@@ -161,7 +161,7 @@ class ActivityFeedStore:
             is_post_saved = post.place.id in saved_place_ids
             is_comment_liked: bool = row.comment_liked
             external_post = Post(
-                **PostWithoutLikeSaveStatus.from_orm(post).dict(), liked=is_post_liked, saved=is_post_saved
+                **PostWithoutLikeSaveStatus.model_validate(post).model_dump(), liked=is_post_liked, saved=is_post_saved
             )
             comment_items.append(
                 NotificationItem(
@@ -170,7 +170,9 @@ class ActivityFeedStore:
                     user=comment.user,
                     item_id=comment.id,
                     post=external_post,
-                    comment=Comment(**CommentWithoutLikeStatus.from_orm(comment).dict(), liked=is_comment_liked),
+                    comment=Comment(
+                        **CommentWithoutLikeStatus.model_validate(comment).model_dump(), liked=is_comment_liked
+                    ),
                 )
             )
         return comment_items

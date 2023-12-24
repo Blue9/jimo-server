@@ -5,18 +5,18 @@ from datetime import datetime
 from typing import TypeVar, Generic
 from uuid import UUID
 
-from pydantic import Field, validator
-from pydantic.generics import GenericModel
+from pydantic import Field, field_validator
+from pydantic import BaseModel
 
 from app.core.types import Base, UserId, PostId
 from app.features.places.entities import Place
 from app.features.posts.entities import PostWithoutLikeSaveStatus
-from app.features.users import validators
+from app.features.users.primitive_types import ValidatedName, ValidatedUsername
 from app.features.users.types import CreateUserRequest
 
 
 class AdminAPIUser(Base):
-    id: UserId = Field(alias="userId")
+    id: UserId = Field(serialization_alias="userId")
     uid: str
     username: str
     first_name: str
@@ -30,7 +30,7 @@ class AdminAPIUser(Base):
 
 
 class AdminAPIPost(Base):
-    id: PostId = Field(alias="postId")
+    id: PostId = Field(serialization_alias="postId")
     user: AdminAPIUser
     place: Place
     category: str
@@ -60,7 +60,7 @@ class AdminAPIFeedback(Base):
 T = TypeVar("T")
 
 
-class AdminResponsePage(GenericModel, Generic[T]):
+class AdminResponsePage(BaseModel, Generic[T]):
     total: int
     data: list[T]
 
@@ -71,22 +71,19 @@ class AdminCreateUserRequest(CreateUserRequest):
 
 
 class AdminUpdateUserRequest(Base):
-    username: str | None = None
-    first_name: str | None = None
-    last_name: str | None = None
+    username: ValidatedUsername | None = None
+    first_name: ValidatedName | None = None
+    last_name: ValidatedName | None = None
     is_featured: bool
     is_admin: bool
     deleted: bool
-
-    _validate_username = validator("username", allow_reuse=True)(validators.validate_username)
-    _validate_first_name = validator("first_name", allow_reuse=True)(validators.validate_name)
-    _validate_last_name = validator("last_name", allow_reuse=True)(validators.validate_name)
 
 
 class AdminUpdatePostRequest(Base):
     content: str | None = None
     deleted: bool
 
-    @validator("content")
+    @field_validator("content")
+    @classmethod
     def validate_content(cls, content):
         return content.strip()

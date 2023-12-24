@@ -62,7 +62,7 @@ class RelationStore:
         )
         result = await self.db.execute(query)
         rows = result.scalars().all()
-        return {row.to_user_id: UserRelation[row.relation.value] for row in rows}
+        return {row.to_user_id: row.relation.value for row in rows}
 
     async def follow_user(self, from_user_id: UserId, to_user_id: UserId) -> None:
         existing = await self._try_add_relation(from_user_id, to_user_id, UserRelationType.following)

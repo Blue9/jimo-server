@@ -1,4 +1,4 @@
-from pydantic import validator
+from pydantic import field_validator
 
 from app.core.types import Base, PostId, CursorId
 from app.features.comments.entities import CommentWithoutLikeStatus
@@ -12,7 +12,8 @@ class CreateCommentRequest(Base):
     post_id: PostId
     content: str
 
-    @validator("content")
+    @field_validator("content")
+    @classmethod
     def validate_content(cls, content):
         content = content.strip()
         if len(content) == 0 or len(content) > 2000:
