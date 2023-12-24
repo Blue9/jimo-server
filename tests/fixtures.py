@@ -19,9 +19,7 @@ async def engine():
     check_db_name()
     from app.core.database.engine import engine
 
-    print("yielding engine")
     yield engine
-    print("yielded engine")
     await engine.dispose()
 
 
@@ -34,14 +32,11 @@ def app():
 
 @pytest_asyncio.fixture
 async def create(engine):
-    print("creating db")
     async with engine.begin() as conn:
         await conn.run_sync(reset_db)
         await conn.run_sync(Base.metadata.create_all)
         await conn.run_sync(populate_categories)
-    print("yielding from create")
     yield
-    print("yielded from create, clearing db")
     async with engine.begin() as conn:
         await conn.run_sync(reset_db)
 
@@ -49,9 +44,7 @@ async def create(engine):
 @pytest_asyncio.fixture
 async def session(engine, create):
     async with AsyncSession(engine) as session:
-        print("yielding session")
         yield session
-        print("yielded session")
 
 
 @pytest_asyncio.fixture

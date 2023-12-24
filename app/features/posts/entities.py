@@ -34,7 +34,6 @@ class PostWithoutLikeSaveStatus(Base):
     @field_validator("created_at")
     @classmethod
     def validate_created_at(cls, created_at: datetime) -> datetime:
-        print("validating created at")
         # Needed so Swift can automatically decode
         return created_at.replace(microsecond=0)
 

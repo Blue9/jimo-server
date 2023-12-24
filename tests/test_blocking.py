@@ -16,7 +16,6 @@ USER_B_POST_ID = uuid.uuid4()
 
 @pytest_asyncio.fixture(autouse=True)
 async def setup_fixture(session):
-    print("setting up fixture")
     user_a = UserRow(uid="a", username="a", first_name="a", last_name="a")
     user_b = UserRow(uid="b", username="b", first_name="b", last_name="b")
     session.add(user_a)
@@ -47,7 +46,6 @@ async def setup_fixture(session):
     session.add(user_a_post)
     session.add(user_b_post)
     await session.commit()
-    print("set up fixture")
 
 
 @contextmanager
@@ -63,7 +61,6 @@ async def test_basic_blocking(client):
     # Blocking other user is fine
     with request_as(uid="a"):
         response = await client.post(block("b"))
-        print(response.json())
         assert response.status_code == 200
         assert response.json()["success"]
 
