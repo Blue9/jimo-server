@@ -40,7 +40,7 @@ COPY migrate.py /
 
 CMD exec gunicorn \
     --bind :$PORT \
-    --workers 4 \
+    --workers 3 \
     -k uvicorn.workers.UvicornWorker \
     --access-logfile - \
     app.main:app
