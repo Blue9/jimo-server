@@ -38,7 +38,7 @@ async def get_posts_from_post_ids(
         user = users.get(post.user_id)
         if user is None:
             continue
-        public_post = Post.construct(
+        public_post = Post(
             id=post_id,
             place=place,
             category=post.category,

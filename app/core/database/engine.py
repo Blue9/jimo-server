@@ -1,7 +1,5 @@
 from typing import AsyncGenerator
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker
-
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine, AsyncSession
 from app.core.config import SQLALCHEMY_DATABASE_URL
 
 # Some information about pool sizing: https://github.com/brettwooldridge/HikariCP/wiki/About-Pool-Sizing
@@ -14,7 +12,7 @@ engine = create_async_engine(
     pool_pre_ping=True,
     echo=False,
 )
-SessionLocal = sessionmaker(engine, autocommit=False, autoflush=False, class_=AsyncSession)  # type: ignore
+SessionLocal = async_sessionmaker(engine, autocommit=False, autoflush=False, class_=AsyncSession)  # type: ignore
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:

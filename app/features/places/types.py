@@ -1,4 +1,4 @@
-from pydantic import root_validator
+from pydantic import model_validator
 from app.core.types import Base, CursorId, PlaceId, PostId
 from app.features.places.entities import Place, SavedPlace
 from app.features.posts.entities import Post
@@ -30,9 +30,10 @@ class SavePlaceRequest(Base):
     post_id: PostId | None = None  # Set if user saves place from a post view
     note: str
 
-    @root_validator
+    @model_validator(mode="after")
+    @classmethod
     def validate_place(cls, values):
-        assert values.get("place_id") is not None or values.get("place") is not None, "place must be included"
+        assert values.place_id is not None or values.place is not None, "place must be included"
         return values
 
 
@@ -40,4 +41,4 @@ class SavePlaceResponse(Base):
     save: SavedPlace
     # If the client sent a place creation request we send it back so that the client
     # can update its local state
-    create_place_request: MaybeCreatePlaceWithMetadataRequest | None
+    create_place_request: MaybeCreatePlaceWithMetadataRequest | None = None

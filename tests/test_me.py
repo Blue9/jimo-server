@@ -1,5 +1,6 @@
 import pytest
 from fastapi import HTTPException
+import pytest_asyncio
 
 from app.core.database.models import UserRow, UserPrefsRow
 from app.core.firebase import FirebaseUser, get_firebase_user
@@ -9,7 +10,7 @@ from tests.mock_firebase import MockFirebaseAdmin
 pytestmark = pytest.mark.asyncio
 
 
-@pytest.fixture(autouse=True, scope="function")
+@pytest_asyncio.fixture(autouse=True)
 async def setup_fixture(session):
     user = UserRow(
         uid="uid",

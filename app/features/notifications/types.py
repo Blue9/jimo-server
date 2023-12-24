@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import Enum
 from uuid import UUID
 
-from pydantic import validator
+from pydantic import field_validator
 
 from app.core.types import Base, CursorId
 from app.features.comments.types import Comment
@@ -13,7 +13,8 @@ from app.features.users.entities import PublicUser
 class NotificationTokenRequest(Base):
     token: str
 
-    @validator("token")
+    @field_validator("token")
+    @classmethod
     def validate_token(cls, token):
         if len(token) == 0:
             raise ValueError("Invalid token")
@@ -35,7 +36,8 @@ class NotificationItem(Base):
     post: Post | None = None
     comment: Comment | None = None
 
-    @validator("created_at")
+    @field_validator("created_at")
+    @classmethod
     def validate_created_at(cls, created_at):
         # Needed so Swift can automatically decode
         return created_at.replace(microsecond=0)

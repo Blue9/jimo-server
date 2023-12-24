@@ -1,9 +1,9 @@
 import re
 from enum import Enum
-from typing import Any
+from typing import Annotated, Any, TypeAliasType
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import AfterValidator, BaseModel
 
 QueryEntity = Any
 
@@ -16,24 +16,25 @@ def to_camel_case(snake_case: str) -> str:
 
 
 class InternalBase(BaseModel):
-    class Config:
-        orm_mode = True
-        allow_population_by_field_name = True
+    model_config = {
+        "from_attributes": True,
+        "populate_by_name": True,
+    }
 
 
-class Base(InternalBase):
-    class Config:
-        alias_generator = to_camel_case
+class Base(BaseModel):
+    model_config = {
+        "from_attributes": True,
+        "populate_by_name": True,
+        "alias_generator": to_camel_case,
+        "validate_default": True,
+    }
 
 
-class PhoneNumber(str):
+class PhoneNumberValidator:
     """E.164 phone number validation (note: very lenient)."""
 
     regex = re.compile(r"^\+[1-9]\d{1,14}$")
-
-    @classmethod
-    def __get_validators__(cls):
-        yield cls.validate
 
     @classmethod
     def validate(cls, v):
@@ -42,10 +43,10 @@ class PhoneNumber(str):
         m = cls.regex.fullmatch(v)
         if not m:
             raise ValueError("Invalid phone number format")
-        return cls(f"{v}")
+        return v
 
-    def __repr__(self):
-        return f"PhoneNumber({super().__repr__()})"
+
+PhoneNumber = TypeAliasType("PhoneNumber", Annotated[str, AfterValidator(PhoneNumberValidator.validate)])
 
 
 class Category(str, Enum):

@@ -57,7 +57,7 @@ class PostStore:
     async def get_post(self, post_id: PostId) -> Optional[InternalPost]:
         """Return the post with the given id or None if no such post exists or the post is deleted."""
         post = await self._get_post_row(post_id)
-        return InternalPost.from_orm(post) if post else None
+        return InternalPost.model_validate(post) if post else None
 
     async def get_post_ids(self, user_id: UserId, cursor: Optional[CursorId] = None, limit: int = 50) -> list[PostId]:
         query = sa.select(PostRow.id).where(PostRow.user_id == user_id, ~PostRow.deleted)
@@ -78,7 +78,7 @@ class PostStore:
         )
         result = await self.db.execute(query)
         posts = result.scalars().all()
-        return {post.id: InternalPost.from_orm(post) for post in posts}
+        return {post.id: InternalPost.model_validate(post) for post in posts}
 
     async def get_liked_posts(self, user_id: UserId, post_ids: list[PostId]) -> set[PostId]:
         query = sa.select(PostLikeRow.post_id).where(PostLikeRow.user_id == user_id, PostLikeRow.post_id.in_(post_ids))
@@ -96,7 +96,7 @@ class PostStore:
         query = query.order_by(PostSaveRow.id.desc()).limit(limit)
         result = await self.db.execute(query)
         saves = result.scalars().all()
-        return [InternalPostSave.from_orm(save) for save in saves]
+        return [InternalPostSave.model_validate(save) for save in saves]
 
     async def create_post(
         self,

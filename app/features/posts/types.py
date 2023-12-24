@@ -1,4 +1,4 @@
-from pydantic import root_validator, validator
+from pydantic import field_validator, model_validator
 
 from app.core.types import Base, ImageId, CursorId, PlaceId
 from app.features.places.entities import Location, Region, AdditionalPlaceData, SavedPlace
@@ -11,7 +11,8 @@ class MaybeCreatePlaceWithMetadataRequest(Base):
     region: Region | None = None
     additional_data: AdditionalPlaceData | None = None
 
-    @validator("name")
+    @field_validator("name")
+    @classmethod
     def validate_name(cls, name):
         name = name.strip()
         if len(name) == 0 or len(name) > 1000:
@@ -28,22 +29,25 @@ class CreatePostRequest(Base):
     media: list[ImageId] = []
     stars: int | None = None
 
-    @root_validator
+    @model_validator(mode="after")
+    @classmethod
     def validate_all(cls, values):
         # validate place
-        assert values.get("place_id") is not None or values.get("place") is not None, "place must be included"
+        assert values.place_id is not None or values.place is not None, "place must be included"
         # handle backwards compat for image_id
-        if values.get("image_id") is not None and len(values["media"]) == 0:
-            values["media"] = [values["image_id"]]
+        if values.image_id and len(values.media) == 0:
+            values.media = [values.image_id]
         return values
 
-    @validator("stars")
+    @field_validator("stars")
+    @classmethod
     def validate_stars(cls, stars):
         if stars is not None and (stars < 0 or stars > 3):
             raise ValueError("Can only award between 0 and 3 stars")
         return stars
 
-    @validator("content")
+    @field_validator("content")
+    @classmethod
     def validate_content(cls, content):
         content = content.strip()
         if len(content) > 2000:
@@ -52,9 +56,10 @@ class CreatePostRequest(Base):
 
 
 class ReportPostRequest(Base):
-    details: str | None
+    details: str | None = None
 
-    @validator("details")
+    @field_validator("details")
+    @classmethod
     def validate_details(cls, details):
         details = details.strip()
         if len(details) > 2000:

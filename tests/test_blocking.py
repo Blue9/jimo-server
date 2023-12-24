@@ -2,6 +2,7 @@ import uuid
 from contextlib import contextmanager
 
 import pytest
+import pytest_asyncio
 
 from app.core.database.models import UserRow, PlaceRow, PostRow
 from app.core.firebase import get_firebase_user, FirebaseUser
@@ -13,7 +14,7 @@ USER_A_POST_ID = uuid.uuid4()
 USER_B_POST_ID = uuid.uuid4()
 
 
-@pytest.fixture(autouse=True, scope="function")
+@pytest_asyncio.fixture(autouse=True)
 async def setup_fixture(session):
     user_a = UserRow(uid="a", username="a", first_name="a", last_name="a")
     user_b = UserRow(uid="b", username="b", first_name="b", last_name="b")
@@ -60,7 +61,6 @@ async def test_basic_blocking(client):
     # Blocking other user is fine
     with request_as(uid="a"):
         response = await client.post(block("b"))
-        print(response.json())
         assert response.status_code == 200
         assert response.json()["success"]
 

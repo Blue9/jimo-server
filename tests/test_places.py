@@ -6,7 +6,7 @@ import pytest_asyncio
 
 from app.core.database.models import UserRow, PlaceRow, PostRow
 from app.core.firebase import get_firebase_user, FirebaseUser
-from app.features.places.entities import Location, Place
+from app.features.places.entities import Place
 from app.features.places.types import GetPlaceDetailsResponse
 from app.main import app as main_app
 from tests.mock_firebase import MockFirebaseAdmin
@@ -66,13 +66,14 @@ async def test_find_place_success(client):
         response = await client.get("/places/matching", params=dict(name="place_one", latitude=0, longitude=0))
         assert response.status_code == 200
         response_json = response.json()
-        place: Place = Place.parse_obj(response_json["place"])
+        place: Place = Place.model_validate(response_json["place"])
         assert place == Place(
-            placeId=PLACE_ID,
+            id=PLACE_ID,
             name="place_one",
-            regionName=None,
+            city=None,
             category=None,
-            location=Location(latitude=0, longitude=0),
+            latitude=0,
+            longitude=0,
         )
 
 
@@ -81,7 +82,7 @@ async def test_get_place_details(client):
         response = await client.get(f"/places/{PLACE_ID}/details")
         assert response.status_code == 200
         response_json = response.json()
-        get_place_response: GetPlaceDetailsResponse = GetPlaceDetailsResponse.parse_obj(response_json)
+        get_place_response: GetPlaceDetailsResponse = GetPlaceDetailsResponse.model_validate(response_json)
         assert len(get_place_response.community_posts) == 1
         assert len(get_place_response.following_posts) == 0
         assert get_place_response.my_post is not None

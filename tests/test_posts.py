@@ -92,9 +92,8 @@ async def test_update_post(client):
     )
     with request_as("a"):
         response = await client.put(f"/posts/{USER_A_POST_ID}", json=jsonable_encoder(request))
-    print(response.json())
     assert response.status_code == 200
-    post = PostWithoutLikeSaveStatus.parse_obj(response.json())
+    post = PostWithoutLikeSaveStatus.model_validate(response.json())
     assert post.place.id == PLACE_ONE_ID
     assert post.category == "activity"
     assert post.content == "new content"
@@ -121,7 +120,7 @@ async def test_update_post(client):
     with request_as("a"):
         response = await client.put(f"/posts/{USER_A_POST_ID}", json=jsonable_encoder(request))
     assert response.status_code == 200
-    post = PostWithoutLikeSaveStatus.parse_obj(response.json())
+    post = PostWithoutLikeSaveStatus.model_validate(response.json())
     assert post.place.id == PLACE_TWO_ID
     assert post.category == "shopping"
     assert post.content == "new content"
@@ -140,7 +139,7 @@ async def test_update_post(client):
         response = await client.put(f"/posts/{USER_A_POST_ID}", json=jsonable_encoder(request))
         firebase_user.shared_firebase.delete_image.assert_called_once()
     assert response.status_code == 200
-    post = PostWithoutLikeSaveStatus.parse_obj(response.json())
+    post = PostWithoutLikeSaveStatus.model_validate(response.json())
     assert post.place.id == PLACE_TWO_ID
     assert post.category == "shopping"
     assert post.content == "new content"

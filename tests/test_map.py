@@ -60,10 +60,10 @@ async def test_get_map(client):
             user_ids=None,
             min_stars=1,
         )
-        response = await client.post("/map/load", json=request.dict())
+        response = await client.post("/map/load", json=request.model_dump())
         assert response.status_code == 200
         response_json = response.json()
-        map_response = GetMapResponse.parse_obj(response_json)
+        map_response = GetMapResponse.model_validate(response_json)
         pins = map_response.pins
         assert len(pins) == 1
         assert pins[0].place_id == PLACE_ID

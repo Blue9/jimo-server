@@ -56,7 +56,7 @@ async def get_post(
     if post_author is None:
         log.error("Expected user to exist, found None", post.user_id)
         raise HTTPException(404)
-    return Post.construct(
+    return Post(
         id=post.id,
         place=post.place,
         category=post.category,
@@ -103,7 +103,7 @@ async def create_post(
         background_tasks.add_task(tasks.slack_post_created, user.username, post)
         background_tasks.add_task(tasks.notify_post_created, db, post, user)
         return Post(
-            **post.dict(),
+            **post.model_dump(),
             user=user.to_public(),
             liked=False,
             saved=await place_store.is_place_saved(user_id=user.id, place_id=place_id)
@@ -153,7 +153,7 @@ async def update_post(
             # Slack stars updated
             background_tasks.add_task(tasks.slack_post_stars_changed, user.username, updated_post, old_post.stars)
         return Post(
-            **updated_post.dict(),
+            **updated_post.model_dump(),
             user=user.to_public(),
             liked=await post_store.is_post_liked(post_id, user.id),
             saved=await place_store.is_place_saved(user_id=user.id, place_id=updated_post.place.id)
@@ -294,7 +294,7 @@ async def get_comments(
     )
     liked_comments = await comment_store.get_liked_comments(user.id, [c.id for c in comments_without_likes])
     comments = [
-        Comment.construct(
+        Comment(
             id=c.id,
             user=c.user,
             post_id=c.post_id,

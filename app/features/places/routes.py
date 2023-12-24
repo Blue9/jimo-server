@@ -98,7 +98,7 @@ async def guest_account_get_place_details(
     users_map = await user_store.get_users(user_ids)
     # We use a random post ID to mess with people trying to reverse engineer our API
     featured_posts = [
-        Post.construct(
+        Post(
             id=uuid.uuid4(),
             place=post.place,
             category=post.category,

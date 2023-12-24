@@ -1,42 +1,33 @@
-from typing import Optional
-
-from pydantic import validator
+from pydantic import field_validator
 
 from app.core.types import Base, ImageId, PhoneNumber, CursorId
-from app.features.users import validators
 from app.features.users.entities import (
     PublicUser,
     UserFieldErrors,
     NumMutualFriends,
     UserRelation,
 )
+from app.features.users.primitive_types import ValidatedName, ValidatedUsername
 
 
 class CreateUserRequest(Base):
-    username: str
-    first_name: str
-    last_name: str
-
-    _validate_username = validator("username", allow_reuse=True)(validators.validate_username)
-    _validate_first_name = validator("first_name", allow_reuse=True)(validators.validate_name)
-    _validate_last_name = validator("last_name", allow_reuse=True)(validators.validate_name)
+    username: ValidatedUsername
+    first_name: ValidatedName
+    last_name: ValidatedName
 
 
 class UpdateProfileRequest(Base):
-    profile_picture_id: Optional[ImageId] = None
-    username: Optional[str] = None
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
-
-    _validate_username = validator("username", allow_reuse=True)(validators.validate_username)
-    _validate_first_name = validator("first_name", allow_reuse=True)(validators.validate_name)
-    _validate_last_name = validator("last_name", allow_reuse=True)(validators.validate_name)
+    profile_picture_id: ImageId | None = None
+    username: ValidatedUsername | None = None
+    first_name: ValidatedName | None = None
+    last_name: ValidatedName | None = None
 
 
 class PhoneNumberList(Base):
     phone_numbers: list[PhoneNumber]
 
-    @validator("phone_numbers")
+    @field_validator("phone_numbers")
+    @classmethod
     def validate_phone_number(cls, phone_numbers):
         if len(phone_numbers) > 5000:
             raise ValueError("Phone number list too long, max length is 5000")
@@ -46,7 +37,8 @@ class PhoneNumberList(Base):
 class UsernameList(Base):
     usernames: list[str]
 
-    @validator("usernames")
+    @field_validator("usernames")
+    @classmethod
     def validate_usernames(cls, usernames):
         if len(usernames) > 100:
             raise ValueError("Username list too long, max length is 100")
@@ -55,27 +47,27 @@ class UsernameList(Base):
 
 # Response types
 class CreateUserResponse(Base):
-    created: Optional[PublicUser]
-    error: Optional[UserFieldErrors]
+    created: PublicUser | None
+    error: UserFieldErrors | None
 
 
 class UpdateProfileResponse(Base):
-    user: Optional[PublicUser]
-    error: Optional[UserFieldErrors]
+    user: PublicUser | None
+    error: UserFieldErrors | None
 
 
 class FollowUserResponse(Base):
     followed: bool  # legacy, used for backwards compatibility
-    followers: Optional[int]
+    followers: int | None
 
 
 class RelationToUser(Base):
-    relation: Optional[UserRelation]
+    relation: UserRelation | None
 
 
 class FollowFeedItem(Base):
     user: PublicUser
-    relation: Optional[UserRelation]
+    relation: UserRelation | None
 
 
 class SuggestedUserItem(Base):
@@ -89,4 +81,4 @@ class SuggestedUsersResponse(Base):
 
 class FollowFeedResponse(Base):
     users: list[FollowFeedItem]
-    cursor: Optional[CursorId]
+    cursor: CursorId | None

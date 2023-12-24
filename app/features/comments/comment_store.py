@@ -31,13 +31,13 @@ class CommentStore:
         query = query.order_by(CommentRow.id.asc()).limit(limit)
         result = await self.db.execute(query)
         comments: list[CommentRow] = result.scalars().all()  # type: ignore
-        return [CommentWithoutLikeStatus.from_orm(comment) for comment in comments]
+        return [CommentWithoutLikeStatus.model_validate(comment) for comment in comments]
 
     async def get_comment(self, comment_id: CommentId) -> Optional[InternalComment]:
         query = sa.select(CommentRow).where(CommentRow.id == comment_id)
         result = await self.db.execute(query)
         comment: Optional[CommentRow] = result.scalars().first()
-        return InternalComment.from_orm(comment) if comment else None
+        return InternalComment.model_validate(comment) if comment else None
 
     async def get_liked_comments(self, user_id: UserId, comment_ids: list[CommentId]) -> set[CommentId]:
         query = sa.select(CommentLikeRow.comment_id).where(
@@ -52,7 +52,7 @@ class CommentStore:
         self.db.add(comment)
         await self.db.commit()
         await self.db.refresh(comment)
-        return InternalComment.from_orm(comment)
+        return InternalComment.model_validate(comment)
 
     async def like_comment(self, comment_id: CommentId, user_id: UserId) -> None:
         like = CommentLikeRow(user_id=user_id, comment_id=comment_id)

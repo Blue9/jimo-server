@@ -1,5 +1,5 @@
 from enum import Enum
-from pydantic import validator
+from pydantic import field_validator
 from app.core.types import Base, PlaceId
 
 
@@ -32,7 +32,8 @@ class MinimalCreatePostRequest(Base):
     category: str
     stars: int | None = None
 
-    @validator("stars")
+    @field_validator("stars")
+    @classmethod
     def validate_stars(cls, stars):
         if stars is not None and (stars < 0 or stars > 3):
             raise ValueError("Can only award between 0 and 3 stars")
@@ -40,17 +41,19 @@ class MinimalCreatePostRequest(Base):
 
 
 class CreateMultiRequest(Base):
-    city: str | None
+    city: str | None = None
     posts: list[MinimalCreatePostRequest]
     saves: list[MinimalSavePlaceRequest]
 
-    @validator("posts")
+    @field_validator("posts")
+    @classmethod
     def validate_posts(cls, posts):
         if len(posts) > 20:
             raise ValueError("Max length is 20")
         return posts
 
-    @validator("saves")
+    @field_validator("saves")
+    @classmethod
     def validate_places(cls, places):
         if len(places) > 20:
             raise ValueError("Max length is 20")
