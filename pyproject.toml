@@ -27,7 +27,7 @@ timing-asgi = "^0.3.1"
 flake8 = "^6.1.0"
 pytest = "^7.4.3"
 pytest-asyncio = "^0.23.2"
-black = "^23.12.1"
+black = "^24.3.0"
 types-cachetools = "^5.3.0.7"
 mypy = "^1.8.0"
 
