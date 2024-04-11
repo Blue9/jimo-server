@@ -7,7 +7,7 @@ authors = ["Your Name <you@example.com>"]
 [tool.poetry.dependencies]
 python = "^3.12"
 pydantic = "^2.5.3"
-fastapi = "^0.105.0"
+fastapi = "^0.109.1"
 uvicorn = { extras = ["standard"], version = "^0.25.0" }
 gunicorn = "^21.2.0"
 ulid-py = "^1.1.0"
