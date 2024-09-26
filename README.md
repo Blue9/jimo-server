@@ -12,7 +12,8 @@ This is a FastAPI server that uses Firebase for authentication and Postgres as a
 2. Take note of the database URL. It’ll be something like "postgresql://user@localhost/database_name".
 3. Go to the [Firebase console](https://console.firebase.google.com/project/goodplaces-app/settings/serviceaccounts/adminsdk), click *Generate new private key* and *Generate key*. If you don't have access to the production project, create a new one.
 4. Save the JSON file somewhere and optionally rename it. I’ve named mine `service-account-file.json`, and this is already in .gitignore (double check you don’t commit this file).
-5. Set the `DATABASE_URL` environment variable to the database URL and `GOOGLE_APPLICATION_CREDENTIALS` to the path to the service account file.
+5. Set the environment variables. Set the `DATABASE_URL` environment variable to the database URL. We use an async db connection so you need to change `postgresql://` to `postgresql+asyncpg://`. Set `GOOGLE_APPLICATION_CREDENTIALS` to the path to the service account file.
+
 
 ## Running the server
 
