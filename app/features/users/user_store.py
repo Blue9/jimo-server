@@ -83,10 +83,11 @@ class UserStore:
             if prefs
             else UserPrefs(
                 follow_notifications=False,
-                comment_notifications=False,
                 post_liked_notifications=False,
+                comment_notifications=False,
                 comment_liked_notifications=False,
                 searchable_by_phone_number=False,
+                post_notifications=False,
             )
         )
 
