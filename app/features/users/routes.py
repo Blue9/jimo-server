@@ -166,13 +166,7 @@ async def follow_user(
         raise HTTPException(400, "Cannot follow yourself")
     try:
         await relation_store.follow_user(from_user.id, to_user.id)
-
-        async def notify_task():
-            prefs = await user_store.get_user_preferences(to_user.id)
-            if prefs.follow_notifications:
-                await tasks.notify_follow(db, to_user.id, followed_by=from_user)
-
-        background_tasks.add_task(notify_task)
+        background_tasks.add_task(tasks.notify_follow, to_user.id, followed_by=from_user)
         return FollowUserResponse(followed=True, followers=to_user.follower_count + 1)
     except ValueError as e:
         raise HTTPException(400, detail=str(e))

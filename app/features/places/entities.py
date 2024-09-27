@@ -13,14 +13,14 @@ class Location(Base):
 
     @field_validator("latitude")
     @classmethod
-    def validate_latitude(cls, latitude):
+    def validate_latitude(cls, latitude: float):
         if latitude < -90 or latitude > 90:
             raise ValueError("Invalid latitude")
         return latitude
 
     @field_validator("longitude")
     @classmethod
-    def validate_longitude(cls, longitude):
+    def validate_longitude(cls, longitude: float):
         if longitude < -180 or longitude > 180:
             raise ValueError("Invalid longitude")
         return longitude
@@ -34,28 +34,28 @@ class RectangularRegion(Base):
 
     @field_validator("x_min")
     @classmethod
-    def validate_x_min(cls, x_min):
+    def validate_x_min(cls, x_min: float):
         if x_min < -180 or x_min > 180:
             raise ValueError("Invalid min longitude")
         return x_min
 
     @field_validator("y_min")
     @classmethod
-    def validate_y_min(cls, y_min):
+    def validate_y_min(cls, y_min: float):
         if y_min < -90 or y_min > 90:
             raise ValueError("Invalid min latitude")
         return y_min
 
     @field_validator("x_max")
     @classmethod
-    def validate_x_max(cls, x_max):
+    def validate_x_max(cls, x_max: float):
         if x_max < -180 or x_max > 180:
             raise ValueError("Invalid max longitude")
         return x_max
 
     @field_validator("y_max")
     @classmethod
-    def validate_y_max(cls, y_max):
+    def validate_y_max(cls, y_max: float):
         if y_max < -90 or y_max > 90:
             raise ValueError("Invalid max latitude")
         return y_max
@@ -66,7 +66,7 @@ class Region(Location):
 
     @field_validator("radius")
     @classmethod
-    def validate_radius(cls, radius):
+    def validate_radius(cls, radius: float):
         if radius < 0 or radius > 20e6:
             # Russia is about 9,000 km wide, so 10,000 km is a fair upper bound
             raise ValueError("Invalid radius")
@@ -74,7 +74,7 @@ class Region(Location):
 
 
 class Place(Base):
-    id: PlaceId = Field(serialization_alias="placeId")
+    id: PlaceId = Field(serialization_alias="placeId", validation_alias="placeId")
     name: str
     city: str | None
     regionName: str | None = None  # DEPRECATED
@@ -96,13 +96,13 @@ class SavedPlace(Base):
 
     @field_validator("created_at")
     @classmethod
-    def validate_created_at(cls, created_at):
+    def validate_created_at(cls, created_at: datetime):
         # Needed so Swift can automatically decode
         return created_at.replace(microsecond=0)
 
     @field_validator("note")
     @classmethod
-    def validate_content(cls, note):
+    def validate_content(cls, note: str):
         note = note.strip()
         if len(note) > 2000:
             raise ValueError("Note too long (max length 2000 chars)")

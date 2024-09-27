@@ -7,7 +7,8 @@ from app.core.types import Base, InternalBase, UserId, ImageId
 
 
 class PublicUser(Base):
-    id: UserId = Field(serialization_alias="userId")
+    # The double alias rather than just alias is to appease VS Code
+    id: UserId = Field(serialization_alias="userId", validation_alias="userId")
     username: str
     first_name: str
     last_name: str
