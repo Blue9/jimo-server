@@ -28,6 +28,7 @@ from app.features.stores import (
     get_post_store,
     get_feed_store,
 )
+from app.features.tasks import notify_many_followed
 from app.features.users.dependencies import get_caller_user
 from app.features.users.entities import PublicUser, UserPrefs, SuggestedUserIdItem, InternalUser
 from app.features.users.types import (
@@ -291,14 +292,7 @@ async def follow_many(
     except IntegrityError:
         raise HTTPException(400)
 
-    # Note: This makes N queries, can optimize later
-    async def task():
-        for followed in users_to_follow:
-            prefs = await user_store.get_user_preferences(followed)
-            if prefs.follow_notifications:
-                await tasks.notify_follow(db, followed, followed_by=user)
-
-    background_tasks.add_task(task)
+    background_tasks.add_task(notify_many_followed, user, users_to_follow)
     return SimpleResponse(success=True)
 
 
@@ -332,14 +326,16 @@ async def save_place(
 ):
     # We can ignore the type because of SavePlaceRequest's validation (requires that place_id or place are present)
     place_id = request.place_id or await place_utils.get_or_create_place(
-        user_id=user.id, request=request.place, place_store=place_store  # type: ignore
+        user_id=user.id,
+        request=request.place,  # type: ignore
+        place_store=place_store,
     )
     # TODO: we don't validate request.place_id
     save = await place_store.save_place(user_id=user.id, place_id=place_id, note=request.note)
     background_tasks.add_task(tasks.slack_place_saved, user.username, save)
     if request.place:
         # Only update if place_data has been updated
-        background_tasks.add_task(tasks.update_place_metadata, place_store, place_id)
+        background_tasks.add_task(tasks.update_place_metadata, place_id)
     return SavePlaceResponse(save=save, create_place_request=request.place)
 
 

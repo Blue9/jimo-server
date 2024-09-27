@@ -1,3 +1,4 @@
+import typing
 from datetime import datetime
 from uuid import UUID
 
@@ -10,7 +11,7 @@ from app.core.types import Base, PostId, ImageId, InternalBase, UserId, PostSave
 
 
 class PostWithoutLikeSaveStatus(Base):
-    id: PostId = Field(serialization_alias="postId")
+    id: PostId = Field(serialization_alias="postId", validation_alias="postId")
     user: PublicUser
     place: Place
     category: str
@@ -25,7 +26,7 @@ class PostWithoutLikeSaveStatus(Base):
 
     @model_validator(mode="after")
     @classmethod
-    def set_image_id_and_url(cls, values):
+    def set_image_id_and_url(cls, values: typing.Any):
         if len(values.media) > 0:
             values.image_id = UUID(values.media[0].id)
             values.image_url = values.media[0].url

@@ -1,6 +1,7 @@
 """
 Response types for the admin API. Do not use anywhere other than admin API.
 """
+
 from datetime import datetime
 from typing import TypeVar, Generic
 from uuid import UUID
@@ -16,7 +17,7 @@ from app.features.users.types import CreateUserRequest
 
 
 class AdminAPIUser(Base):
-    id: UserId = Field(serialization_alias="userId")
+    id: UserId = Field(serialization_alias="userId", validation_alias="userId")
     uid: str
     username: str
     first_name: str
@@ -30,7 +31,7 @@ class AdminAPIUser(Base):
 
 
 class AdminAPIPost(Base):
-    id: PostId = Field(serialization_alias="postId")
+    id: PostId = Field(serialization_alias="postId", validation_alias="postId")
     user: AdminAPIUser
     place: Place
     category: str
@@ -85,5 +86,5 @@ class AdminUpdatePostRequest(Base):
 
     @field_validator("content")
     @classmethod
-    def validate_content(cls, content):
-        return content.strip()
+    def validate_content(cls, content: str):
+        return content and content.strip()

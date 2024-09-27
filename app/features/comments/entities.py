@@ -7,7 +7,7 @@ from app.core.types import Base, PostId, CommentId, InternalBase, UserId
 
 
 class CommentWithoutLikeStatus(Base):
-    id: CommentId = Field(serialization_alias="commentId")
+    id: CommentId = Field(serialization_alias="commentId", validation_alias="commentId")
     user: PublicUser
     post_id: PostId
     content: str
@@ -16,7 +16,7 @@ class CommentWithoutLikeStatus(Base):
 
     @field_validator("created_at")
     @classmethod
-    def validate_created_at(cls, created_at):
+    def validate_created_at(cls, created_at: datetime):
         # Needed so Swift can automatically decode
         return created_at.replace(microsecond=0)
 

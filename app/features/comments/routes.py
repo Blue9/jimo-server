@@ -42,12 +42,7 @@ async def create_comment(
     )
     comment = await comment_store.create_comment(user.id, post.id, content=request.content)
 
-    async def notification_task():
-        prefs = await user_store.get_user_preferences(post.user_id)
-        if user.id != post.user_id and prefs.comment_notifications:
-            await tasks.notify_comment(db, post, post.place.name, comment.content, comment_by=user)
-
-    background_tasks.add_task(notification_task)
+    background_tasks.add_task(tasks.notify_comment, post, comment, user)
     return Comment(
         id=comment.id,
         user=user.to_public(),
@@ -92,14 +87,8 @@ async def like_comment(
     if comment is None or not (await post_store.post_exists(post_id=comment.post_id)):
         raise HTTPException(404)
     await comment_store.like_comment(comment_id, user.id)
-
-    async def task():
-        if comment and user.id != comment.user_id:
-            prefs = await user_store.get_user_preferences(comment.user_id)
-            if prefs.comment_liked_notifications:
-                await tasks.notify_comment_liked(db, comment, liked_by=user)
-
-    background_tasks.add_task(task)
+    if user.id != comment.user_id:
+        background_tasks.add_task(tasks.notify_comment_liked, comment, user)
     return LikeCommentResponse(likes=await comment_store.get_like_count(comment_id))
 
 

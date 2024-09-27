@@ -89,7 +89,7 @@ async def create_post(
             place_id = request.place_id
         elif request.place:
             place_id = await place_utils.get_or_create_place(user.id, request.place, place_store)
-            background_tasks.add_task(tasks.update_place_metadata, place_store, place_id)
+            background_tasks.add_task(tasks.update_place_metadata, place_id)
         else:
             raise HTTPException(400, "Either place_id or place must be specified")
         post: InternalPost = await post_store.create_post(
@@ -101,12 +101,12 @@ async def create_post(
             stars=request.stars,
         )
         background_tasks.add_task(tasks.slack_post_created, user.username, post)
-        background_tasks.add_task(tasks.notify_post_created, db, post, user)
+        background_tasks.add_task(tasks.notify_post_created, post, user)
         return Post(
             **post.model_dump(),
             user=user.to_public(),
             liked=False,
-            saved=await place_store.is_place_saved(user_id=user.id, place_id=place_id)
+            saved=await place_store.is_place_saved(user_id=user.id, place_id=place_id),
         )
     except ValueError as e:
         raise HTTPException(400, detail=str(e))
@@ -133,7 +133,7 @@ async def update_post(
             place_id = req.place_id
         elif req.place:
             place_id = await place_utils.get_or_create_place(user.id, req.place, place_store)
-            background_tasks.add_task(tasks.update_place_metadata, place_store, place_id)
+            background_tasks.add_task(tasks.update_place_metadata, place_id)
         else:
             raise HTTPException(400, "Either place_id or place must be specified")
         updated_post = await post_store.update_post(
@@ -156,7 +156,7 @@ async def update_post(
             **updated_post.model_dump(),
             user=user.to_public(),
             liked=await post_store.is_post_liked(post_id, user.id),
-            saved=await place_store.is_place_saved(user_id=user.id, place_id=updated_post.place.id)
+            saved=await place_store.is_place_saved(user_id=user.id, place_id=updated_post.place.id),
         )
     except ValueError as e:
         raise HTTPException(400, detail=str(e))
@@ -194,14 +194,7 @@ async def like_post(
         post_store, relation_store, caller_user_id=user.id, post_id=post_id
     )
     await post_store.like_post(user.id, post.id)
-
-    async def task():
-        # Notify the user that their post was liked if they aren't the current user
-        prefs = await user_store.get_user_preferences(post.user_id)
-        if user.id != post.user_id and prefs.post_liked_notifications:
-            await tasks.notify_post_liked(db, post, place_name=post.place.name, liked_by=user)
-
-    background_tasks.add_task(task)
+    background_tasks.add_task(tasks.notify_post_liked, post, user)
     return {"likes": await post_store.get_like_count(post.id)}
 
 
