@@ -6,7 +6,7 @@ from app.features.posts.types import MaybeCreatePlaceWithMetadataRequest
 
 
 class FindPlaceResponse(Base):
-    place: Place | None
+    place: Place | None = None
 
 
 class GetPlaceDetailsResponse(Base):
