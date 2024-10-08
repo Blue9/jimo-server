@@ -42,27 +42,24 @@ async def upload_image(
 
 async def check_valid_image(file: UploadFile):
     # Read a portion of the file to determine the type and also calculate the size
-    file.file.seek(0)
-    file_head = await file.read(512)  # Read the first 512 bytes for type detection
-
-    # Use imghdr to determine the file type
-    detected_format = imghdr.what(None, file_head)
-    if detected_format is None:
-        raise HTTPException(400, detail="Unable to determine the image format.")
-    elif detected_format not in ["jpeg", "png", "gif", "jpg"]:
-        raise HTTPException(400, detail="Unsupported image format.")
-
-    # Now proceed to check the size of the entire file
-    file_size = len(file_head)
-    while True:
-        chunk = await file.read(1024 * 1024)  # Read in 1MB chunks
-        if not chunk:
-            break
-        file_size += len(chunk)
-        if file_size > 10 * 1024 * 1024:
-            raise HTTPException(400, detail="Max image size is 10MB.")
+    await file.seek(0)
     
-    # Reset the file pointer for further use
+    # Read minimal bytes for imghdr to detect the file type
+    initial_bytes = await file.read(32)
+    
+    # Use imghdr to detect the file type
+    detected_format = imghdr.what(None, initial_bytes)
+    if detected_format != 'jpeg':
+        raise HTTPException(400, detail="Unsupported image format. Only JPEG images are allowed.")
+    
+    # Get the file size by seeking to the end and using tell()
+    file.file.seek(0, 2)  # Move to the end of the file
+    file_size = file.file.tell()  # Get the current position in the file, which is the size
+    
+    if file_size > 10 * 1024 * 1024:  # 10MB limit
+        raise HTTPException(400, detail="Max image size is 10MB.")
+
+    # Reset the file pointer for further use (if necessary)
     file.file.seek(0)
 
 
